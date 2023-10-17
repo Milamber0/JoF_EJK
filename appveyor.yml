@@ -1,0 +1,18 @@
+version: 1.1.{build}
+configuration: Release
+before_build:
+- cmd: cmake -G "Visual Studio 14 2015" -T v140_xp -D MSVC_RUNTIME=static -DCMAKE_INSTALL_PREFIX=./install -DCMAKE_BUILD_TYPE=RELEASE -DBuildMPGame=OFF -DBuildMPDed=OFF -DBuildMPCGame=OFF .
+build:
+  project: OpenJK.sln
+  parallel: true
+  verbosity: minimal
+after_build:
+- cmd: msbuild /p:Configuration=Release /p:Platform=Win32 install.vcxproj
+artifacts:
+- path: install/JediAcademy/
+  name: eternal-japro-v{build}-win32-x86-portable
+deploy:
+- provider: GitHub
+  auth_token:
+    secure: 3kZBt3AHOOQnurs3NowjhHDQzC/6bzmNNg8jnlnDM7Puk+gq9qeEDHSHg3ZRcinP
+  artifact: Release
