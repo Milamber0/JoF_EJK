@@ -29,3 +29,4 @@ Installing and running EternalJK:
 * [bucky](https://github.com/Bucky21659) - special thanks for giving us the starting point of this client.
 * [eternal](https://github.com/eternalcodes)
 * [loda](https://github.com/videoP)
+* [Sunny](https://github.com/JKSunny) - for the Vulkan renderer version we package with our releases: [![Fork](https://img.shields.io/badge/repository-EternalJK-brightgreen.svg)](https://github.com/JKSunny/EternalJK)
