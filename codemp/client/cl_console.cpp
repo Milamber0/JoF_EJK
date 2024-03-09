@@ -817,7 +817,78 @@ void Con_DrawInput (void) {
 				SCREEN_WIDTH - 3 * con.charWidth, qtrue, qtrue );
 }
 
+static void CL_ClientCleanName(const char* in, char* out, int outSize)
+{
+	int outpos = 0, colorlessLen = 0;
 
+	// discard leading spaces
+	for (; *in == ' '; in++);
+
+	// discard leading asterisk's (fail raven for using * as a skipnotify)
+	// apparently .* causes the issue too so... derp
+
+	for (; *in && outpos < outSize - 1; in++)
+	{
+		out[outpos] = *in;
+
+		if (*in == '^' && *(in + 1) >= '0' && *(in + 1) <= '9') {
+			in++; // Skip the digit after ^
+			continue; // Skip this iteration, moving to the next character
+		}
+
+		if (*(in + 1) && *(in + 1) != '\0' && *(in + 2) && *(in + 2) != '\0')
+		{
+			if (*in == ' ' && *(in + 1) == ' ' && *(in + 2) == ' ') // don't allow more than 3 consecutive spaces
+				continue;
+
+			if (*in == '@' && *(in + 1) == '@' && *(in + 2) == '@') // don't allow too many consecutive @ signs
+				continue;
+		}
+
+		if ((byte)*in < 0x20)
+			continue;
+
+		switch ((byte)*in)
+		{
+		default:
+			break;
+		case 0x81:
+		case 0x8D:
+		case 0x8F:
+		case 0x90:
+		case 0x9D:
+		case 0xA0:
+		case 0xAD:
+			continue;
+			break;
+		}
+
+		if (outpos > 0 && out[outpos - 1] == Q_COLOR_ESCAPE)
+		{
+			if (Q_IsColorStringExt(&out[outpos - 1]))
+			{
+				colorlessLen--;
+			}
+			else
+			{
+				//spaces = ats = 0;
+				colorlessLen++;
+			}
+		}
+		else
+		{
+			//spaces = ats = 0;
+			colorlessLen++;
+		}
+		outpos++;
+	}
+
+	out[outpos] = '\0';
+
+	// don't allow empty names
+	if (*out == '\0' || colorlessLen == 0)
+		Q_strncpyz(out, "Padawan", outSize);
+}
 
 float chatColour[4] = { 1.0f, 1.0f, 1.0f, 1.0f }; // For DrawStringExt2
 /*
@@ -918,10 +989,23 @@ void Con_DrawNotify (void)
 	}
 
 	// draw the chat line
+	char base[100] = "Whisper to ";
+	char player[100];
+	
+
 	if ( Key_GetCatcher( ) & KEYCATCH_MESSAGE )
 	{
 		if (chat_playerNum != -1) {
-			chattext = "Whisper:";
+			char* s = cl.gameState.stringData + cl.gameState.stringOffsets[CS_PLAYERS+chat_playerNum];		
+			char* player = Info_ValueForKey(s, "n");//this contains name
+			char sanitized[MAX_NAME_LENGTH];
+			char without_color[100];
+			CL_ClientCleanName(player, sanitized, MAX_NAME_LENGTH);	//sanitize the name to avoid crashing, saves in sanitized
+
+			strcat(base, sanitized);
+			strcat(base, ":");
+			chattext = base;
+
 		}
 		else if (chat_team)	{
 			chattext = SE_GetString("MP_SVGAME", "SAY_TEAM");
