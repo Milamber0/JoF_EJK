@@ -49,6 +49,8 @@ cvar_t		*con_notifyvote;
 
 vec4_t	console_color = {0.509f, 0.609f, 0.847f, 1.0f};
 
+int replying;
+
 /*
 ================
 Con_ToggleConsole_f
@@ -115,7 +117,7 @@ void Con_MessageMode3_f (void) {	//target chat
 		assert(!"null cgvm");
 		return;
 	}
-
+	replying = 0;
 	if (cl.snap.ps.pm_flags & PMF_FOLLOW) { //Send to the person we are spectating instead
 		chat_playerNum = cl.snap.ps.clientNum;
 	}
@@ -155,6 +157,34 @@ void Con_MessageMode4_f (void)
 	Field_Clear( &chatField );
 	chatField.widthInChars = SCREEN_WIDTH / (BIGCHAR_WIDTH * cls.widthRatioCoef) - (24 * cls.widthRatioCoef);
 	Key_SetCatcher( Key_GetCatcher( ) ^ KEYCATCH_MESSAGE );
+}
+/*
+================
+Con_MessageMode5_f
+================
+*/
+void Con_MessageMode5_f(void)
+{	//last messager
+
+	if (!cls.cgameStarted)
+	{
+		assert(!"null cgvm");
+		return;
+	}
+
+	chat_playerNum = CGVM_LastWhisperer();
+	if (chat_playerNum < 0 || chat_playerNum >= MAX_CLIENTS) {
+		chat_playerNum = -1;
+		return;
+	}
+	
+	replying = 1;
+
+	chat_team = qfalse;
+	Field_Clear(&chatField);
+	chatField.widthInChars = SCREEN_WIDTH / (BIGCHAR_WIDTH * cls.widthRatioCoef) - (24 * cls.widthRatioCoef);
+	Key_SetCatcher(Key_GetCatcher() ^ KEYCATCH_MESSAGE);
+	
 }
 
 /*
@@ -560,6 +590,7 @@ void Con_Init (void) {
 	Cmd_AddCommand( "messagemode2", Con_MessageMode2_f, "Team Chat" );
 	Cmd_AddCommand( "messagemode3", Con_MessageMode3_f, "Private Chat with Target Player" );
 	Cmd_AddCommand( "messagemode4", Con_MessageMode4_f, "Private Chat with Last Attacker" );
+	Cmd_AddCommand( "messagemode5", Con_MessageMode5_f, "Private Chat with Person who whispered you last" );
 	Cmd_AddCommand( "clear", Con_Clear_f, "Clear console text" );
 	Cmd_AddCommand( "condump", Con_Dump_f, "Dump console text to file" );
 	Cmd_SetCommandCompletionFunc( "condump", Cmd_CompleteTxtName );
@@ -988,8 +1019,18 @@ void Con_DrawNotify (void)
 		return;
 	}
 
+	char base[100] = "";
 	// draw the chat line
-	char base[100] = "Whisper to ";
+	if (replying)
+	{
+		strcat(base, "Reply to ");
+		//replying = 0;
+	}
+	if (!replying)
+	{
+		strcat(base, "Whisper to ");
+	}
+
 	char player[100];
 	
 
@@ -1005,7 +1046,8 @@ void Con_DrawNotify (void)
 			strcat(base, sanitized);
 			strcat(base, ":");
 			chattext = base;
-
+			
+			//replying = 0;
 		}
 		else if (chat_team)	{
 			chattext = SE_GetString("MP_SVGAME", "SAY_TEAM");
@@ -1021,7 +1063,6 @@ void Con_DrawNotify (void)
 
 		v += BIGCHAR_HEIGHT;
 	}
-
 }
 
 /*

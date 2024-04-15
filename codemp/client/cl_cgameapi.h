@@ -26,6 +26,7 @@ qboolean		CGVM_ConsoleCommand			( void );
 void			CGVM_DrawActiveFrame		( int serverTime, stereoFrame_t stereoView, qboolean demoPlayback );
 int				CGVM_CrosshairPlayer		( void );
 int				CGVM_LastAttacker			( void );
+int				CGVM_LastWhisperer			( void );
 void			CGVM_KeyEvent				( int key, qboolean down );
 void			CGVM_MouseEvent				( int x, int y );
 void			CGVM_EventHandling			( int type );

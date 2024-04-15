@@ -97,6 +97,15 @@ int CGVM_LastAttacker( void ) {
 	return cge->LastAttacker();
 }
 
+int CGVM_LastWhisperer(void) {
+	if (cgvm->isLegacy) {
+		return VM_Call(cgvm, CG_LAST_WHISPERER);
+	}
+	VMSwap v(cgvm);
+
+	return cge->LastWhisperer();
+}
+
 void CGVM_KeyEvent( int key, qboolean down ) {
 	if ( cgvm->isLegacy ) {
 		VM_Call( cgvm, CG_KEY_EVENT, key, down );
