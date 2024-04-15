@@ -32,6 +32,8 @@ displayContextDef_t cgDC;
 extern int cgSiegeRoundState;
 extern int cgSiegeRoundTime;
 
+extern int lastWhispererId;
+
 int cg_dueltypes[MAX_CLIENTS];//JAPRO - Clientside - Fullforce Duels
 /*
 Ghoul2 Insert Start
@@ -395,6 +397,10 @@ int CG_LastAttacker( void ) {
 		return -1;
 
 	return cg.snap->ps.persistant[PERS_ATTACKER];
+}
+
+int CG_LastWhisperer(void) {
+	return lastWhispererId;
 }
 
 /*
@@ -3458,6 +3464,7 @@ Q_EXPORT cgameExport_t* QDECL GetModuleAPI( int apiVersion, cgameImport_t *impor
 	cge.AutomapInput			= CG_AutomapInput;
 	cge.MiscEnt					= CG_MiscEnt;
 	cge.CameraShake				= CG_FX_CameraShake;
+	cge.LastWhisperer			= CG_LastWhisperer;
 
 	cg_legacyCGameAPI = qfalse;
 
@@ -3496,6 +3503,9 @@ Q_EXPORT intptr_t vmMain( int command, intptr_t arg0, intptr_t arg1, intptr_t ar
 
 	case CG_LAST_ATTACKER:
 		return CG_LastAttacker();
+
+	case CG_LAST_WHISPERER:
+		return CG_LastWhisperer();
 
 	case CG_KEY_EVENT:
 		CG_KeyEvent( arg0, arg1 );

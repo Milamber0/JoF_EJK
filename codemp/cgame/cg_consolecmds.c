@@ -2304,11 +2304,13 @@ static void CG_AddStrafeTrail_f(void)
 
 }
 
+extern lastWhispererId;
 void CG_Say_f( void ) {
 	char msg[MAX_SAY_TEXT] = {0};
 	char word[MAX_SAY_TEXT] = {0};
 	char numberStr[MAX_SAY_TEXT] = {0};
 	int i, number = 0, numWords = trap->Cmd_Argc();
+	int lastWhispererNum = -1;
 	int clientNum = -1, messagetype = 0;
 
 	if (!Q_stricmp(CG_Argv(0), "say")) {
@@ -2321,6 +2323,12 @@ void CG_Say_f( void ) {
 		clientNum = CG_ClientNumberFromString(CG_Argv(1));
 		messagetype = 3;
 		if (clientNum < 0) //couldn't find target or multiple matches found
+			return;
+	}
+	else if (!Q_stricmp(CG_Argv(0), "reply")) {
+		messagetype = 4;
+		lastWhispererNum = lastWhispererId;
+		if (lastWhispererNum < 0)
 			return;
 	}
 	else {//shouldn't happen...
@@ -2418,6 +2426,13 @@ void CG_Say_f( void ) {
 		case 3:
 			if (clientNum > -1) trap->SendClientCommand(va("tell %i %s", clientNum, msg));
 			break;
+		case 4:
+			if (lastWhispererNum > -1) trap->SendClientCommand(va("tell %i %s", lastWhispererNum, msg));
+			break;
+			
+				
+			
+
 	}
 }
 
@@ -2521,7 +2536,8 @@ static consoleCommand_t	commands[] = {
 	{ "weaplast",					CG_LastWeapon_f },
 	{ "do",							CG_Do_f },
 	{ "doStop",						CG_DoCancel_f },
-	{ "doCancel",					CG_DoCancel_f }
+	{ "doCancel",					CG_DoCancel_f },
+	{"reply",						CG_Say_f}
 };
 
 static const size_t numCommands = ARRAY_LEN( commands );

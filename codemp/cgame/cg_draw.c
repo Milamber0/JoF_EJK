@@ -101,6 +101,8 @@ int	numSortedTeamPlayers;
 
 int lastvalidlockdif;
 
+int lastWhispererId = -1;
+
 extern float zoomFov; //this has to be global client-side
 
 char systemChat[256];
@@ -9644,6 +9646,30 @@ void CG_ChatBox_AddString(char *chatStr)
 	{ //too long, terminate at proper len.
 		chatStr[sizeof(chat->string) - 1] = 0;
 	}
+
+	if (strstr(chatStr, "^7]: ^6"))
+	{
+		char* search = "^7]: ^6";
+		char* lastWhisperer;
+		char* lastWhisperermodified;
+		char name[MAX_NETNAME + MAX_SAY_TEXT + 64];
+		Q_strncpyz(name, chatStr, MAX_NETNAME + MAX_SAY_TEXT + 64);
+		int clientID;
+
+		lastWhisperer = Q_strtokm(name, search); //is for example [Padawan
+		lastWhisperer = lastWhisperer + 1; //is for example Padawan
+
+		int clientNum = CG_ClientNumFromName(lastWhisperer);
+		
+
+		if (clientNum != cg.clientNum)
+		{
+			lastWhispererId = clientNum;
+		}
+
+		//trap->Print("lastwhisperer is %s\n", (lastWhisperer));
+	}
+
 
 	if (cg_cleanChatbox.integer)
 	{
