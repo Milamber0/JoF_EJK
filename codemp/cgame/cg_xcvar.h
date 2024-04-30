@@ -83,6 +83,7 @@ XCVAR_DEF( cg_drawVote,				"1",	NULL,					CVAR_ARCHIVE )
 XCVAR_DEF( cg_showpos,				"0",	NULL,					CVAR_NONE )
 
 XCVAR_DEF( cg_antiAmKiss,			"0",	NULL,					CVAR_ARCHIVE )
+XCVAR_DEF( cg_adminPers,				"0",	NULL,					CVAR_ARCHIVE_ND)
 
 //Crosshair
 XCVAR_DEF( cg_crosshairSizeScale,		"1",	NULL,										CVAR_ARCHIVE )

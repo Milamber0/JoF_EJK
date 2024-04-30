@@ -106,8 +106,8 @@ FIXME: Also called by map_restart?
 */
 void CG_SetInitialSnapshot( snapshot_t *snap ) {
 	int				i;
-	centity_t		*cent;
-	entityState_t	*state;
+	centity_t*	cent;
+	entityState_t* state;
 
 	cg.snap = snap;
 
@@ -121,49 +121,54 @@ void CG_SetInitialSnapshot( snapshot_t *snap ) {
 			cg_entities[snap->ps.clientNum].noFace = qtrue;
 		}
 	}
-	BG_PlayerStateToEntityState( &snap->ps, &cg_entities[ snap->ps.clientNum ].currentState, qfalse );
+	BG_PlayerStateToEntityState(&snap->ps, &cg_entities[snap->ps.clientNum].currentState, qfalse);
 
 	// sort out solid entities
 	CG_BuildSolidList();
 
-	CG_ExecuteNewServerCommands( snap->serverCommandSequence );
+	CG_ExecuteNewServerCommands(snap->serverCommandSequence);
 
 	// set our local weapon selection pointer to
 	// what the server has indicated the current weapon is
 	CG_Respawn();
 
-	for ( i = 0 ; i < cg.snap->numEntities ; i++ ) {
-		state = &cg.snap->entities[ i ];
-		cent = &cg_entities[ state->number ];
+	for (i = 0; i < cg.snap->numEntities; i++) {
+		state = &cg.snap->entities[i];
+		cent = &cg_entities[state->number];
 
 		memcpy(&cent->currentState, state, sizeof(entityState_t));
 		//cent->currentState = *state;
 		cent->interpolate = qfalse;
 		cent->currentValid = qtrue;
 
-		CG_ResetEntity( cent );
+		CG_ResetEntity(cent);
 
 		// check for events
-		CG_CheckEvents( cent );
+		CG_CheckEvents(cent);
 	}
 
-//JAPRO - Clientside - Autorecord Demo - Start
-	if ( cg_autoRecordDemo.integer && (1<<cgs.gametype) && cg.warmup <= 0 && !cg.demoPlayback )
+	//JAPRO - Clientside - Autorecord Demo - Start
+	if (cg_autoRecordDemo.integer && (1 << cgs.gametype) && cg.warmup <= 0 && !cg.demoPlayback)
 	{
 		time_t rawtime;
-		char timeBuf[256] = {0}, buf[256] = {0}, mapname[MAX_QPATH] = {0};
+		char timeBuf[256] = { 0 }, buf[256] = { 0 }, mapname[MAX_QPATH] = { 0 };
 
-		time( &rawtime );
-		strftime( timeBuf, sizeof( timeBuf ), "%Y-%m-%d_%H-%M-%S", gmtime( &rawtime ) );
-		Q_strncpyz( mapname, cgs.mapname + 5, sizeof( mapname ) );
-		COM_StripExtension( mapname, mapname, sizeof( mapname ) );
-		Com_sprintf( buf, sizeof( buf ), "%s_%s_%s_%s", timeBuf, gametypeStringShort[cgs.gametype], mapname, cgs.clientinfo[cg.clientNum].name );
-		Q_strstrip( buf, "\n\r;:?*<>|\"\\/ ", NULL );
-		Q_CleanStr( buf );
+		time(&rawtime);
+		strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%d_%H-%M-%S", gmtime(&rawtime));
+		Q_strncpyz(mapname, cgs.mapname + 5, sizeof(mapname));
+		COM_StripExtension(mapname, mapname, sizeof(mapname));
+		Com_sprintf(buf, sizeof(buf), "%s_%s_%s_%s", timeBuf, gametypeStringShort[cgs.gametype], mapname, cgs.clientinfo[cg.clientNum].name);
+		Q_strstrip(buf, "\n\r;:?*<>|\"\\/ ", NULL);
+		Q_CleanStr(buf);
 		cg.recording = qtrue;
-		trap->SendConsoleCommand( va( "stoprecord; record %s\n", buf ) );
+		trap->SendConsoleCommand(va("stoprecord; record %s\n", buf));
 	}
-//JAPRO - Clientside - Autorecord Demo - End
+	//JAPRO - Clientside - Autorecord Demo - End
+
+	if (cg_adminPers.value){
+
+		trap->SendConsoleCommand("say_team_mod admin");
+	}
 }
 
 
