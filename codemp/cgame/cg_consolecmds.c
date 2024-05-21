@@ -2312,6 +2312,7 @@ void CG_Say_f( void ) {
 	int i, number = 0, numWords = trap->Cmd_Argc();
 	int lastWhispererNum = -1;
 	int clientNum = -1, messagetype = 0;
+	float num = 0;
 
 	if (!Q_stricmp(CG_Argv(0), "say")) {
 		messagetype = 1;
@@ -2348,6 +2349,21 @@ void CG_Say_f( void ) {
 		else if (!Q_stricmp(word, "%S%")) {
 			number = cg.predictedPlayerState.stats[STAT_ARMOR];
 			Com_sprintf(numberStr, sizeof(numberStr), "%i", number);
+			Q_strncpyz(word, numberStr, sizeof(word));
+		}
+		else if (!Q_stricmp(word, "%U%")) {
+			num = cg.currentSpeed;
+			Com_sprintf(numberStr, sizeof(numberStr), "%.0f", floorf(num + 0.5f));
+			Q_strncpyz(word, numberStr, sizeof(word));
+		}
+		else if (!Q_stricmp(word, "%UKM%")) {
+			num = cg.currentSpeed;
+			Com_sprintf(numberStr, sizeof(numberStr), "%0.1f", num * 0.05f);
+			Q_strncpyz(word, numberStr, sizeof(word));
+		}
+		else if (!Q_stricmp(word, "%UM%")) {
+			num = cg.currentSpeed;
+			Com_sprintf(numberStr, sizeof(numberStr), "%0.1f", num * 0.03106855f);
 			Q_strncpyz(word, numberStr, sizeof(word));
 		}
 		else if (!Q_stricmp(word, "%F%")) {
