@@ -13083,8 +13083,12 @@ stillDoSaber:
 	}
 	//For now, these two are using the old shield shader. This is just so that you
 	//can tell it apart from the JM/duel shaders, but it's still very obvious.
-	if (cent->currentState.forcePowersActive & (1 << FP_PROTECT))
-	{ //aborb is represented by green..
+	if ( (cent->currentState.forcePowersActive & (1 << FP_PROTECT) && (!(cent->currentState.forcePowersActive & (1 << FP_ABSORB)))) 
+		||	(cent->currentState.forcePowersActive & (1 << FP_PROTECT) && (cent->currentState.forcePowersActive & (1 << FP_ABSORB)) &&
+				cg_spprotabscolor.value == 0)
+		)
+
+	{ //protect is represented by green..
 		refEntity_t prot;
 
 		memcpy(&prot, &legs, sizeof(prot));
@@ -13114,9 +13118,25 @@ stillDoSaber:
 	//Showing only when the power has been active (absorbed something) recently now, instead of always.
 	//AND
 	//always show if it is you with the absorb on
-	if (((cg_alwaysShowAbsorb.integer && cgs.serverMod != SVMOD_BASEENHANCED) && cent->currentState.forcePowersActive & (1<<FP_ABSORB)) ||
-		(cent->teamPowerEffectTime > cg.time && cent->teamPowerType == 3))
-	{ //aborb is represented by blue..
+	if (
+		(
+			cg_alwaysShowAbsorb.integer && cgs.serverMod != SVMOD_BASEENHANCED &&
+			cent->currentState.forcePowersActive & (1 << FP_ABSORB) &&
+			!(cent->currentState.forcePowersActive & (1 << FP_PROTECT))
+		) 
+		||		
+		(
+			cg_alwaysShowAbsorb.integer && cgs.serverMod != SVMOD_BASEENHANCED &&
+			cent->currentState.forcePowersActive & (1 << FP_ABSORB) &&
+			cent->currentState.forcePowersActive & (1 << FP_PROTECT) &&
+			cg_spprotabscolor.value == 0
+		)
+		||
+		(cent->teamPowerEffectTime > cg.time && cent->teamPowerType == 3)
+		)
+
+	{ //absorb is represented by blue..
+
 		legs.shaderRGBA[0] = 0;
 		legs.shaderRGBA[1] = 0;
 		legs.shaderRGBA[2] = 255;
@@ -13127,6 +13147,31 @@ stillDoSaber:
 		legs.customShader = cgs.media.playerShieldDamage;
 
 		trap->R_AddRefEntityToScene( &legs );
+	}
+
+	if (cg_spprotabscolor.value == 1 &&
+		((((cgs.serverMod != SVMOD_BASEENHANCED) &&
+			(cent->currentState.forcePowersActive & (1 << FP_ABSORB))) ||
+			(cent->teamPowerEffectTime > cg.time && cent->teamPowerType == 3)) &&
+			(cent->currentState.forcePowersActive & (1 << FP_PROTECT))))
+
+	{ //absorb + protect is represented by cyan..
+
+		refEntity_t prot;
+		memcpy(&prot, &legs, sizeof(prot));
+
+
+		prot.shaderRGBA[0] = 0;
+		prot.shaderRGBA[1] = 255;
+		prot.shaderRGBA[2] = 255;
+		prot.shaderRGBA[3] = 254;
+
+		prot.renderfx &= ~RF_RGB_TINT;
+		prot.renderfx &= ~RF_FORCE_ENT_ALPHA;
+		prot.customShader = cgs.media.protectShader;
+
+		trap->R_AddRefEntityToScene(&prot);
+
 	}
 
 	if (cent->currentState.isJediMaster && cg.snap->ps.clientNum != cent->currentState.number)
