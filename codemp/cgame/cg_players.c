@@ -11124,7 +11124,6 @@ void CG_Player( centity_t *cent ) {
 		{ //don't allow this when spectating
 			if (cgFPLSState != 0)
 			{
-				trap->Cvar_Set("cg_fpls", "0");
 				cg_fpls.integer = 0;
 
 				CG_ForceFPLSPlayerModel(cent, ci);
@@ -11132,10 +11131,6 @@ void CG_Player( centity_t *cent ) {
 				return;
 			}
 
-			if (cg_fpls.integer)
-			{
-				trap->Cvar_Set("cg_fpls", "0");
-			}
 		}
 		else
 		{
