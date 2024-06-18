@@ -938,6 +938,7 @@ void Con_DrawNotify (void)
 	int		skip;
 	int		currentColor;
 	const char* chattext;
+	int		whispering = 0;
 
 	currentColor = 7;
 	re->SetColor( g_color_table[currentColor] );
@@ -1047,6 +1048,7 @@ void Con_DrawNotify (void)
 			strcat(base, ":");
 			chattext = base;
 			
+			whispering = 1;
 			//replying = 0;
 		}
 		else if (chat_team)	{
@@ -1056,13 +1058,25 @@ void Con_DrawNotify (void)
 			chattext = SE_GetString("MP_SVGAME", "SAY");
 		}
 
-		SCR_DrawStringExt2(8 * cls.widthRatioCoef, v, BIGCHAR_WIDTH*cls.widthRatioCoef, BIGCHAR_HEIGHT, chattext, chatColour, qfalse, qfalse);
-		skip = strlen(chattext) + 1;
-		Field_BigDraw( &chatField, skip * BIGCHAR_WIDTH, v,
-			SCREEN_WIDTH - ( skip + 1 ) * BIGCHAR_WIDTH, qtrue, qtrue );
+		if (whispering)
+		{
+			SCR_DrawStringExt2(8 * cls.widthRatioCoef, v, BIGCHAR_WIDTH * cls.widthRatioCoef, BIGCHAR_HEIGHT, chattext, chatColour, qfalse, qfalse);
+			skip = 1;
+			v += BIGCHAR_HEIGHT;
+			Field_BigDraw(&chatField, skip * BIGCHAR_WIDTH, v,
+				SCREEN_WIDTH - (skip + 1) * BIGCHAR_WIDTH, qtrue, qtrue);		
 
-		v += BIGCHAR_HEIGHT;
-	}
+		}
+		else
+		{
+			SCR_DrawStringExt2(8 * cls.widthRatioCoef, v, BIGCHAR_WIDTH * cls.widthRatioCoef, BIGCHAR_HEIGHT, chattext, chatColour, qfalse, qfalse);
+			skip = strlen(chattext) + 1;
+			Field_BigDraw(&chatField, skip * BIGCHAR_WIDTH, v,
+				SCREEN_WIDTH - (skip + 1) * BIGCHAR_WIDTH, qtrue, qtrue);
+
+			v += BIGCHAR_HEIGHT;
+		}
+	}	
 }
 
 /*
