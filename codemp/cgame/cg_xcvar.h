@@ -298,7 +298,7 @@ XCVAR_DEF( cg_fov,								"90",					NULL,					CVAR_ARCHIVE )
 XCVAR_DEF( cg_fovAspectAdjust,					"1",					NULL,					CVAR_ARCHIVE ) //fixed skyportal issue
 XCVAR_DEF( cg_fovViewmodel,						"80",					NULL,					CVAR_ARCHIVE )
 XCVAR_DEF( cg_fovViewmodelAdjust,				"1",					NULL,					CVAR_ARCHIVE ) // shifts viewmodels down above 90 fov
-XCVAR_DEF( cg_fpls,								"1",					NULL,					CVAR_NONE )
+XCVAR_DEF( cg_fpls,								"0",					NULL,					CVAR_NONE )
 XCVAR_DEF( cg_g2TraceLod,						"2",					NULL,					CVAR_NONE )
 XCVAR_DEF( cg_ghoul2Marks,						"16",					NULL,					CVAR_NONE )
 XCVAR_DEF( cg_gunX,								"0",					NULL,					CVAR_ARCHIVE )

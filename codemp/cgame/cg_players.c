@@ -1173,6 +1173,154 @@ static const int MAX_JADENM_LOWERS = ARRAY_LEN(jadenMaleLowerTable);
 
 
 
+void CG_RegisterClientModelname_RandomCheck(clientInfo_t* ci, char* teamname, int clientNum, qboolean* isDefaultModel, qboolean* modelloaded, char* fallbackModel)
+{
+	char* customDefaultModel = DEFAULT_MODEL;
+	if (!cg_defaultModelRandom.integer) {
+		if (cg_defaultModel.string)
+			customDefaultModel = cg_defaultModel.string;
+
+		if (ci->gender == GENDER_FEMALE) {
+			fallbackModel = DEFAULT_MODEL_FEMALE;
+			if (cg_defaultFemaleModel.string)
+				customDefaultModel = cg_defaultFemaleModel.string;
+			else
+				customDefaultModel = DEFAULT_MODEL_FEMALE;
+		}
+	}
+
+	if (!CG_RegisterClientModelname(ci, ci->modelName, ci->skinName, teamname, clientNum)) {
+		//trap->Error( ERR_DROP, "CG_RegisterClientModelname( %s, %s, %s, %s %s ) failed", ci->modelName, ci->skinName, ci->headModelName, ci->headSkinName, teamname );
+		//rww - DO NOT error out here! Someone could just type in a nonsense model name and crash everyone's client.
+		//Give it a chance to load default model for this client instead.
+
+		*isDefaultModel = qtrue;
+		if (cg_defaultModelRandom.integer) //random model
+		{
+			char	newModelName[MAX_QPATH];
+			char	newSkinName[MAX_QPATH];
+			int j, sum = 0;
+
+			for (j = 0; ci->modelName[j] != '\0'; j++) {
+				sum += (int)tolower(ci->modelName[j]); //Convert to lowercase
+			}
+			if (sum < 0)
+			{
+				sum = 0;
+			}
+
+			if (ci->gender == GENDER_FEMALE) {
+				Q_strncpyz(newModelName, defaultFemaleModelTable[sum % MAX_DEFAULT_FEMALE_MODELS], MAX_QPATH);
+			}
+			else { //assume male
+				Q_strncpyz(newModelName, defaultModelTable[sum % MAX_DEFAULT_MODELS], MAX_QPATH);
+			}
+
+			if (Q_stricmpn(newModelName, "jedi_", 5)) { //normal default skin
+				if (!Q_stricmp(ci->skinName, "default") || !Q_stricmp(ci->skinName, "red") || !Q_stricmp(ci->skinName, "blue"))
+					Q_strncpyz(newSkinName, ci->skinName, MAX_QPATH); //use the original skin name if they already have a valid one set
+				else //randomly pick default/red/blue
+					Q_strncpyz(newSkinName, defaultSkinTable[sum % MAX_DEFAULT_SKINS], MAX_QPATH);
+
+				ci->modelIcon = trap->R_RegisterShaderNoMip(va("icon_%s", newSkinName));
+			}
+			else {//we got a jaden
+				char* newHead = "head_a1";
+				char* newTorso = "torso_b1";
+				char* newLower = "lower_a1";
+
+				if (ci->gender == GENDER_FEMALE) {
+					if (!Q_stricmp(newModelName, "jedi_tf")) {
+						newHead = jadenFemaleTwilekHeadTable[sum % MAX_JADENTF_HEADS];
+					}
+					else {
+						newHead = jadenFemaleHeadTable[sum % MAX_JADENF_HEADS];
+					}
+
+					newTorso = jadenFemaleTorsoTable[sum % MAX_JADENF_TORSOS];
+					newLower = jadenFemaleLowerTable[sum % MAX_JADENF_LOWERS];
+				}
+				else { //male
+					if (Q_stricmp(newModelName, "jedi_hm")) {
+						newHead = jadenMaleHumanHeadTable[sum % MAX_JADENHM_HEADS];
+						newTorso = jadenMaleHumanTorsoTable[sum % MAX_JADENHM_TORSOS];
+					}
+					else { //heads+torsos are the same for the other species
+						newHead = jadenMaleHeadTable[sum % MAX_JADENM_HEADS];
+						newTorso = jadenMaleTorsoTable[sum % MAX_JADENM_TORSOS];
+					}
+					//lowers are the same for every male species
+					newLower = jadenMaleLowerTable[sum % MAX_JADENM_LOWERS];
+				}
+
+				Q_strncpyz(newSkinName, va("%s|%s|%s", newHead, newTorso, newLower), MAX_QPATH);
+				ci->modelIcon = trap->R_RegisterShaderNoMip(va("icon_%s", newHead));
+			}
+
+			if (cgs.gametype >= GT_TEAM && cgs.gametype != GT_SIEGE) {//validate team color
+				BG_ValidateSkinForTeam(newModelName, newSkinName, ci->team, ci->colorOverride);
+				//BG_ValidateSkinForTeam(newModelName, ci->skinName, ci->team, ci->colorOverride);
+				//newSkinName = ci->skinName;
+			}
+
+#if 1
+			if (!VALIDSTRING(newModelName) || strlen(newModelName) < 1) Q_strncpyz(newModelName, DEFAULT_MODEL, MAX_QPATH);
+			if (!VALIDSTRING(newSkinName) || strlen(newSkinName) < 1) Q_strncpyz(newSkinName, "default", MAX_QPATH);
+			if (!CG_RegisterClientModelname(ci, newModelName, newSkinName, teamname, clientNum)) {
+				trap->Error(ERR_DROP, "DEFAULT_MODEL / skin (%s/%s) failed to register", newModelName, newSkinName);
+			}
+#elif 0 //LOL fuck ni
+			if (!CG_RegisterClientModelname(ci, newModelName, newSkinName, teamname, clientNum)) {
+				//trap->Error(ERR_DROP, "DEFAULT_MODEL / skin (%s/%s) failed to register", newModelName, newSkinName);
+				trap->Print(S_COLOR_RED "DEFAULT_MODEL / skin (%s/%s) failed to register", newModelName, newSkinName);
+				switch (ci->team)
+				{
+					case TEAM_RED:
+						newSkinName = "red";
+					case TEAM_BLUE:
+						newSkinName = "blue";
+					default:
+						newSkinName = "default";
+				}
+				newModelName = DEFAULT_MODEL;
+				if (!CG_RegisterClientModelname(ci, newModelName, newSkinName, teamname, clientNum)) {
+					trap->Error(ERR_DROP, "lol i tried\n");
+				}
+			}
+#else
+			if (!CG_RegisterClientModelname(ci, newModelName, newSkinName, teamname, clientNum))
+				trap->Error(ERR_DROP, "DEFAULT_MODEL / skin (%s/%s) failed to register", newModelName, newSkinName);
+#endif
+			* modelloaded = qtrue;
+		}
+		// fall back to default team name
+		else if (cgs.gametype >= GT_TEAM) {
+			// keep skin name
+			if (ci->team == TEAM_BLUE) {
+				Q_strncpyz(teamname, DEFAULT_BLUETEAM_NAME, sizeof(teamname));
+			}
+			else {
+				Q_strncpyz(teamname, DEFAULT_REDTEAM_NAME, sizeof(teamname));
+			}
+			if (!CG_RegisterClientModelname(ci, customDefaultModel, ci->skinName, teamname, -1)) {
+				customDefaultModel = fallbackModel;
+				if (!CG_RegisterClientModelname(ci, fallbackModel, ci->skinName, teamname, -1)) {
+					trap->Error(ERR_DROP, "DEFAULT_MODEL / skin (%s/%s) failed to register", fallbackModel, ci->skinName);
+				}
+			}
+		}
+		else {
+			if (!CG_RegisterClientModelname(ci, customDefaultModel, "default", teamname, -1)) {
+				customDefaultModel = fallbackModel;
+				if (!CG_RegisterClientModelname(ci, fallbackModel, "default", teamname, -1)) {
+					trap->Error(ERR_DROP, "DEFAULT_MODEL (%s) failed to register", fallbackModel);
+				}
+			}
+		}
+		*modelloaded = qfalse;
+	}
+}
+
 /*
 ===================
 CG_LoadClientInfo
@@ -1188,19 +1336,9 @@ void CG_LoadClientInfo( clientInfo_t *ci ) {
 	int			i;
 	char		teamname[MAX_QPATH];
 	char		*fallbackModel = DEFAULT_MODEL;
-	char		*customDefaultModel = DEFAULT_MODEL;
 
-	if ( !cg_defaultModelRandom.integer ) {
-		if ( cg_defaultModel.string )
-			customDefaultModel = cg_defaultModel.string;
-
-		if ( ci->gender == GENDER_FEMALE ) {
-			fallbackModel = DEFAULT_MODEL_FEMALE;
-			if ( cg_defaultFemaleModel.string )
-				customDefaultModel = cg_defaultFemaleModel.string;
-			else
-				customDefaultModel = DEFAULT_MODEL_FEMALE;
-		}
+	if (ci->gender == GENDER_FEMALE) {
+		fallbackModel = DEFAULT_MODEL_FEMALE;
 	}
 
 	clientNum = ci - cgs.clientinfo;
@@ -1257,134 +1395,7 @@ void CG_LoadClientInfo( clientInfo_t *ci ) {
 	}
 	else
 	{
-		if ( !CG_RegisterClientModelname( ci, ci->modelName, ci->skinName, teamname, clientNum ) ) {
-			//trap->Error( ERR_DROP, "CG_RegisterClientModelname( %s, %s, %s, %s %s ) failed", ci->modelName, ci->skinName, ci->headModelName, ci->headSkinName, teamname );
-			//rww - DO NOT error out here! Someone could just type in a nonsense model name and crash everyone's client.
-			//Give it a chance to load default model for this client instead.
-
-			isDefaultModel = qtrue;
-			if (cg_defaultModelRandom.integer) //random model
-			{
-				char	newModelName[MAX_QPATH];
-				char	newSkinName[MAX_QPATH];
-				int j, sum = 0;
-
-				for (j = 0; ci->modelName[j] != '\0'; j++) {
-					sum += (int)tolower(ci->modelName[j]); //Convert to lowercase
-				}
-				if (sum < 0)
-				{
-					sum = 0;
-				}
-
-				if (ci->gender == GENDER_FEMALE) {
-					Q_strncpyz(newModelName, defaultFemaleModelTable[sum % MAX_DEFAULT_FEMALE_MODELS], MAX_QPATH);
-				}
-				else { //assume male
-					Q_strncpyz(newModelName, defaultModelTable[sum % MAX_DEFAULT_MODELS], MAX_QPATH);
-				}
-
-				if (Q_stricmpn(newModelName, "jedi_", 5)) { //normal default skin
-					if (!Q_stricmp(ci->skinName, "default") || !Q_stricmp(ci->skinName, "red") || !Q_stricmp(ci->skinName, "blue"))
-						Q_strncpyz(newSkinName, ci->skinName, MAX_QPATH); //use the original skin name if they already have a valid one set
-					else //randomly pick default/red/blue
-						Q_strncpyz(newSkinName, defaultSkinTable[sum % MAX_DEFAULT_SKINS], MAX_QPATH);
-
-					ci->modelIcon = trap->R_RegisterShaderNoMip(va("icon_%s", newSkinName));
-				}
-				else {//we got a jaden
-					char *newHead = "head_a1";
-					char *newTorso = "torso_b1";
-					char *newLower = "lower_a1";
-
-					if (ci->gender == GENDER_FEMALE) {
-						if (!Q_stricmp(newModelName, "jedi_tf")) {
-							newHead = jadenFemaleTwilekHeadTable[sum % MAX_JADENTF_HEADS];
-						}
-						else {
-							newHead = jadenFemaleHeadTable[sum % MAX_JADENF_HEADS];
-						}
-
-						newTorso = jadenFemaleTorsoTable[sum % MAX_JADENF_TORSOS];
-						newLower = jadenFemaleLowerTable[sum % MAX_JADENF_LOWERS];
-					}
-					else { //male
-						if (Q_stricmp(newModelName, "jedi_hm")) {
-							newHead = jadenMaleHumanHeadTable[sum % MAX_JADENHM_HEADS];
-							newTorso = jadenMaleHumanTorsoTable[sum % MAX_JADENHM_TORSOS];
-						}
-						else { //heads+torsos are the same for the other species
-							newHead = jadenMaleHeadTable[sum % MAX_JADENM_HEADS];
-							newTorso = jadenMaleTorsoTable[sum % MAX_JADENM_TORSOS];
-						}
-						//lowers are the same for every male species
-						newLower = jadenMaleLowerTable[sum % MAX_JADENM_LOWERS];
-					}
-
-					Q_strncpyz(newSkinName, va("%s|%s|%s", newHead, newTorso, newLower), MAX_QPATH);
-					ci->modelIcon = trap->R_RegisterShaderNoMip(va("icon_%s", newHead));
-				}
-
-				if (cgs.gametype >= GT_TEAM && cgs.gametype != GT_SIEGE) {//validate team color
-					BG_ValidateSkinForTeam(newModelName, newSkinName, ci->team, ci->colorOverride);
-					//BG_ValidateSkinForTeam(newModelName, ci->skinName, ci->team, ci->colorOverride);
-					//newSkinName = ci->skinName;
-				}
-
-#if 1
-				if (!VALIDSTRING(newModelName) || strlen(newModelName) < 1) Q_strncpyz(newModelName, DEFAULT_MODEL, MAX_QPATH);
-				if (!VALIDSTRING(newSkinName) || strlen(newSkinName) < 1) Q_strncpyz(newSkinName , "default", MAX_QPATH);
-				if (!CG_RegisterClientModelname(ci, newModelName, newSkinName, teamname, clientNum)) {
-					trap->Error(ERR_DROP, "DEFAULT_MODEL / skin (%s/%s) failed to register", newModelName, newSkinName);
-				}
-#elif 0 //LOL fuck ni
-				if (!CG_RegisterClientModelname(ci, newModelName, newSkinName, teamname, clientNum)) {
-					//trap->Error(ERR_DROP, "DEFAULT_MODEL / skin (%s/%s) failed to register", newModelName, newSkinName);
-					trap->Print(S_COLOR_RED "DEFAULT_MODEL / skin (%s/%s) failed to register", newModelName, newSkinName);
-					switch (ci->team)
-					{
-					case TEAM_RED:
-						newSkinName = "red";
-					case TEAM_BLUE:
-						newSkinName = "blue";
-					default:
-						newSkinName = "default";
-					}
-					newModelName = DEFAULT_MODEL;
-					if (!CG_RegisterClientModelname(ci, newModelName, newSkinName, teamname, clientNum)) {
-						trap->Error(ERR_DROP, "lol i tried\n");
-					}
-				}
-#else
-				if (!CG_RegisterClientModelname(ci, newModelName, newSkinName, teamname, clientNum))
-					trap->Error(ERR_DROP, "DEFAULT_MODEL / skin (%s/%s) failed to register", newModelName, newSkinName);
-#endif
-				modelloaded = qtrue;
-			}
-			// fall back to default team name
-			else if( cgs.gametype >= GT_TEAM ) {
-				// keep skin name
-				if( ci->team == TEAM_BLUE ) {
-					Q_strncpyz(teamname, DEFAULT_BLUETEAM_NAME, sizeof(teamname) );
-				} else {
-					Q_strncpyz(teamname, DEFAULT_REDTEAM_NAME, sizeof(teamname) );
-				}
-				if ( !CG_RegisterClientModelname( ci, customDefaultModel, ci->skinName, teamname, -1 ) ) {
-					customDefaultModel = fallbackModel;
-					if ( !CG_RegisterClientModelname( ci, fallbackModel, ci->skinName, teamname, -1 ) ) {
-						trap->Error( ERR_DROP, "DEFAULT_MODEL / skin (%s/%s) failed to register", fallbackModel, ci->skinName );
-					}
-				}
-			} else {
-				if ( !CG_RegisterClientModelname( ci, customDefaultModel, "default", teamname, -1 ) ) {
-					customDefaultModel = fallbackModel;
-					if ( !CG_RegisterClientModelname( ci, fallbackModel, "default", teamname, -1 ) ) {
-						trap->Error( ERR_DROP, "DEFAULT_MODEL (%s) failed to register", fallbackModel );
-					}
-				}
-			}
-			modelloaded = qfalse;
-		}
+		CG_RegisterClientModelname_RandomCheck(ci, teamname, clientNum, &isDefaultModel, &modelloaded, fallbackModel);
 	}
 
 	if (clientNum != -1)
@@ -9094,7 +9105,38 @@ void CG_ForceFPLSPlayerModel(centity_t *cent, clientInfo_t *ci)
 	}
 	else
 	{
-		CG_RegisterClientModelname(ci, ci->modelName, ci->skinName, ci->teamName, cent->currentState.number);
+		char* fallbackModel = DEFAULT_MODEL;
+
+		if (ci->gender == GENDER_FEMALE) {
+			fallbackModel = DEFAULT_MODEL_FEMALE;
+		}
+		char		teamname[MAX_QPATH];
+		qboolean isDefaultModel = qfalse;
+		qboolean modelloaded = qtrue;
+		teamname[0] = 0;
+		if (cgs.gametype >= GT_TEAM) {
+			if (ci->team == TEAM_BLUE) {
+				Q_strncpyz(teamname, DEFAULT_BLUETEAM_NAME/*cg_blueTeamName.string*/, sizeof(teamname));
+			}
+			else {
+				Q_strncpyz(teamname, DEFAULT_REDTEAM_NAME/*cg_redTeamName.string*/, sizeof(teamname));
+			}
+		}
+		if (teamname[0]) {
+			strcat(teamname, "/");
+		}
+		if (cgs.gametype == GT_SIEGE &&
+			(ci->team == TEAM_SPECTATOR || ci->siegeIndex == -1))
+		{ //yeah.. kind of a hack I guess. Don't care until they are actually ingame with a valid class.
+			if (!CG_RegisterClientModelname(ci, fallbackModel, "default", teamname, -1))
+			{
+				trap->Error(ERR_DROP, "DEFAULT_MODEL (%s) failed to register", fallbackModel);
+			}
+		}
+		else
+		{
+			CG_RegisterClientModelname_RandomCheck(ci, teamname, (ci - cgs.clientinfo), &isDefaultModel, &modelloaded, fallbackModel);
+		}
 	}
 
 	anim = &bgAllAnims[cent->localAnimIndex].anims[ cent->currentState.legsAnim ];
@@ -11122,7 +11164,8 @@ void CG_Player( centity_t *cent ) {
 		else if (ci->team == TEAM_SPECTATOR || (cg.snap && (cg.snap->ps.pm_flags & PMF_FOLLOW)))
 		{ //don't allow this when spectating
 			if (cgFPLSState != 0)
-			{	cg_fpls.integer = 0;
+			{
+				cg_fpls.integer = 0;
 
 				CG_ForceFPLSPlayerModel(cent, ci);
 				cgFPLSState = 0;
