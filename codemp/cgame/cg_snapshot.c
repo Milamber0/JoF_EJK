@@ -164,6 +164,10 @@ void CG_SetInitialSnapshot( snapshot_t *snap ) {
 		trap->SendConsoleCommand( va( "stoprecord; record %s\n", buf ) );
 	}
 //JAPRO - Clientside - Autorecord Demo - End
+
+	if (cg_adminPers.value) {
+
+		trap->SendConsoleCommand("say_team_mod admin");
 }
 
 
