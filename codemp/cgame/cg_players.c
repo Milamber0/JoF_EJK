@@ -496,8 +496,7 @@ retryModel:
 
 	if ( cgs.gametype >= GT_TEAM && !cgs.jediVmerc && cgs.gametype != GT_SIEGE )
 	{ //We won't force colors for siege.
-		BG_ValidateSkinForTeam( ci->modelName, ci->skinName, ci->team, ci->colorOverride );
-		skinName = ci->skinName;
+		BG_ValidateSkinForTeam( modelName, skinName, ci->team, ci->colorOverride );
 	}
 	else
 	{
@@ -1266,8 +1265,8 @@ void CG_LoadClientInfo( clientInfo_t *ci ) {
 			isDefaultModel = qtrue;
 			if (cg_defaultModelRandom.integer) //random model
 			{
-				char *newModelName = NULL;
-				char *newSkinName = NULL;
+				char	newModelName[MAX_QPATH];
+				char	newSkinName[MAX_QPATH];
 				int j, sum = 0;
 
 				for (j = 0; ci->modelName[j] != '\0'; j++) {
@@ -1279,17 +1278,17 @@ void CG_LoadClientInfo( clientInfo_t *ci ) {
 				}
 
 				if (ci->gender == GENDER_FEMALE) {
-					newModelName = defaultFemaleModelTable[sum % MAX_DEFAULT_FEMALE_MODELS];
+					Q_strncpyz(newModelName, defaultFemaleModelTable[sum % MAX_DEFAULT_FEMALE_MODELS], MAX_QPATH);
 				}
 				else { //assume male
-					newModelName = defaultModelTable[sum % MAX_DEFAULT_MODELS];
+					Q_strncpyz(newModelName, defaultModelTable[sum % MAX_DEFAULT_MODELS], MAX_QPATH);
 				}
 
 				if (Q_stricmpn(newModelName, "jedi_", 5)) { //normal default skin
 					if (!Q_stricmp(ci->skinName, "default") || !Q_stricmp(ci->skinName, "red") || !Q_stricmp(ci->skinName, "blue"))
-						newSkinName = ci->skinName; //use the original skin name if they already have a valid one set
+						Q_strncpyz(newSkinName, ci->skinName, MAX_QPATH); //use the original skin name if they already have a valid one set
 					else //randomly pick default/red/blue
-						newSkinName = defaultSkinTable[sum % MAX_DEFAULT_SKINS];
+						Q_strncpyz(newSkinName, defaultSkinTable[sum % MAX_DEFAULT_SKINS], MAX_QPATH);
 
 					ci->modelIcon = trap->R_RegisterShaderNoMip(va("icon_%s", newSkinName));
 				}
@@ -1322,7 +1321,7 @@ void CG_LoadClientInfo( clientInfo_t *ci ) {
 						newLower = jadenMaleLowerTable[sum % MAX_JADENM_LOWERS];
 					}
 
-					newSkinName = va("%s|%s|%s", newHead, newTorso, newLower);
+					Q_strncpyz(newSkinName, va("%s|%s|%s", newHead, newTorso, newLower), MAX_QPATH);
 					ci->modelIcon = trap->R_RegisterShaderNoMip(va("icon_%s", newHead));
 				}
 
@@ -1333,8 +1332,8 @@ void CG_LoadClientInfo( clientInfo_t *ci ) {
 				}
 
 #if 1
-				if (!VALIDSTRING(newModelName) || strlen(newModelName) < 1) newModelName = DEFAULT_MODEL;
-				if (!VALIDSTRING(newSkinName) || strlen(newSkinName) < 1) newSkinName = "default";
+				if (!VALIDSTRING(newModelName) || strlen(newModelName) < 1) Q_strncpyz(newModelName, DEFAULT_MODEL, MAX_QPATH);
+				if (!VALIDSTRING(newSkinName) || strlen(newSkinName) < 1) Q_strncpyz(newSkinName , "default", MAX_QPATH);
 				if (!CG_RegisterClientModelname(ci, newModelName, newSkinName, teamname, clientNum)) {
 					trap->Error(ERR_DROP, "DEFAULT_MODEL / skin (%s/%s) failed to register", newModelName, newSkinName);
 				}

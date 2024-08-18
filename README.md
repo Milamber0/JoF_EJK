@@ -24,6 +24,7 @@ Installing and running EternalJK:
 ### JoF Maintainers/Contributors
 * [Milamber](https://github.com/Milamber0)
 * Daniel
+* [Jediman](https://github.com/Jediman9973)
 
 ### External Contributors
 * [bucky](https://github.com/Bucky21659) - special thanks for giving us the starting point of this client.

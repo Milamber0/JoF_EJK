@@ -168,6 +168,7 @@ void CG_SetInitialSnapshot( snapshot_t *snap ) {
 	if (cg_adminPers.value) {
 
 		trap->SendConsoleCommand("say_team_mod admin");
+	}
 }
 
 
