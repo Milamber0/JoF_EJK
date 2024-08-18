@@ -1655,7 +1655,7 @@ void R_Register( void )
 	r_lodCurveError						= ri.Cvar_Get( "r_lodCurveError",					"250",						CVAR_ARCHIVE_ND, "" );
 	r_lodbias							= ri.Cvar_Get( "r_lodbias",							"0",						CVAR_ARCHIVE_ND, "" );
 	r_autolodscalevalue					= ri.Cvar_Get( "r_autolodscalevalue",				"0",						CVAR_ROM, "" );
-	r_flares							= ri.Cvar_Get( "r_flares",							"1",						CVAR_ARCHIVE_ND, "" );
+	r_flares							= ri.Cvar_Get( "r_flares",							"0",						CVAR_ARCHIVE_ND, "" );
 
 	r_znear								= ri.Cvar_Get( "r_znear",							"4",						CVAR_ARCHIVE_ND, "" );
 	ri.Cvar_CheckRange( r_znear, 0.001f, 10, qfalse );
