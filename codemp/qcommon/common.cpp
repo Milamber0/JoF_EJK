@@ -2216,6 +2216,11 @@ uint32_t ConvertUTF8ToUTF32( char *utf8CurrentChar, char **utf8NextChar )
 		c++;
 	}
 
+	if ((uint8_t)utf32 == 22 || (uint8_t)utf32 == 1) //this is being treated like a paste and causes an inf loop, force advance
+	{
+		utf32 = *c;
+	}
+
 	*utf8NextChar = c;
 
 	return utf32;
