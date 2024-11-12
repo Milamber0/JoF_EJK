@@ -11693,6 +11693,9 @@ static void CG_PlayerLabels(void)
 			continue;
 		if (cgs.clientinfo[i].team == TEAM_SPECTATOR)
 			continue;
+		if (cent->currentState.bolt1) // Stops drawing playernames if they are in duel - bolt1 holds duelinprogress 
+			continue;
+
 		if (CG_IsMindTricked(cent->currentState.trickedentindex,
 			cent->currentState.trickedentindex2,
 			cent->currentState.trickedentindex3,

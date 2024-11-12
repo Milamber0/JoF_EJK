@@ -2149,9 +2149,33 @@ void CG_NewClientInfo( int clientNum, qboolean entitiesInitialized ) {
 		newInfo.ghoul2Weapons[0] = ci->ghoul2Weapons[0];
 	}
 
-	if (newInfo.saber[0].soundLoop == trap->S_RegisterSound("sound/weapons/saber/saberhum4.wav")) {//probably a base hilt
-		newInfo.saber[0].soundLoop = cgs.media.saberHumSounds[clientNum % 5]; //JAPRO - Clientside - Use all saber hum sounds found in base assets
+	if (newInfo.saber[0].soundLoop == trap->S_RegisterSound("sound/weapons/saber/saberhum4.wav")) {//probably a base hilt - Have to reconnect after changing - how2fix?
+		if (cg_saberHum.integer == 0)
+		{
+			newInfo.saber[0].soundLoop = cgs.media.saberHumSounds[clientNum % 5]; //JAPRO - Clientside - Use all saber hum sounds found in base assets
+		}
+		if (cg_saberHum.integer == 1)
+		{
+			newInfo.saber[0].soundLoop = trap->S_RegisterSound("sound/weapons/saber/saberhum1.wav");
+		}
+		if (cg_saberHum.integer == 2)
+		{
+			newInfo.saber[0].soundLoop = trap->S_RegisterSound("sound/weapons/saber/saberhum2.wav");
+		}
+		if (cg_saberHum.integer == 3)
+		{
+			newInfo.saber[0].soundLoop = trap->S_RegisterSound("sound/weapons/saber/saberhum3.wav");
+		}
+		if (cg_saberHum.integer == 4)
+		{
+			newInfo.saber[0].soundLoop = trap->S_RegisterSound("sound/weapons/saber/saberhum4.wav");
+		}
+		if (cg_saberHum.integer == 5)
+		{
+			newInfo.saber[0].soundLoop = trap->S_RegisterSound("sound/weapons/saber/saberhum5.wav");
+		}
 	}
+
 
 	v = Info_ValueForKey( configstring, "st2" );
 

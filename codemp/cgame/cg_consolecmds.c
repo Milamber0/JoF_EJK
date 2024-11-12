@@ -195,6 +195,135 @@ void CG_ClientList_f( void )
 	Com_Printf( "Listed %2d clients\n", count );
 }
 
+void CG_PTele_Offset_f(void)
+{
+	centity_t* cent;
+	int x, y, z, yaw, offsetX, offsetY, offsetZ, teleOffsetX, teleOffsetY, teleOffsetZ, targetNum, controlX, controlY, controlZ;
+	vec3_t targetOrigin, control;
+	char offsetXStr[32], offsetYStr[32], offsetZStr[32], argv5[32];
+	int barrier;
+
+	barrier = 50; //Prevent telecrush - barrier
+	offsetX = 0;
+	offsetY = 0;
+	offsetZ = 0;
+
+
+	if (trap->Cmd_Argc() < 4)
+	{
+		trap->Print("Usage: teleoffset x y z - u have to 0 out the values u dont want to use\n");
+		trap->Print("e.g: teleoffset 0 0 50 - teleports you 50 units up(Z axis)\n");
+	}
+
+
+	if (trap->Cmd_Argc() == 4)
+	{
+
+		trap->Cmd_Argv(1, offsetXStr, sizeof(offsetXStr));
+		trap->Cmd_Argv(2, offsetYStr, sizeof(offsetYStr));
+		trap->Cmd_Argv(3, offsetZStr, sizeof(offsetZStr));
+
+		offsetX = atof(offsetXStr);
+		offsetY = atof(offsetYStr);
+		offsetZ = atof(offsetZStr);
+
+
+		if ((cg.clientNum == cg.predictedPlayerState.clientNum && !cg.demoPlayback) || !cg.snap) {
+			x = cg.predictedPlayerState.origin[0];
+			y = cg.predictedPlayerState.origin[1];
+			z = cg.predictedPlayerState.origin[2];
+			yaw = cg.predictedPlayerState.viewangles[YAW];
+		}
+		else
+		{
+			x = cg.snap->ps.origin[0];
+			y = cg.snap->ps.origin[1];
+			z = cg.snap->ps.origin[2];
+			yaw = cg.snap->ps.viewangles[YAW];
+		}
+		teleOffsetX = x + offsetX;
+		teleOffsetY = y + offsetY;
+		teleOffsetZ = z + offsetZ;
+
+		trap->SendClientCommand(va("amtele %i %i %i %i\n", teleOffsetX, teleOffsetY, teleOffsetZ, yaw));
+	}
+
+	//If theres a 5th argument, interpret it as Player if its not gun and take Coordinations of Player and offset TP from there
+	if (trap->Cmd_Argc() == 5)
+	{
+
+
+		trap->Cmd_Argv(1, offsetXStr, sizeof(offsetXStr));
+		trap->Cmd_Argv(2, offsetYStr, sizeof(offsetYStr));
+		trap->Cmd_Argv(3, offsetZStr, sizeof(offsetZStr));
+		trap->Cmd_Argv(4, argv5, sizeof(argv5));
+
+		offsetX = atof(offsetXStr);
+		offsetY = atof(offsetYStr);
+		offsetZ = atof(offsetZStr);
+
+
+
+		if (Q_stricmp(argv5, "gun") == 0)
+		{
+			targetNum = -1;
+			targetNum = CG_CrosshairPlayer();
+			if (targetNum != -1) // To prevent crashes, check if we got an actual clientNumber
+			{
+				cent = &cg_entities[targetNum];
+				targetOrigin[0] = cent->playerState->origin[0];
+				targetOrigin[1] = cent->playerState->origin[1];
+				targetOrigin[2] = cent->playerState->origin[2];
+				yaw = cg.predictedPlayerState.viewangles[YAW];
+
+
+				teleOffsetX = targetOrigin[0] + offsetX;
+				teleOffsetY = targetOrigin[1] + offsetY;
+				teleOffsetZ = targetOrigin[2] + offsetZ;
+
+				controlX = teleOffsetX + barrier;
+				controlY = teleOffsetY + barrier;
+				controlZ = teleOffsetZ + barrier;
+				//Prevent TP Kill
+
+				trap->SendClientCommand(va("amtele %i %i %i %i", controlX, controlY, controlZ, yaw));
+				
+
+			}
+		}
+		else
+		{
+			targetNum = -1;
+			targetNum = CG_ClientNumberFromString(argv5);
+			if (targetNum != -1)
+			{
+
+				cent = &cg_entities[targetNum];
+
+				targetOrigin[0] = cent->playerState->origin[0];
+				targetOrigin[1] = cent->playerState->origin[1];
+				targetOrigin[2] = cent->playerState->origin[2];
+				yaw = cg.predictedPlayerState.viewangles[YAW];
+
+				teleOffsetX = targetOrigin[0] + offsetX;
+				teleOffsetY = targetOrigin[1] + offsetY;
+				teleOffsetZ = targetOrigin[2] + offsetZ;
+
+				controlX = teleOffsetX + barrier;
+				controlY = teleOffsetY + barrier;
+				controlZ = teleOffsetZ + barrier;
+
+				trap->SendClientCommand(va("amtele %i %i %i %i", controlX, controlY, controlZ, yaw));
+
+			}
+			else
+			{
+				return;
+			}
+		}
+	}
+}
+
 static void CG_UserInfoList_f(void)
 {
 	clientInfo_t *ci;
@@ -2544,6 +2673,7 @@ static consoleCommand_t	commands[] = {
 
 	{ "PTelemark",					CG_PTelemark_f },
 	{ "PTele",						CG_PTele_f },
+	{ "teleoffset",					CG_PTele_Offset_f },	
 
 	{ "remapShader",				CG_RemapShader_f },
 	{ "listRemaps",					CG_ListRemaps_f },

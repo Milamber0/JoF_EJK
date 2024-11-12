@@ -4835,13 +4835,13 @@ void ClientThink_real( gentity_t *ent ) {
 	//rww - bgghoul2
 	pmove.ghoul2 = NULL;
 
-#ifdef _DEBUG
+/*#ifdef _DEBUG
 	if (g_disableServerG2.integer)
 	{
 
 	}
 	else
-#endif
+#endif*/
 	if (ent->ghoul2)
 	{
 		if (ent->localAnimIndex > 1)

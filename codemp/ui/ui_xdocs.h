@@ -243,6 +243,15 @@ XDOCS_CVAR_DEF("cg_rollSounds", "Play sound when players roll",
 	SETTING("3", "Only play roll sounds from local client")
 )
 
+XDOCS_CVAR_DEF("cg_saberHum", "Customize saber hum sound",
+SETTING("0", "Rotate trough all 5 sounds") NL
+SETTING("1", "Use only soundfile 1") NL
+SETTING("2", "Use only soundfile 2") NL
+SETTING("3", "Use only soundfile 3") NL
+SETTING("4", "Use only soundfile 4") NL
+SETTING("5", "Use only soundfile 5")
+)
+
 XDOCS_CVAR_DEF("cg_jumpSounds", "Play sound when players jump",
 	SETTING("0", "Don't play jump sounds") NL
 	SETTING("1", "Play all jump sounds") NL
