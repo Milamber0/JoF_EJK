@@ -1485,6 +1485,8 @@ static qboolean CG_ProximityCheck(vec3_t pos1, vec3_t pos2) { //Returns qtrue if
 	return qtrue;
 }
 
+extern index_for_heal;
+
 /*
 ==============
 CG_EntityEvent
@@ -3715,6 +3717,68 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 					s = CG_ConfigString( CS_SOUNDS + es->eventParm );
 					trap->S_StartSound (NULL, es->number, es->saberEntityNum, CG_CustomSound( es->number, s ) );
 				}
+			}
+
+			if (es->eventParm == index_for_heal)  //index taken from CG_RegisterSounds in cg_main.c
+			{
+				Com_Printf("es->pos.trBase = %f %f %f\n", es->pos.trBase[0], es->pos.trBase[1], es->pos.trBase[2]);
+				float heal_x = es->pos.trBase[0];
+				float heal_y = es->pos.trBase[1];
+				float heal_z = es->pos.trBase[2];
+				//so now we know that heal was played and we know where 
+				//i want to cycle through all the clients, and find the closest one
+
+
+				float closestDistanceSquared = FLT_MAX;
+				int closestClientIndex = -1;
+				float client_x;
+				float client_y;
+				float client_z;
+				centity_t* cent;
+
+				for (int i = 0; i <= MAX_CLIENTS; i++)
+				{
+					cent = &cg_entities[i];
+					Com_Printf("%d\n", i);
+					client_x = cent->nextState.pos.trBase[0];
+					client_y = cent->nextState.pos.trBase[1];
+					client_z = cent->nextState.pos.trBase[2];
+
+
+					if (client_x == 0 && client_y == 0 && client_z == 0)
+					{
+						continue;
+					}
+
+
+					// Calculate the squared distance between the heal position and the client's position.
+					float dx = client_x - heal_x;
+					float dy = client_y - heal_y;
+					float dz = client_z - heal_z;
+					float distSquared = dx * dx + dy * dy + dz * dz;
+
+					// Update the closest client if this one is nearer.
+					if (distSquared < closestDistanceSquared)
+					{
+						closestDistanceSquared = distSquared;
+						closestClientIndex = i;
+					}
+
+				}
+
+				if (closestClientIndex != -1)
+				{
+					cent = &cg_entities[closestClientIndex];
+
+					vec3_t healedClient;
+					VectorCopy(cent->lerpOrigin, healedClient);
+
+					vec3_t dir = { 0, 0, 1 };
+
+					trap->FX_PlayEffectID(cgs.effects.heal2FX, healedClient, dir, -1, -1, qfalse);
+				}
+
+
 			}
 		break;
 

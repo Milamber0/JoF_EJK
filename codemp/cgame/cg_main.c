@@ -595,6 +595,8 @@ void CG_ParseSiegeState(const char *str)
 	}
 }
 
+int index_for_heal;
+
 /*
 =================
 CG_RegisterSounds
@@ -1035,7 +1037,12 @@ static void CG_RegisterSounds( void ) {
 			}
 			continue;	// custom sound
 		}
+		if (!strcmp(soundName, "sound/weapons/force/heal.wav"))
+		{
+			index_for_heal = i;		//saving the index where sound for heal is located
+		}
 		cgs.gameSounds[i] = trap->S_RegisterSound( soundName );
+		cgs.effects.heal2FX = trap->FX_RegisterEffect("force/heal2");
 	}
 
 	for ( i = 1 ; i < MAX_FX ; i++ ) {
