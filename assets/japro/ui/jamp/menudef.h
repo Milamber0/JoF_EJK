@@ -396,6 +396,9 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define UI_VGS_TEAM			323
 #define UI_VGS_MEME			324
 
+// It would be handy
+#define UI_SHOW_ALL_FORCES  325
+
 #define VOICECHAT_GETFLAG			"getflag"				// command someone to get the flag
 #define VOICECHAT_OFFENSE			"offense"				// command someone to go on offense
 #define VOICECHAT_DEFEND			"defend"				// command someone to go on defense

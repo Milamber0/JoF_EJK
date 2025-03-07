@@ -165,6 +165,34 @@
 			decoration
 		}
 
+		
+		// Toggle Show All Powers
+		itemDef 
+		{
+			name				showallpowers
+			group				"playersettingforcegroup"
+			style				0	
+			text				@EXT_SHOW_ALL
+			ownerdraw			UI_SHOW_ALL_FORCES
+			rect				338 50 60 35
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			30
+			textaligny			17
+			outlinecolor			1 .5 .5 .5
+			backcolor			0 0 0 0
+			font				2
+			textscale			.5
+			forecolor			1 .682 0 .8
+			border				0
+			bordercolor			0 0 0 0
+			descText			@EXT_TOGGLE_SETTING_ALL_FORCES
+			visible				1 
+			action 
+			{ 
+				play			"sound/interface/button1.wav" ;  
+			}
+		}
+
 
 
 		//----------------------------------------
@@ -904,14 +932,10 @@
 			bordercolor				0 0 0 0
 			visible					1 
 			decoration
-			cvarTest				"ui_about_gametype"
+			cvarTest				"ui_drawTeamForces"
 			hideCvar 
 			{ 
-				"0" ; 
-				"1" ; 
-				"2" ; 
-				"3" ;
-				"4"
+				"0"
 			}
 		}
 
@@ -934,14 +958,10 @@
 			bordercolor				0 0 0 0
 			descText				@MENUS_CHANNEL_THE_FORCE_TO
 			visible					1 
-			cvarTest				"ui_about_gametype"
+			cvarTest				"ui_drawTeamForces"
 			hideCvar 
 			{ 
-				"0" ; 
-				"1" ; 
-				"2" ; 
-				"3" ;
-				"4"
+				"0"
 			}
 			action 
 			{ 
@@ -1210,14 +1230,10 @@
 			bordercolor				0 0 0 0
 			visible					1 
 			decoration
-			cvarTest				"ui_about_gametype"
+			cvarTest				"ui_drawTeamForces"
 			hideCvar 
 			{ 
-				"0" ; 
-				"1" ; 
-				"2" ; 
-				"3" ;
-				"4"
+				"0"
 			}
 		}
 
@@ -1240,14 +1256,10 @@
 			bordercolor				0 0 0 0
 			descText				@MENUS_THE_FORCE_TO_BOOST_THE
 			visible					1 
-			cvarTest				"ui_about_gametype"
+			cvarTest				"ui_drawTeamForces"
 			hideCvar 
 			{ 
-				"0" ; 
-				"1" ; 
-				"2" ; 
-				"3" ;
-				"4"
+				"0"
 			}
 			action 
 			{ 

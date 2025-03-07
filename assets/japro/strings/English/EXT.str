@@ -1,0 +1,11 @@
+VERSION			"1"
+CONFIG			"W:\bin\stringed.cfg"
+FILENOTES		""
+
+REFERENCE           SHOW_ALL
+LANG_ENGLISH        "Show all:"
+
+REFERENCE           TOGGLE_SETTING_ALL_FORCES
+LANG_ENGLISH        "Toggle whether only currently available or all forces can be set.
+
+ENDMARKER

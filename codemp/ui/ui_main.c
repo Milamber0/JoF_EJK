@@ -2101,6 +2101,33 @@ qboolean UI_TrueJediEnabled( void )
 	return (trueJedi != 0);
 }
 
+void UpdateForceStatus(void);
+static void UI_DrawShowAllForce(rectDef_t* rect, float scale, vec4_t color, int textStyle, int val, int min, int max, int iMenuFont)
+{
+	int i;
+	char s[256];
+
+	i = val;
+	if (i < min || i > max)
+	{
+		i = min;
+	}
+
+	if (i == 0)
+	{
+		trap->SE_GetStringTextString("MENUS_NO", s, sizeof(s));
+	}
+	else
+	{
+		trap->SE_GetStringTextString("MENUS_YES", s, sizeof(s));
+	}
+
+	UI_ReadLegalForce();
+	UpdateForceStatus();
+
+	Text_Paint(rect->x, rect->y, scale, color, s, 0, 0, textStyle, iMenuFont);
+}
+
 static void UI_DrawJediNonJedi(rectDef_t *rect, float scale, vec4_t color, int textStyle, int val, int min, int max, int iMenuFont)
 {
 	int i;
@@ -2854,6 +2881,17 @@ static int UI_OwnerDrawWidth(int ownerDraw, float scale) {
 			s = (char *)UI_GetStringEdString("MENUS", "FORCEDESC_DARK");
 		}
 		break;
+	case UI_SHOW_ALL_FORCES:
+		i = cg_enableForceMenu.integer;
+		if (i == 1)
+		{
+			s = (char*)UI_GetStringEdString("MENUS", "YES");
+		}
+		else
+		{
+			s = (char*)UI_GetStringEdString("MENUS", "NO");
+		}
+		break;
     case UI_JEDI_NONJEDI:
 		i = uiJediNonJedi;
 		if (i < 0 || i > 1)
@@ -3244,6 +3282,9 @@ static void UI_OwnerDraw(float x, float y, float w, float h, float text_x, float
 	case UI_FORCE_SIDE:
       UI_DrawForceSide(&rect, scale, color, textStyle, uiForceSide, 1, 2, iMenuFont);
       break;
+	case UI_SHOW_ALL_FORCES:
+	  UI_DrawShowAllForce(&rect, scale, color, textStyle, cg_enableForceMenu.integer, 0, 1, iMenuFont);
+	  break;
 	case UI_JEDI_NONJEDI:
       UI_DrawJediNonJedi(&rect, scale, color, textStyle, uiJediNonJedi, 0, 1, iMenuFont);
       break;
@@ -5391,6 +5432,9 @@ static qboolean UI_OwnerDrawHandleKey(int ownerDraw, int flags, float *special, 
     case UI_FORCE_SIDE:
       return UI_ForceSide_HandleKey(flags, special, key, uiForceSide, 1, 2, ownerDraw);
       break;
+	case UI_SHOW_ALL_FORCES:
+	  return UI_ShowAllForces_HandleKey(flags, special, key, cg_enableForceMenu.integer, 0, 1, ownerDraw);
+	  break;
     case UI_JEDI_NONJEDI:
       return UI_JediNonJedi_HandleKey(flags, special, key, uiJediNonJedi, 0, 1, ownerDraw);
       break;
