@@ -532,7 +532,7 @@ void UI_ReadLegalForce(void)
 		}
 	}
 	//Second, legalize them.
-	if (!BG_LegalizedForcePowers(fcfString, sizeof (fcfString), uiMaxRank, ui_freeSaber.integer, forceTeam, atoi( Info_ValueForKey( info, "g_gametype" )), 0))
+	if (!BG_LegalizedForcePowers2(fcfString, sizeof(fcfString), uiMaxRank, ui_freeSaber.integer, forceTeam, atoi(Info_ValueForKey(info, "g_gametype")), 0, ui_drawTeamForces.integer))
 	{ //if they were illegal, we should refresh them.
 		updateForceLater = qtrue;
 	}
