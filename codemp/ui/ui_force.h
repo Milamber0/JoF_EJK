@@ -50,6 +50,7 @@ void UI_SaveForceTemplate();
 void UI_UpdateForcePowers();
 qboolean UI_SkinColor_HandleKey(int flags, float *special, int key, int num, int min, int max, int type);
 qboolean UI_ForceSide_HandleKey(int flags, float *special, int key, int num, int min, int max, int type);
+qboolean UI_ShowAllForces_HandleKey(int flags, float* special, int key, int num, int min, int max, int type);
 qboolean UI_JediNonJedi_HandleKey(int flags, float *special, int key, int num, int min, int max, int type);
 qboolean UI_ForceMaxRank_HandleKey(int flags, float *special, int key, int num, int min, int max, int type);
 qboolean UI_ForcePowerRank_HandleKey(int flags, float *special, int key, int num, int min, int max, int type);

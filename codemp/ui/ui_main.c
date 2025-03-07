@@ -2332,7 +2332,7 @@ void UpdateBotButtons(void)
 
 }
 
-void UpdateForceStatus()
+void UpdateForceStatus(void)
 {
 	menuDef_t *menu;
 
@@ -2423,9 +2423,17 @@ void UpdateForceStatus()
 		}
 		else
 		{
-			if (!cg_enableForceMenu.integer) { UI_SetForceDisabled(disabledForce); }
+			if (!cg_enableForceMenu.integer)
+			{
+				UI_SetForceDisabled(disabledForce);
+				trap->Cvar_Set("ui_drawTeamForces", va("%i", Info_ValueForKey(info, "cg_enableForceMenu") || ui_gametype.integer > 4));
+			}
 			else
+			{
 				UI_SetForceDisabled(0);
+				trap->Cvar_Set("ui_drawTeamForces", "1");
+			}
+
 			Menu_ShowItemByName(menu, "noforce", qfalse);
 			Menu_ShowItemByName(menu, "yesforce", qtrue);
 		}

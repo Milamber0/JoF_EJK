@@ -528,7 +528,11 @@ fpDisabled is actually only expected (needed) from the server, because the ui di
 force power selection anyway when force powers are disabled on the server.
 ================
 */
-qboolean BG_LegalizedForcePowers(char *powerOut, size_t powerOutSize, int maxRank, qboolean freeSaber, int teamForce, int gametype, int fpDisabled)
+qboolean BG_LegalizedForcePowers(char* powerOut, size_t powerOutSize, int maxRank, qboolean freeSaber, int teamForce, int gametype, int fpDisabled)
+{
+	return BG_LegalizedForcePowers2(powerOut, powerOutSize, maxRank, freeSaber, teamForce, gametype, fpDisabled, qfalse);
+}
+qboolean BG_LegalizedForcePowers2(char* powerOut, size_t powerOutSize, int maxRank, qboolean freeSaber, int teamForce, int gametype, int fpDisabled, qboolean forceTeamForces)
 {
 	char powerBuf[128];
 	char readBuf[128];
@@ -633,7 +637,7 @@ qboolean BG_LegalizedForcePowers(char *powerOut, size_t powerOutSize, int maxRan
 		i++;
 	}
 
-	if (gametype < GT_TEAM)
+	if (gametype < GT_TEAM && !forceTeamForces)
 	{ //don't bother with team powers then
 		final_Powers[FP_TEAM_HEAL] = 0;
 		final_Powers[FP_TEAM_FORCE] = 0;
