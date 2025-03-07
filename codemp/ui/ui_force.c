@@ -891,6 +891,46 @@ qboolean UI_ForceSide_HandleKey(int flags, float *special, int key, int num, int
 	return qfalse;
 }
 
+qboolean UI_ShowAllForces_HandleKey(int flags, float* special, int key, int num, int min, int max, int type)
+{
+	if (key == A_MOUSE1 || key == A_MOUSE2 || key == A_ENTER || key == A_KP_ENTER)
+	{
+		int i = num;
+		int x = 0;
+
+		Menu_SetFeederSelection(NULL, FEEDER_FORCECFG, 0, NULL);
+
+		if (key == A_MOUSE2)
+		{
+			i--;
+		}
+		else
+		{
+			i++;
+		}
+		if (i < min)
+		{
+			i = max;
+		}
+		else if (i > max)
+		{
+			i = min;
+		}
+		num = i;
+
+		trap->Cvar_SetValue("cg_enableForceMenu", num);
+		trap->Cvar_SetValue("ui_drawTeamForces", cg_enableForceMenu.integer || ui_gametype.integer > 4);
+
+
+
+		UpdateForceUsed();
+		gTouchedForce = qtrue;
+
+		return qtrue;
+	}
+	return qfalse;
+}
+
 qboolean UI_JediNonJedi_HandleKey(int flags, float *special, int key, int num, int min, int max, int type)
 {
 	char info[MAX_INFO_VALUE];

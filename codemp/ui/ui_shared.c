@@ -3015,6 +3015,7 @@ qboolean Item_OwnerDraw_HandleKey(itemDef_t *item, int key) {
 		switch( item->window.ownerDraw )
 		{
 			case UI_FORCE_SIDE:
+			case UI_SHOW_ALL_FORCES:
 			case UI_FORCE_RANK_HEAL:
 			case UI_FORCE_RANK_LEVITATION:
 			case UI_FORCE_RANK_SPEED:
