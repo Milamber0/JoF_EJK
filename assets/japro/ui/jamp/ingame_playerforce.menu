@@ -174,14 +174,14 @@
 			style				0	
 			text				@EXT_SHOW_ALL
 			ownerdraw			UI_SHOW_ALL_FORCES
-			rect				338 50 60 35
+			rect				325 335 80 25
 			textalign			ITEM_ALIGN_CENTER
-			textalignx			30
-			textaligny			17
+			textalignx			40
+			textaligny			5
 			outlinecolor			1 .5 .5 .5
 			backcolor			0 0 0 0
 			font				2
-			textscale			.5
+			textscale			.8
 			forecolor			1 .682 0 .8
 			border				0
 			bordercolor			0 0 0 0
