@@ -2453,12 +2453,12 @@ void UpdateForceStatus(void)
 			if (!cg_enableForceMenu.integer)
 			{
 				UI_SetForceDisabled(disabledForce);
-				trap->Cvar_Set("ui_drawTeamForces", va("%i", Info_ValueForKey(info, "cg_enableForceMenu") || ui_gametype.integer > 4));
+				trap->Cvar_SetValue("ui_drawTeamForces", cg_enableForceMenu.integer || ui_gametype.integer >= GT_TEAM);
 			}
 			else
 			{
 				UI_SetForceDisabled(0);
-				trap->Cvar_Set("ui_drawTeamForces", "1");
+				trap->Cvar_SetValue("ui_drawTeamForces", 1);
 			}
 
 			Menu_ShowItemByName(menu, "noforce", qfalse);
