@@ -307,9 +307,9 @@ void CG_ParseServerinfo( void ) {
 #else
 	Q_strncpyz( cgs.rawmapname, mapname, sizeof( cgs.rawmapname ) );
 #endif
-
+	
 	trap->Cvar_Set ( "ui_about_gametype", va("%i", cgs.gametype ) );
-	trap->Cvar_Set ( "ui_drawTeamForces", va("%i", Info_ValueForKey(info, "cg_enableForceMenu") || ((int)cgs.gametype > 4)));
+	trap->Cvar_Set ( "ui_drawTeamForces", va("%i", Q_stricmp(Info_ValueForKey(info, "cg_enableForceMenu"), "0") || cgs.gametype >= GT_TEAM));
 	trap->Cvar_Set ( "ui_about_fraglimit", va("%i", cgs.fraglimit ) );
 	trap->Cvar_Set ( "ui_about_duellimit", va("%i", cgs.duel_fraglimit ) );
 	trap->Cvar_Set ( "ui_about_capturelimit", va("%i", cgs.capturelimit ) );
