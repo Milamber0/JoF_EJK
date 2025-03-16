@@ -637,10 +637,18 @@ qboolean BG_LegalizedForcePowers2(char* powerOut, size_t powerOutSize, int maxRa
 		i++;
 	}
 
-	if (gametype < GT_TEAM && !forceTeamForces)
-	{ //don't bother with team powers then
-		final_Powers[FP_TEAM_HEAL] = 0;
-		final_Powers[FP_TEAM_FORCE] = 0;
+	if (!forceTeamForces && gametype < GT_TEAM)
+	{
+		if ((final_Side == FORCE_LIGHTSIDE) ||
+			(final_Side == FORCE_DARKSIDE && (fpDisabled & (1 << FP_TEAM_FORCE))))
+		{
+			final_Powers[FP_TEAM_FORCE] = 0;
+		}
+		if ((final_Side == FORCE_LIGHTSIDE) ||
+			(final_Side == FORCE_DARKSIDE && (fpDisabled & (1 << FP_TEAM_HEAL))))
+		{
+			final_Powers[FP_TEAM_HEAL] = 0;
+		}
 	}
 
 	usedPoints = 0;

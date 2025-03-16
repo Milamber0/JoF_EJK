@@ -919,7 +919,12 @@ qboolean UI_ShowAllForces_HandleKey(int flags, float* special, int key, int num,
 		num = i;
 
 		trap->Cvar_SetValue("cg_enableForceMenu", num);
-		trap->Cvar_SetValue("ui_drawTeamForces", cg_enableForceMenu.integer || ui_gametype.integer >= GT_TEAM);
+		trap->Cvar_SetValue("ui_drawTeamForces",
+			cg_enableForceMenu.integer ||
+			ui_gametype.integer >= GT_TEAM ||
+			(uiForceSide == FORCE_LIGHTSIDE && !uiForcePowersDisabled[FP_TEAM_HEAL]) ||
+			(uiForceSide == FORCE_DARKSIDE && !uiForcePowersDisabled[FP_TEAM_FORCE])
+		);
 
 
 
