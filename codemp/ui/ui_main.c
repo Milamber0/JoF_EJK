@@ -2453,7 +2453,12 @@ void UpdateForceStatus(void)
 			if (!cg_enableForceMenu.integer)
 			{
 				UI_SetForceDisabled(disabledForce);
-				trap->Cvar_SetValue("ui_drawTeamForces", cg_enableForceMenu.integer || ui_gametype.integer >= GT_TEAM);
+				trap->Cvar_SetValue( "ui_drawTeamForces",
+					cg_enableForceMenu.integer || 
+					ui_gametype.integer >= GT_TEAM ||
+					(uiForceSide == FORCE_LIGHTSIDE && !uiForcePowersDisabled[FP_TEAM_HEAL]) ||
+					(uiForceSide == FORCE_DARKSIDE && !uiForcePowersDisabled[FP_TEAM_FORCE])
+				);
 			}
 			else
 			{
