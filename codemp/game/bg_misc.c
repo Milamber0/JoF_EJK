@@ -644,8 +644,8 @@ qboolean BG_LegalizedForcePowers2(char* powerOut, size_t powerOutSize, int maxRa
 		{
 			final_Powers[FP_TEAM_FORCE] = 0;
 		}
-		if ((final_Side == FORCE_LIGHTSIDE) ||
-			(final_Side == FORCE_DARKSIDE && (fpDisabled & (1 << FP_TEAM_HEAL))))
+		if ((final_Side == FORCE_DARKSIDE) ||
+			(final_Side == FORCE_LIGHTSIDE && (fpDisabled & (1 << FP_TEAM_HEAL))))
 		{
 			final_Powers[FP_TEAM_HEAL] = 0;
 		}
