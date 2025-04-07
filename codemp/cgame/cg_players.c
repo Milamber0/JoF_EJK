@@ -476,8 +476,8 @@ retryModel:
 			Com_Printf("WARNING: Attempted to load an unsupported multiplayer model %s! (bad or missing bone, or missing animation sequence)\n", modelName);
 		}
 #endif
-		modelName = DEFAULT_MODEL;
-		skinName = "default";
+		strcpy(modelName, DEFAULT_MODEL);
+		strcpy(skinName, "default");
 
 		badModel = qfalse;
 	}
@@ -490,8 +490,8 @@ retryModel:
 
 	if (!BG_IsValidCharacterModel(modelName, skinName))
 	{
-		modelName = DEFAULT_MODEL;
-		skinName = "default";
+		strcpy(modelName, DEFAULT_MODEL);
+		strcpy(skinName, "default");
 	}
 
 	if ( cgs.gametype >= GT_TEAM && !cgs.jediVmerc && cgs.gametype != GT_SIEGE )
