@@ -11872,10 +11872,11 @@ UI_LoadForceConfig_List
 =================
 Looks in the directory for force config files (.fcf) and loads the name in
 */
+#define PROFILE_SKIN_SIZE 8192 //2048
 void UI_LoadForceConfig_List( void )
 {
 	int			numfiles = 0;
-	char		filelist[2048];
+	char		filelist[PROFILE_SKIN_SIZE];
 	char		configname[128];
 	char		*fileptr = NULL;
 	int			j = 0;
@@ -11890,12 +11891,12 @@ void UI_LoadForceConfig_List( void )
 nextSearch:
 	if (lightSearch)
 	{ //search light side folder
-		numfiles = trap->FS_GetFileList("forcecfg/light", "fcf", filelist, 2048 );
+		numfiles = trap->FS_GetFileList("forcecfg/light", "fcf", filelist, PROFILE_SKIN_SIZE );
 		uiInfo.forceConfigLightIndexBegin = uiInfo.forceConfigCount-1;
 	}
 	else
 	{ //search dark side folder
-		numfiles = trap->FS_GetFileList("forcecfg/dark", "fcf", filelist, 2048 );
+		numfiles = trap->FS_GetFileList("forcecfg/dark", "fcf", filelist, PROFILE_SKIN_SIZE );
 		uiInfo.forceConfigDarkIndexBegin = uiInfo.forceConfigCount-1;
 	}
 
@@ -12016,8 +12017,8 @@ void UI_BuildQ3Model_List( void )
 {
 	int			numdirs;
 	int			numfiles;
-	char		dirlist[2048];
-	char		filelist[2048];
+	char		dirlist[PROFILE_SKIN_SIZE];
+	char		filelist[PROFILE_SKIN_SIZE];
 	char		skinname[64];
 	char		*dirptr;
 	char		*fileptr;
@@ -12031,7 +12032,7 @@ void UI_BuildQ3Model_List( void )
 	uiInfo.q3HeadCount = 0;
 
 	// iterate directory of all player models
-	numdirs = trap->FS_GetFileList("models/players", "/", dirlist, 2048 );
+	numdirs = trap->FS_GetFileList("models/players", "/", dirlist, PROFILE_SKIN_SIZE );
 	dirptr  = dirlist;
 	for (i=0; i<numdirs && uiInfo.q3HeadCount < MAX_Q3PLAYERMODELS; i++,dirptr+=dirlen+1)
 	{
@@ -12054,7 +12055,7 @@ void UI_BuildQ3Model_List( void )
 				continue;
 		}
 
-		numfiles = trap->FS_GetFileList( va("models/players/%s", dirptr), "skin", filelist, 2048 );
+		numfiles = trap->FS_GetFileList( va("models/players/%s", dirptr), "skin", filelist, PROFILE_SKIN_SIZE );
 		fileptr  = filelist;
 		for (j=0; j<numfiles && uiInfo.q3HeadCount < MAX_Q3PLAYERMODELS;j++,fileptr+=filelen+1)
 		{
@@ -12256,7 +12257,7 @@ UI_BuildPlayerModel_List
 */
 void UI_BuildPlayerModel_List( qboolean inGameLoad )
 {
-	static const size_t DIR_LIST_SIZE = 16384;
+	static const size_t DIR_LIST_SIZE = 65536;//16384; //65536 is 8 times PROFILE_SKIN_SIZE
 
 	int			numdirs;
 	size_t		dirListSize = DIR_LIST_SIZE;
@@ -12314,7 +12315,7 @@ void UI_BuildPlayerModel_List( qboolean inGameLoad )
 
 		if (f)
 		{
-			char	filelist[2048];
+			char	filelist[PROFILE_SKIN_SIZE];
 			playerSpeciesInfo_t *species = NULL;
 			char                 skinname[64];
 			int                  numfiles;
