@@ -11693,6 +11693,8 @@ static void CG_PlayerLabels(void)
 			continue;
 		if (cgs.clientinfo[i].team == TEAM_SPECTATOR)
 			continue;
+		if (cent->currentState.bolt1 && cg_hideDuelerNames.integer == 1) //if cvar is set and player is in duel - skip client, dont draw name
+			continue;
 		if (CG_IsMindTricked(cent->currentState.trickedentindex,
 			cent->currentState.trickedentindex2,
 			cent->currentState.trickedentindex3,
