@@ -83,6 +83,52 @@ static void CG_Viewpos_f (void) {
 		(int)cg.refdef.viewangles[YAW]);
 }
 
+
+static void CG_TeleOffset_f(void) {
+
+	vec3_t offsetPos;
+	float offsetX = 0, offsetY = 0, offsetZ = 0;
+
+	VectorCopy(cg.predictedPlayerState.origin, offsetPos);
+	
+	switch (trap->Cmd_Argc())
+	{
+	case 2:
+		offsetX = atoi(CG_Argv(1));
+		offsetPos[0] += offsetX;
+
+		trap->SendClientCommand(va("amtele %f %f %f %f",
+		offsetPos[0], offsetPos[1], offsetPos[2], cg.predictedPlayerState.viewangles[YAW]));
+		break;
+
+	case 3:
+		offsetX = atoi(CG_Argv(1));
+		offsetY = atoi(CG_Argv(2));
+		offsetPos[0] += offsetX;
+		offsetPos[1] += offsetY;
+
+		trap->SendClientCommand(va("amtele %f %f %f %f",
+		offsetPos[0], offsetPos[1], offsetPos[2], cg.predictedPlayerState.viewangles[YAW]));
+		break;
+
+	case 4:
+		offsetX = atoi(CG_Argv(1));
+		offsetY = atoi(CG_Argv(2));
+		offsetZ = atoi(CG_Argv(3));
+		offsetPos[0] += offsetX;
+		offsetPos[1] += offsetY;
+		offsetPos[2] += offsetZ;
+
+		trap->SendClientCommand(va("amtele %f %f %f %f",
+		offsetPos[0], offsetPos[1], offsetPos[2], cg.predictedPlayerState.viewangles[YAW]));
+		break;
+	
+	default:
+		Com_Printf("Usage: amteleoffset x y z\n");
+		return;
+	}
+}
+
 static void CG_PTelemark_f (void) {
 	int x, y, z, yaw;
 
@@ -2544,6 +2590,7 @@ static consoleCommand_t	commands[] = {
 
 	{ "PTelemark",					CG_PTelemark_f },
 	{ "PTele",						CG_PTele_f },
+	{ "amTeleOffset",				CG_TeleOffset_f },
 
 	{ "remapShader",				CG_RemapShader_f },
 	{ "listRemaps",					CG_ListRemaps_f },
