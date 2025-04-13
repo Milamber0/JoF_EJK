@@ -1328,7 +1328,8 @@ CG_LoadClientInfo
 Load it now, taking the disk hits.
 This will usually be deferred to a safe time
 ===================
-*/
+*/ 
+
 void CG_LoadClientInfo( clientInfo_t *ci ) {
 	qboolean	modelloaded;
 	qboolean	isDefaultModel;
@@ -1339,6 +1340,28 @@ void CG_LoadClientInfo( clientInfo_t *ci ) {
 
 	if (ci->gender == GENDER_FEMALE) {
 		fallbackModel = DEFAULT_MODEL_FEMALE;
+	}
+
+	switch (cg_saberHum.integer)
+	{
+	case 1:
+		ci->saber[0].soundLoop = trap->S_RegisterSound("sound/weapons/saber/saberhum1.wav");
+		break;
+	case 2:
+		ci->saber[0].soundLoop = trap->S_RegisterSound("sound/weapons/saber/saberhum2.wav");
+		break;
+	case 3:
+		ci->saber[0].soundLoop = trap->S_RegisterSound("sound/weapons/saber/saberhum3.wav");
+		break;
+	case 4:
+		ci->saber[0].soundLoop = trap->S_RegisterSound("sound/weapons/saber/saberhum4.wav");
+		break;
+	case 5:
+		ci->saber[0].soundLoop = trap->S_RegisterSound("sound/weapons/saber/saberhum5.wav");
+		break;
+	case 0:
+	default:
+		ci->saber[0].soundLoop = cgs.media.saberHumSounds[clientNum % 5];
 	}
 
 	clientNum = ci - cgs.clientinfo;
@@ -2149,10 +2172,6 @@ void CG_NewClientInfo( int clientNum, qboolean entitiesInitialized ) {
 		newInfo.ghoul2Weapons[0] = ci->ghoul2Weapons[0];
 	}
 
-	if (newInfo.saber[0].soundLoop == trap->S_RegisterSound("sound/weapons/saber/saberhum4.wav")) {//probably a base hilt
-		newInfo.saber[0].soundLoop = cgs.media.saberHumSounds[clientNum % 5]; //JAPRO - Clientside - Use all saber hum sounds found in base assets
-	}
-
 	v = Info_ValueForKey( configstring, "st2" );
 
 	if (clientNum == cg.clientNum && parsed == 2)
@@ -2172,10 +2191,6 @@ void CG_NewClientInfo( int clientNum, qboolean entitiesInitialized ) {
 		Q_strncpyz( newInfo.saber2Name, ci->saber2Name, MAX_QPATH );
 		memcpy(&newInfo.saber[1], &ci->saber[1], sizeof(newInfo.saber[1]));
 		newInfo.ghoul2Weapons[1] = ci->ghoul2Weapons[1];
-	}
-
-	if (newInfo.saber[0].soundLoop == trap->S_RegisterSound("sound/weapons/saber/saberhum4.wav")) {//probably a base hilt
-		newInfo.saber[0].soundLoop = cgs.media.saberHumSounds[clientNum % 5]; //JAPRO - Clientside - Use all saber hum sounds found in base assets
 	}
 
 	if (saberUpdate[0] || saberUpdate[1])
