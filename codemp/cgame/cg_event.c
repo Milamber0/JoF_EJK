@@ -3721,7 +3721,6 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 
 			if (es->eventParm == index_for_heal)  //index taken from CG_RegisterSounds in cg_main.c
 			{
-				Com_Printf("es->pos.trBase = %f %f %f\n", es->pos.trBase[0], es->pos.trBase[1], es->pos.trBase[2]);
 				float heal_x = es->pos.trBase[0];
 				float heal_y = es->pos.trBase[1];
 				float heal_z = es->pos.trBase[2];
@@ -3739,7 +3738,6 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 				for (int i = 0; i <= MAX_CLIENTS; i++)
 				{
 					cent = &cg_entities[i];
-					Com_Printf("%d\n", i);
 					client_x = cent->nextState.pos.trBase[0];
 					client_y = cent->nextState.pos.trBase[1];
 					client_z = cent->nextState.pos.trBase[2];
