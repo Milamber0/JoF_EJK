@@ -1039,10 +1039,11 @@ static void CG_RegisterSounds( void ) {
 		}
 		if (!strcmp(soundName, "sound/weapons/force/heal.wav"))
 		{
+			cgs.effects.heal2FX = trap->FX_RegisterEffect("force/heal2");
 			index_for_heal = i;		//saving the index where sound for heal is located
 		}
 		cgs.gameSounds[i] = trap->S_RegisterSound( soundName );
-		cgs.effects.heal2FX = trap->FX_RegisterEffect("force/heal2");
+
 	}
 
 	for ( i = 1 ; i < MAX_FX ; i++ ) {
