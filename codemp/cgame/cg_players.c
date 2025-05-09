@@ -7763,6 +7763,12 @@ CheckTrail:
 			VectorCopy(saberTrail->tip, saberTrail->dualtip);
 			saberTrail->lastTime = cg.time;
 			saberTrail->inAction = cg.time;
+
+			VectorCopy(saberTrail->base, fx.mVerts[0].origin);
+			VectorCopy(saberTrail->tip, fx.mVerts[1].origin);
+			VectorCopy(saberTrail->dualtip, fx.mVerts[2].origin);
+			VectorCopy(saberTrail->dualbase, fx.mVerts[3].origin);
+
 			goto JustDoIt; //return;
 		}
 		else if (cg.time > saberTrail->lastTime) {
