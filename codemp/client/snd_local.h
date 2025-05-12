@@ -97,6 +97,14 @@ typedef struct sfx_s {
 	struct sfx_s	*next;					// only used because of hash table when registering
 } sfx_t;
 
+typedef struct soundBuffer_s {
+	int soundCount;
+	int lastReset;
+	int maxSoundsPerSec = 10;
+} soundBuffer_t;
+
+extern soundBuffer_t sb;
+
 typedef struct dma_s {
 	int			channels;
 	int			samples;				// mono samples in buffer
