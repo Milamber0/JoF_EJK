@@ -40,6 +40,8 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include <windows.h>
 #endif
 
+soundBuffer_t sb; //need to init it somewhere to allocate memory
+
 qboolean s_shutUp = qfalse;
 
 static void S_Play_f(void);
@@ -1561,6 +1563,32 @@ void S_MuteSound(int entityNum, int entchannel)
 }
 
 /*
+=================
+S_CanPlaySound
+Checks if we... can play the sound
+=================
+*/
+cvar_t* s_maxSounds;
+qboolean S_CanPlaySound()
+{
+	
+	int currentTime = cls.realtime; 
+
+	s_maxSounds = Cvar_Get("s_maxSounds", "10", CVAR_ARCHIVE);
+	sb.maxSoundsPerSec = s_maxSounds->integer;
+
+	if (currentTime - sb.lastReset >= 1000) {
+		sb.soundCount = 0;
+		sb.lastReset = currentTime;
+	}
+	if (sb.soundCount >= sb.maxSoundsPerSec) {
+		return qfalse;
+	}
+	sb.soundCount++;
+	return qtrue;
+}
+
+/*
 ====================
 S_StartSound
 
@@ -1573,6 +1601,10 @@ void S_StartSound(const vec3_t origin, int entityNum, int entchannel, sfxHandle_
 {
 	channel_t	*ch;
 	/*const*/ sfx_t *sfx;
+	
+	if (!S_CanPlaySound()) {
+		return;
+	}
 
 	if ( !s_soundStarted || s_soundMuted ) {
 		return;
