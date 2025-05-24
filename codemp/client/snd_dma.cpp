@@ -1574,7 +1574,7 @@ qboolean S_CanPlaySound()
 	
 	int currentTime = cls.realtime; 
 
-	s_maxSounds = Cvar_Get("s_maxSounds", "10", CVAR_ARCHIVE);
+	s_maxSounds = Cvar_Get("s_maxSounds", "50", CVAR_ARCHIVE);
 	sb.maxSoundsPerSec = s_maxSounds->integer;
 
 	if (currentTime - sb.lastReset >= 1000) {
