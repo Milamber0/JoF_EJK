@@ -165,7 +165,7 @@ qboolean SNDDMA_Init(int sampleFrequencyInKHz)
 	SDL_AudioSpec desired;
 	SDL_AudioSpec obtained;
 	int tmp;
-	s_maxSounds = Cvar_Get("s_maxSounds", "10", CVAR_ARCHIVE);
+	s_maxSounds = Cvar_Get("s_maxSounds", "50", CVAR_ARCHIVE);
 	SNDDMA_InitSoundBuffer(s_maxSounds->integer);
 
 	if (snd_inited)
