@@ -100,7 +100,7 @@ typedef struct sfx_s {
 typedef struct soundBuffer_s {
 	int soundCount;
 	int lastReset;
-	int maxSoundsPerSec = 10;
+	int maxSoundsPerSec = 50;
 } soundBuffer_t;
 
 extern soundBuffer_t sb;
