@@ -288,6 +288,35 @@
 			}
 		}
 
+		itemDef
+		{
+			name				defaultMale
+			type				ITEM_TYPE_MULTI
+			text				"Show Hidden Skins:"
+			cvar				ui_showAllSkins
+			cvarFloatList
+			{
+				@MENUS_OFF 0
+				@MENUS_ON 1
+			}
+			rect				200 50 160 20
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			textaligny			-5
+			outlinecolor			1 .5 .5 .5
+			backcolor			0 0 0 0
+			font				2
+			textscale			.8
+			forecolor			1 .682 0 1
+			border				0
+			bordercolor			0 0 0 0
+			visible				1
+			descText			"Shows or hides the icons of models that aren't default, team or RGB, as well as missing icons."
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+			}
+		}
 //------------------------------------------------------------------------------------------------
 // Scroll box with portraits.
 //------------------------------------------------------------------------------------------------
