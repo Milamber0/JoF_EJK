@@ -1039,7 +1039,6 @@ static void CG_RegisterSounds( void ) {
 		}
 		if (!strcmp(soundName, "sound/weapons/force/heal.wav"))
 		{
-			cgs.effects.heal2FX = trap->FX_RegisterEffect("force/heal2");
 			index_for_heal = i;		//saving the index where sound for heal is located
 		}
 		cgs.gameSounds[i] = trap->S_RegisterSound( soundName );
@@ -1173,6 +1172,8 @@ static void CG_RegisterEffects( void )
 	cgs.effects.waterSplash = trap->FX_RegisterEffect( "env/water_impact" );
 	cgs.effects.lavaSplash = trap->FX_RegisterEffect( "env/lava_splash" );
 	cgs.effects.acidSplash = trap->FX_RegisterEffect( "env/acid_splash" );
+	cgs.effects.heal2FX = trap->FX_RegisterEffect("force/heal2");
+
 }
 
 //===================================================================================

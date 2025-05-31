@@ -840,6 +840,7 @@ void CG_ParseWeatherEffect(const char *str);
 extern void CG_ParseSiegeState(const char *str); //cg_main.c
 extern int cg_beatingSiegeTime;
 extern int cg_siegeWinTeam;
+extern int index_for_heal;
 static void CG_ConfigStringModified( void ) {
 	const char	*str;
 	int		num;
@@ -970,6 +971,10 @@ static void CG_ConfigStringModified( void ) {
 // Ghoul2 Insert end
 	} else if ( num >= CS_SOUNDS && num < CS_SOUNDS+MAX_SOUNDS ) {
 		if ( str[0] != '*' ) {	// player specific sounds don't register here
+			if (!strcmp(str, "sound/weapons/force/heal.wav"))
+			{
+				index_for_heal = num-CS_SOUNDS;		//saving the index where sound for heal is located
+			}
 			cgs.gameSounds[ num-CS_SOUNDS] = trap->S_RegisterSound( str );
 		}
 		else if (str[1] == '$')
