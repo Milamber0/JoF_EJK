@@ -1328,12 +1328,11 @@ CG_LoadClientInfo
 Load it now, taking the disk hits.
 This will usually be deferred to a safe time
 ===================
-*/ 
+*/
 
-void CG_LoadClientInfo( clientInfo_t *ci ) {
+void CG_LoadClientInfo( clientInfo_t *ci, int clientNum ) {
 	qboolean	modelloaded;
 	qboolean	isDefaultModel;
-	int			clientNum;
 	int			i;
 	char		teamname[MAX_QPATH];
 	char		*fallbackModel = DEFAULT_MODEL;
@@ -1364,7 +1363,6 @@ void CG_LoadClientInfo( clientInfo_t *ci ) {
 		ci->saber[0].soundLoop = cgs.media.saberHumSounds[clientNum % 5];
 	}
 
-	clientNum = ci - cgs.clientinfo;
 
 	if (clientNum < 0 || clientNum >= MAX_CLIENTS)
 	{
@@ -1728,7 +1726,7 @@ We aren't going to load it now, so grab some other
 client's info to use until we have some spare time.
 ======================
 */
-static void CG_SetDeferredClientInfo( clientInfo_t *ci ) {
+static void CG_SetDeferredClientInfo( clientInfo_t *ci, int clientNum ) {
 	int		i;
 	clientInfo_t	*match;
 
@@ -1756,7 +1754,7 @@ static void CG_SetDeferredClientInfo( clientInfo_t *ci ) {
 		*/
 
 		// just load the real info cause it uses the same models and skins
-		CG_LoadClientInfo( ci );
+		CG_LoadClientInfo( ci, clientNum );
 		return;
 	}
 
@@ -1789,7 +1787,7 @@ static void CG_SetDeferredClientInfo( clientInfo_t *ci ) {
 		// an improper team skin.  This will cause a hitch for the first
 		// player, when the second enters.  Combat shouldn't be going on
 		// yet, so it shouldn't matter
-		CG_LoadClientInfo( ci );
+		CG_LoadClientInfo( ci, clientNum );
 		return;
 	}
 
@@ -1822,7 +1820,7 @@ static void CG_SetDeferredClientInfo( clientInfo_t *ci ) {
 	//trap->Print( "CG_SetDeferredClientInfo: no valid clients!\n" );
 	//Actually it is possible now because of the unique sabers.
 
-	CG_LoadClientInfo( ci );
+	CG_LoadClientInfo( ci, clientNum );
 }
 
 /*
@@ -2269,13 +2267,13 @@ void CG_NewClientInfo( int clientNum, qboolean entitiesInitialized ) {
 		// if we are defering loads, just have it pick the first valid
 		if (cg.snap && cg.snap->ps.clientNum == clientNum)
 		{ //rww - don't defer your own client info ever
-			CG_LoadClientInfo( &newInfo );
+			CG_LoadClientInfo( &newInfo, clientNum );
 		}
 		else if (  cg_deferPlayers.integer && cgs.gametype != GT_SIEGE && !com_buildScript.integer && !cg.loading ) {
 			// keep whatever they had if it won't violate team skins
-			CG_SetDeferredClientInfo( &newInfo );
+			CG_SetDeferredClientInfo( &newInfo, clientNum );
 		} else {
-			CG_LoadClientInfo( &newInfo );
+			CG_LoadClientInfo( &newInfo, clientNum );
 		}
 	}
 
@@ -2426,7 +2424,8 @@ void CG_ActualLoadDeferredPlayers( void )
 	// scan for a deferred player to load
 	for ( i = 0, ci = cgs.clientinfo ; i < cgs.maxclients ; i++, ci++ ) {
 		if ( ci->infoValid && ci->deferred ) {
-			CG_LoadClientInfo( ci );
+			int clientNum = ci - cgs.clientinfo;
+			CG_LoadClientInfo( ci, clientNum );
 //			break;
 		}
 	}
