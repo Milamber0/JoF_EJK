@@ -3767,18 +3767,21 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 				if (closestClientIndex != -1)
 				{
 					cent = &cg_entities[closestClientIndex];
+					vec3_t notMoving = { 0, 0, 0 };
 
-					vec3_t healedClient;
-					VectorCopy(cent->lerpOrigin, healedClient);
+					if (VectorCompare(cent->playerState->velocity, notMoving))
+					{
+						vec3_t healedClient;
+						VectorCopy(cent->lerpOrigin, healedClient);
+						vec3_t dir = { 0, 0, 1 };
 
-					vec3_t dir = { 0, 0, 1 };
-
-					trap->FX_PlayEffectID(cgs.effects.heal2FX, healedClient, dir, -1, -1, qfalse);
+						trap->FX_PlayEffectID(cgs.effects.heal2FX, healedClient, dir, -1, -1, qfalse);
+					}
+					
 				}
-
-
+					
 			}
-		break;
+	break;
 
 	case EV_GLOBAL_SOUND:	// play from the player's head so it never diminishes
 		DEBUGNAME("EV_GLOBAL_SOUND");
