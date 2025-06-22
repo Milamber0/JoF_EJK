@@ -3777,9 +3777,9 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 
 						trap->FX_PlayEffectID(cgs.effects.heal2FX, healedClient, dir, -1, -1, qfalse);
 					}
-					
 				}
-					
+
+
 			}
 	break;
 
@@ -4068,7 +4068,6 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 		trap->Error( ERR_DROP, "Unknown event: %i", event );
 		break;
 	}
-
 }
 
 
