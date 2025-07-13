@@ -3619,8 +3619,16 @@ void CG_CalcEntityLerpPositions(centity_t* cent) {
 		cent->doLerp = qtrue;
 	}
 	else if (cent->currentState.number < MAX_CLIENTS && cent->currentState.number != cg.clientNum) {
-		cent->doLerp = qtrue;
 
+		if ((cg.predictedPlayerState.pm_type == PM_SPECTATOR || (cg.predictedPlayerState.pm_flags & PMF_FOLLOW)) &&
+			cent->currentState.number == cg.snap->ps.clientNum)
+		{
+			cent->doLerp = qfalse;
+		}
+		else
+		{
+			cent->doLerp = qtrue;
+		}
 	}
 	else {
 		cent->doLerp = qfalse;

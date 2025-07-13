@@ -29,7 +29,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 #define PRODUCT_NAME			"eternaljk"
 
-#define JOFVERSION "1.5.4"
+#define JOFVERSION "1.5.5"
 #define JOFCLIENTVERSION JOFVERSION "JoF"
 
 #define CLIENT_WINDOW_TITLE "EternalJK(JoF " JOFVERSION ")"
