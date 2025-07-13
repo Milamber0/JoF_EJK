@@ -3614,437 +3614,79 @@ CG_CalcEntityLerpPositions
 
 ===============
 */
-#if 0 //NPCLAGFIX2 CULPRIT?!
-#if 1
-//baseJKA code
-//static QINLINE void CG_CalcEntityLerpPositions( centity_t *cent ) {
-void CG_CalcEntityLerpPositions_BaseJKA( centity_t *cent ) { //for the absolute worst case scenario where i can't figure out what's breaking this
-	qboolean goAway = qfalse;
+void CG_CalcEntityLerpPositions(centity_t* cent) {
+	if (cent->currentState.eType == ET_NPC) {
+		cent->doLerp = qtrue;
+	}
+	else if (cent->currentState.number < MAX_CLIENTS && cent->currentState.number != cg.clientNum) {
+		cent->doLerp = qtrue;
 
-	// if this player does not want to see extrapolated players
-	if ( !cg_smoothClients.integer ) {
-		// make sure the clients use TR_INTERPOLATE
-		if ( cent->currentState.number < MAX_CLIENTS ) {
-			cent->currentState.pos.trType = TR_INTERPOLATE;
-			cent->nextState.pos.trType = TR_INTERPOLATE;
-		}
+	}
+	else {
+		cent->doLerp = qfalse;
 	}
 
-	if (cg.predictedPlayerState.m_iVehicleNum &&
-		cg.predictedPlayerState.m_iVehicleNum == cent->currentState.number &&
-		cent->currentState.eType == ET_NPC && cent->currentState.NPC_class == CLASS_VEHICLE)
-	{ //special case for vehicle we are riding
-		centity_t *veh = &cg_entities[cg.predictedPlayerState.m_iVehicleNum];
+	// if this player does not want to see extrapolated players
+	if (cent->doLerp) {
+		// make sure the clients use TR_INTERPOLATE
+		cent->currentState.pos.trType = TR_INTERPOLATE;
+		cent->nextState.pos.trType = TR_INTERPOLATE;
+	}
 
-		if (veh->currentState.owner == cg.predictedPlayerState.clientNum)
-		{ //only do this if the vehicle is pilotted by this client and predicting properly
-			BG_EvaluateTrajectory( &cent->currentState.pos, cg.time, cent->lerpOrigin );
-			BG_EvaluateTrajectory( &cent->currentState.apos, cg.time, cent->lerpAngles );
+	// special case for vehicle we are riding
+	if (cg.predictedPlayerState.m_iVehicleNum && cg.predictedPlayerState.m_iVehicleNum == cent->currentState.number
+		&& cent->currentState.eType == ET_NPC && cent->currentState.NPC_class == CLASS_VEHICLE)
+	{
+		centity_t* veh = &cg_entities[cg.predictedPlayerState.m_iVehicleNum];
+
+		if (veh->currentState.owner == cg.predictedPlayerState.clientNum) {
+			// only do this if the vehicle is pilotted by this client and predicting properly
+			BG_EvaluateTrajectory(&cent->currentState.pos, cg.time, &cent->lerpOrigin);
+			BG_EvaluateTrajectory(&cent->currentState.apos, cg.time, &cent->lerpAngles);
 			return;
 		}
 	}
 
-	if ( cent->interpolate && cent->currentState.pos.trType == TR_INTERPOLATE ) {
-		CG_InterpolateEntityPosition( cent );
+	if (cent->interpolate && cent->currentState.pos.trType == TR_INTERPOLATE) {
+		CG_InterpolateEntityPosition(cent);
 		return;
 	}
 
-	// first see if we can interpolate between two snaps for
-	// linear extrapolated clients
-	if ( cent->interpolate
-		&& cent->currentState.pos.trType == TR_LINEAR_STOP
-		&& cent->currentState.number < MAX_CLIENTS )
-	{
-		CG_InterpolateEntityPosition( cent );
-		goAway = qtrue;
-	}
-	else if (cent->interpolate &&
-		cent->currentState.eType == ET_NPC && cent->currentState.NPC_class == CLASS_VEHICLE)
-	{
-		CG_InterpolateEntityPosition( cent );
-		goAway = qtrue;
-	}
-	else
-	{
-		// just use the current frame and evaluate as best we can
-		BG_EvaluateTrajectory( &cent->currentState.pos, cg.time, cent->lerpOrigin );
-		BG_EvaluateTrajectory( &cent->currentState.apos, cg.time, cent->lerpAngles );
-	}
-
-	if (goAway)
-	{
-		return;
-	}
-
-	// adjust for riding a mover if it wasn't rolled into the predicted
-	// player state
-	if ( cent->currentState.number != cg.predictedPlayerState.clientNum ) {
-		CG_AdjustPositionForMover( cent->lerpOrigin, cent->currentState.groundEntityNum,
-		cg.snap->serverTime, cg.time, cent->lerpOrigin );
-	}
-}
-
-void CG_CalcEntityLerpPositions( centity_t *cent ) {
-	qboolean goAway = qfalse;
-
-	// if this player does not want to see extrapolated players
-	if ( !cg_smoothClients.integer ) {
-	//if ( !cg_smoothClients.integer || cg.snap->ps.stats[STAT_RACEMODE] || (cg_smoothClients.integer < 2 && cent->currentState.number == cg.predictedPlayerState.clientNum) ) {
-		// make sure the clients use TR_INTERPOLATE
-		if ( cent->currentState.number < MAX_CLIENTS ) {
-			cent->currentState.pos.trType = TR_INTERPOLATE;
-			cent->nextState.pos.trType = TR_INTERPOLATE;
-		}
-	}
-
-	if (cg_disablePlayerInterpolation.integer && cent->currentState.number < MAX_CLIENTS && cent->currentState.number != cg.snap->ps.clientNum) {
-		VectorCopy(cent->currentState.pos.trBase, cent->lerpOrigin);
-		//VectorCopy(cent->nextState.pos.trBase, cent->lerpOrigin);
-		VectorCopy(cent->currentState.apos.trBase, cent->lerpAngles);
-		//VectorCopy(cent->nextState.apos.trBase, cent->lerpAngles);
-		return;
-	}
-
-	/*if (cent->currentState.number == cg.snap->ps.clientNum) {
-		Com_Printf("%i currentState pos trType %i nextState pos trType %i\n", cent->currentState.number, cent->currentState.pos.trType, cent->nextState.pos.trType);
-		Com_Printf("%i currentState apos trType %i nextState apos trType %i\n", cent->currentState.number, cent->currentState.apos.trType, cent->nextState.apos.trType);
-	}*/
-
-	if (cg.predictedPlayerState.m_iVehicleNum &&
-		cg.predictedPlayerState.m_iVehicleNum == cent->currentState.number &&
-		cent->currentState.eType == ET_NPC && cent->currentState.NPC_class == CLASS_VEHICLE)
-	{ //special case for vehicle we are riding
-		centity_t *veh = &cg_entities[cg.predictedPlayerState.m_iVehicleNum];
-
-		if (veh->currentState.owner == cg.predictedPlayerState.clientNum)
-		{ //only do this if the vehicle is pilotted by this client and predicting properly
-			BG_EvaluateTrajectory( &cent->currentState.pos, cg.time, cent->lerpOrigin );
-			BG_EvaluateTrajectory( &cent->currentState.apos, cg.time, cent->lerpAngles );
-			return;
-		}
-	}
-
-	if ( cent->interpolate && cent->currentState.pos.trType == TR_INTERPOLATE ) {
-		CG_InterpolateEntityPosition( cent );
-		return;
-	}
-
-	// first see if we can interpolate between two snaps for
-	// linear extrapolated clients
-	if ( cent->interpolate
-		&& cent->currentState.pos.trType == TR_LINEAR_STOP
-		&& cent->currentState.number < MAX_CLIENTS )
-	{
-		CG_InterpolateEntityPosition( cent );
-		goAway = qtrue;
-	}
-	else if (cent->interpolate &&
-		cent->currentState.eType == ET_NPC && cent->currentState.NPC_class == CLASS_VEHICLE)
-	{
-		CG_InterpolateEntityPosition( cent );
-		goAway = qtrue;
-	}
-	else
-	{
-		// just use the current frame and evaluate as best we can
-		BG_EvaluateTrajectory( &cent->currentState.pos, cg.time, cent->lerpOrigin );
-		BG_EvaluateTrajectory( &cent->currentState.apos, cg.time, cent->lerpAngles );
-	}
-
-	if (cent->currentState.number == cg.clientNum) {
-		VectorCopy(cg.predictedPlayerState.origin, cent->lerpOrigin);
-		VectorCopy(cg.predictedPlayerState.origin, cent->currentState.pos.trBase);
-	}
-
-	if (goAway)
-	{
-		return;
-	}
-
-	// adjust for riding a mover if it wasn't rolled into the predicted
-	// player state
-	if ( cent->currentState.number != cg.predictedPlayerState.clientNum ) {
-		CG_AdjustPositionForMover( cent->lerpOrigin, cent->currentState.groundEntityNum,
-		cg.snap->serverTime, cg.time, cent->lerpOrigin );
-	}
-}
-#else //mostly working function ?
-void CG_CubeOutline( vec3_t mins, vec3_t maxs, int time, unsigned int color, float alpha );
-void CG_CalcEntityLerpPositions( centity_t *cent ) {
-	// if this player does not want to see extrapolated players
-	if ( !cg_smoothClients.integer || (cgs.serverMod == SVMOD_JAPRO && cg_smoothClients.integer != -1) ) //|| (cg.snap->ps.pm_flags & PMF_FOLOW) ?
-	{//|| cgs.serverMod == SVMOD_JAPRO)
-		// make sure the clients use TR_INTERPOLATE
-		//if ( (cent->currentState.number != cg.clientNum && cent->currentState.number < MAX_CLIENTS) || cent->currentState.eType == ET_NPC ) {
-		if ( cent->currentState.number < MAX_CLIENTS || cent->currentState.eType == ET_NPC ) {
-			cent->currentState.pos.trType = TR_INTERPOLATE;
-			cent->nextState.pos.trType = TR_INTERPOLATE;
-		}
-	}
-
-	if (cg.predictedPlayerState.m_iVehicleNum && cg.predictedPlayerState.m_iVehicleNum == cent->currentState.number && cent->currentState.eType == ET_NPC && cent->currentState.NPC_class == CLASS_VEHICLE)
-	{ //special case for vehicle we are riding
-		centity_t *veh = &cg_entities[cg.predictedPlayerState.m_iVehicleNum];
-
-		if (veh->currentState.owner == cg.predictedPlayerState.clientNum)
-		{ //only do this if the vehicle is pilotted by this client and predicting properly
-			BG_EvaluateTrajectory( &cent->currentState.pos, cg.time, cent->lerpOrigin );
-			BG_EvaluateTrajectory( &cent->currentState.apos, cg.time, cent->lerpAngles );
-			return;
-		}
-	}
-
-	//if (cent->currentState.number == cg.clientNum) Com_Printf("trType %i trTime %i trDuration %i \n", cent->currentState.pos.trType, cent->currentState.pos.trTime, cent->currentState.pos.trDuration);
-
-	if ( cent->interpolate && cent->currentState.pos.trType == TR_INTERPOLATE )
-	{
-		CG_InterpolateEntityPosition( cent );
-		return;
-	}
-
-	// first see if we can interpolate between two snaps for
-	// linear extrapolated clients
-	if ( cent->interpolate && cent->currentState.pos.trType == TR_LINEAR_STOP
-		&& ((cent->currentState.number != cg.clientNum && cent->currentState.number < MAX_CLIENTS) || cent->currentState.eType == ET_NPC) ) {
-		CG_InterpolateEntityPosition( cent );
-		return;
-	}
-
-	if (cent->interpolate && cent->currentState.eType == ET_NPC && cent->currentState.NPC_class == CLASS_VEHICLE)
-	{
-		CG_InterpolateEntityPosition( cent );
-		return;
-	}
-
-
-//JAPRO - Clientside - Unlagged Timenudge Extrapolation - Start
-	// interpolating failed (probably no nextSnap), so extrapolate this can also happen if the teleport bit is flipped, but that won't be noticeable
-	//if ( (!cg_smoothClients.integer || cg_smoothClients.integer <= -1) &&
-	if ((cgs.serverMod == SVMOD_JAPRO || cl_timenudgeDuration.integer) && //!cg_smoothClients.integer &&
-		cent->currentState.number < MAX_CLIENTS && cent->currentState.number != cg.predictedPlayerState.clientNum )
-	{
-
-		//if (!cg_smoothTimenudge.integer)
-		//	cent->currentState.pos.trType = TR_LINEAR_STOP;//was tr_linear_stop, but that was jerky? huh
-		//else
-			cent->currentState.pos.trType = TR_LINEAR;
-		cent->currentState.pos.trTime = cg.snap->serverTime;
-		if (cl_timenudgeDuration.integer > 0)
-			cent->currentState.pos.trDuration = cl_timenudgeDuration.integer;
-		else if (cgs.svfps)
-			cent->currentState.pos.trDuration = 1000 / cgs.svfps;
-		else
-			cent->currentState.pos.trDuration = 50;
-		//cg.time - cg.frame->serverTime ) / (cg.nextFrame->serverTime - cg.frame->serverTime), cg_latestSnapshotTime
-	}
-//JAPRO - Clientside - Unlagged Timenudge Extrapolation - End
-
-	vec3_t oldLerpOrigin = { cent->lerpOrigin[0], cent->lerpOrigin[1], cent->lerpOrigin[2] };
-	vec3_t bmins = { -15, -15, DEFAULT_MINS_2 }, bmaxs = { 15, 15, DEFAULT_MAXS_2 }, absmin = { 0 }, absmax = { 0 };
-	//if (cg_drawHitBox.integer) {
-	/*if (cg_smoothClients.integer && cent->currentState.number == cg.clientNum) {
-		VectorCopy(cg.predictedPlayerState.origin, cent->currentState.pos.trBase);
-		VectorCopy(cg.predictedPlayerState.viewangles, cent->currentState.apos.trBase);
-	}*/
-
-	if (cg_smoothClients.integer >= 2 || cg_smoothClients.integer < -1) {
-		int x = 0, zd = 0, zu = 0;
-		if (pm && cent->currentState.number == cg.clientNum)
-		{
-			VectorCopy(pm->mins, bmins);
-			VectorCopy(pm->maxs, bmaxs);
-		}
-		else if (cent->currentState.solid)
-		{
-			x = (cent->currentState.solid & 255);
-			zd = ((cent->currentState.solid >> 8) & 255);
-			zu = ((cent->currentState.solid >> 16) & 255) - 32;
-
-			bmins[0] = bmins[1] = -x;
-			bmaxs[0] = bmaxs[1] = x;
-			bmins[2] = -zd;
-			bmaxs[2] = zu;
-		}
-
-		VectorAdd( cent->currentState.pos.trBase, bmins, absmin );
-		VectorAdd( cent->currentState.pos.trBase, bmaxs, absmax );
-		CG_CubeOutline( absmin, absmax, 1, SABER_YELLOW, 0.25 );
-		VectorSubtract( cent->currentState.pos.trBase, bmins, absmin );
-		VectorSubtract( cent->currentState.pos.trBase, bmaxs, absmax );
-
-		if (cent->currentState.number != cg.clientNum && !VectorCompare(cent->currentState.pos.trBase, cent->lerpOrigin)) {
-			VectorAdd( cent->lerpOrigin, bmins, absmin );
-			VectorAdd( cent->lerpOrigin, bmaxs, absmax );
-			CG_CubeOutline( absmin, absmax, 1, SABER_BLUE, 0.25 );
-			VectorSubtract( cent->lerpOrigin, bmins, absmin );
-			VectorSubtract( cent->lerpOrigin, bmaxs, absmax );
-		}
-
-		if (cent->currentState.number == cg.clientNum) {
-			VectorAdd( cg.predictedPlayerState.origin, bmins, absmin );
-			VectorAdd( cg.predictedPlayerState.origin, bmaxs, absmax );
-			CG_CubeOutline( absmin, absmax, 1, SABER_GREEN, 0.25 );
-			VectorSubtract( cg.predictedPlayerState.origin, bmins, absmin );
-			VectorSubtract( cg.predictedPlayerState.origin, bmaxs, absmax );
-		}
-	}
-
-	BG_EvaluateTrajectory( &cent->currentState.pos, cg.time, cent->lerpOrigin );
-	BG_EvaluateTrajectory( &cent->currentState.apos, cg.time, cent->lerpAngles );
-
-	/*if (cent->currentState.number == cg.clientNum && !cg_noPredict.integer && !g_synchronousClients.integer) {
-		VectorCopy(cg.predictedPlayerState.origin, cent->currentState.pos.trBase);
-		VectorCopy(cg.predictedPlayerState.origin, cent->lerpOrigin);
-		//VectorClear(cent->currentState.pos.trDelta);
-		//VectorCopy(cg.predictedPlayerState, cent->lerpOrigin);
-	}*/
-
-	if ((cg_smoothClients.integer >= 2 || cg_smoothClients.integer < -1) && !VectorCompare(cent->lerpOrigin, oldLerpOrigin)) {
-		//if (cent->currentState.number == cg.clientNum && (!VectorCompare(cg.predictedPlayerState.origin, cent->lerpOrigin) || !VectorCompare(cg.predictedPlayerState.viewangles, cent->lerpAngles)))
-		//	Com_Printf("what the fuck!!!!\n");
-		VectorAdd( cent->lerpOrigin, bmins, absmin );
-		VectorAdd( cent->lerpOrigin, bmaxs, absmax );
-		CG_CubeOutline( absmin, absmax, 1, cent->currentState.number == cg.clientNum ? SABER_RED : -1, 0.25 );
-		VectorSubtract( cent->lerpOrigin, bmins, absmin );
-		VectorSubtract( cent->lerpOrigin, bmaxs, absmax );
-	}
-
-	// adjust for riding a mover if it wasn't rolled into the predicted
-	// player state
-	if ( cent->currentState.number != cg.clientNum ) {
-		CG_AdjustPositionForMover( cent->lerpOrigin, cent->currentState.groundEntityNum,
-		cg.snap->serverTime, cg.time, cent->lerpOrigin );
-	}
-}
-#endif
-#else
-void CG_CalcEntityLerpPositions( centity_t *cent ) {
-	qboolean goAway = qfalse;
-
-	// if this player does not want to see extrapolated players
-	if ( !cg_smoothClients.integer ) {
-		// make sure the clients use TR_INTERPOLATE
-		if ( cent->currentState.number < MAX_CLIENTS ) {
-			cent->currentState.pos.trType = TR_INTERPOLATE;
-			cent->nextState.pos.trType = TR_INTERPOLATE;
-		}
-	}
-
-	if (cg.predictedPlayerState.m_iVehicleNum &&
-		cg.predictedPlayerState.m_iVehicleNum == cent->currentState.number &&
-		cent->currentState.eType == ET_NPC && cent->currentState.NPC_class == CLASS_VEHICLE)
-	{ //special case for vehicle we are riding
-		centity_t *veh = &cg_entities[cg.predictedPlayerState.m_iVehicleNum];
-
-		if (veh->currentState.owner == cg.predictedPlayerState.clientNum)
-		{ //only do this if the vehicle is pilotted by this client and predicting properly
-			BG_EvaluateTrajectory( &cent->currentState.pos, cg.time, cent->lerpOrigin );
-			BG_EvaluateTrajectory( &cent->currentState.apos, cg.time, cent->lerpAngles );
-			return;
-		}
-	}
-
-	if ( cent->interpolate && cent->currentState.pos.trType == TR_INTERPOLATE ) {
-		CG_InterpolateEntityPosition( cent );
-		return;
-	}
-
-	// first see if we can interpolate between two snaps for
-	// linear extrapolated clients
-	if ( cent->interpolate
-		&& cent->currentState.pos.trType == TR_LINEAR_STOP
-		&& cent->currentState.number < MAX_CLIENTS )
-	{
-		CG_InterpolateEntityPosition( cent );
-		goAway = qtrue;
-	}
-	else if (cent->interpolate &&
-		cent->currentState.eType == ET_NPC && cent->currentState.NPC_class == CLASS_VEHICLE)
-	{
-		CG_InterpolateEntityPosition( cent );
-		goAway = qtrue;
-	}
-	else
-	{
-		// just use the current frame and evaluate as best we can
-		BG_EvaluateTrajectory( &cent->currentState.pos, cg.time, cent->lerpOrigin );
-		BG_EvaluateTrajectory( &cent->currentState.apos, cg.time, cent->lerpAngles );
-	}
-
+	//unlagged - timenudge extrapolation
+	// interpolating failed (probably no nextSnap), so extrapolate
 #if 0
-	if (cent->hasRagOffset && cent->ragOffsetTime < cg.time)
-	{ //take all of the offsets from last frame and normalize the total direction and add it in
-		vec3_t slideDir;
-		vec3_t preOffset;
-		vec3_t addedOffset;
-		vec3_t	playerMins = {-15, -15, DEFAULT_MINS_2};
-		vec3_t	playerMaxs = {15, 15, DEFAULT_MAXS_2};
-		trace_t tr;
-
-		//VectorSubtract(cent->lerpOrigin, callData->bonePos, slideDir);
-		VectorCopy(cent->ragOffsets, slideDir);
-		VectorNormalize(slideDir);
-
-		//Store it in case we want to go back
-		VectorCopy(cent->lerpOriginOffset, preOffset);
-
-		//just add a little at a time
-		VectorMA(cent->lerpOriginOffset, 0.4f, slideDir, cent->lerpOriginOffset);
-
-		if (VectorLength(cent->lerpOriginOffset) > 10.0f)
-		{ //don't go too far away
-			VectorCopy(preOffset, cent->lerpOriginOffset);
-		}
-		else
-		{
-			//Let's trace there to make sure we can make it
-			VectorAdd(cent->lerpOrigin, cent->lerpOriginOffset, addedOffset);
-			CG_Trace(&tr, cent->lerpOrigin, playerMins, playerMaxs, addedOffset, cent->currentState.number, MASK_PLAYERSOLID);
-
-			if (tr.startsolid || tr.allsolid || tr.fraction != 1.0f)
-			{ //can't get there
-				VectorCopy(preOffset, cent->lerpOriginOffset);
-			}
-			else
-			{
-				/*
-				if (cent->lerpOriginOffset[2] > 4.0f)
-				{ //don't go too far off the ground
-					cent->lerpOriginOffset[2] = 4.0f;
-				}
-				*/
-				//I guess I just don't want this happening.
-				cent->lerpOriginOffset[2] = 0.0f;
-			}
-		}
-
-		//done with this bit
-		cent->hasRagOffset = qfalse;
-		VectorClear(cent->ragOffsets);
-		cent->ragOffsetTime = cg.time + 50;
-	}
-
-	//See if we should add in the offset for ragdoll
-	if (cent->isRagging && ((cent->currentState.eFlags & EF_DEAD) || (cent->currentState.eFlags & EF_RAG)))
-	{
-		VectorAdd(cent->lerpOrigin, cent->lerpOriginOffset, cent->lerpOrigin);
+	if (cent->currentState.number < MAX_CLIENTS && cent->currentState.clientNum != cg.clientNum) {
+		cent->currentState.pos.trType = TR_LINEAR_STOP;
+		cent->currentState.pos.trTime = cg.snap->serverTime;
+		//	cent->currentState.pos.trDuration = 1000 / 30;//loda fix
 	}
 #endif
+	//unlagged - timenudge extrapolation
 
-	if (goAway)
-	{
+	// first see if we can interpolate between two snaps for
+	// linear extrapolated clients
+	if (cent->interpolate && cent->currentState.pos.trType == TR_LINEAR_STOP && cent->doLerp) {
+		CG_InterpolateEntityPosition(cent);
 		return;
 	}
+	else {
+		// just use the current frame and evaluate as best we can
+		BG_EvaluateTrajectory(&cent->currentState.pos, cg.time, &cent->lerpOrigin);
+		BG_EvaluateTrajectory(&cent->currentState.apos, cg.time, &cent->lerpAngles);
+	}
 
-	// adjust for riding a mover if it wasn't rolled into the predicted
-	// player state
-	if ( cent->currentState.number != cg.predictedPlayerState.clientNum ) {
-		CG_AdjustPositionForMover( cent->lerpOrigin, cent->currentState.groundEntityNum,
-		cg.snap->serverTime, cg.time, cent->lerpOrigin );
+	// adjust for riding a mover if it wasn't rolled into the predicted player state
+	if (cent->currentState.number != cg.predictedPlayerState.clientNum) {
+		CG_AdjustPositionForMover(
+			&cent->lerpOrigin,
+			cent->currentState.groundEntityNum,
+			cg.snap->serverTime,
+			cg.time,
+			&cent->lerpOrigin
+		);
 	}
 }
 
-#endif
 
 void CG_G2Animated( centity_t *cent );
 

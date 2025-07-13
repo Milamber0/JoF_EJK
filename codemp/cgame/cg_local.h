@@ -575,6 +575,9 @@ typedef struct centity_s {
 	int				breathTime; //can maybe just use breathPuffTime from ci?
 #endif
 
+#if 1 //NPCLAGFIX2 adds this
+	qboolean		doLerp; // for entity position smoothing
+#endif
 } centity_t;
 
 
