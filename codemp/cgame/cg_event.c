@@ -3768,7 +3768,7 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 				{
 					cent = &cg_entities[closestClientIndex];
 
-					if(VectorLength(cent->playerState->velocity) != 0.0)
+					if(VectorLength(cent->playerState->velocity) == 0.0)
 					{
 						vec3_t healedClient;
 						VectorCopy(cent->lerpOrigin, healedClient);
