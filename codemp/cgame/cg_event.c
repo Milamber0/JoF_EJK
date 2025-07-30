@@ -1485,7 +1485,7 @@ static qboolean CG_ProximityCheck(vec3_t pos1, vec3_t pos2) { //Returns qtrue if
 	return qtrue;
 }
 
-extern index_for_heal;
+extern int index_for_heal;
 
 /*
 ==============

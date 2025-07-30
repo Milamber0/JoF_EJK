@@ -55,6 +55,7 @@ static void CG_JumpDistance( void );
 static void CG_DrawVerticalSpeed(void);
 static void CG_DrawYawSpeed(void);
 static void CG_DrawTrajectoryLine(void);
+int CG_ClientNumFromName(const char *p);
 static QINLINE void CG_PlayerView(centity_t *cent);
 
 #define SHELPER_SUPEROLDSTYLE	(1<<0)

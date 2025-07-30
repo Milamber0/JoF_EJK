@@ -2350,7 +2350,7 @@ static void CG_AddStrafeTrail_f(void)
 
 }
 
-extern lastWhispererId;
+extern int lastWhispererId;
 void CG_Say_f( void ) {
 	char msg[MAX_SAY_TEXT] = {0};
 	char word[MAX_SAY_TEXT] = {0};
