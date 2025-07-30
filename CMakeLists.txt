@@ -23,7 +23,7 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET "10.9" CACHE STRING "Minimum OS X deployment ver
 set(InOpenJK TRUE)
 set (WIN32 TRUE)
 
-
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Project name
 set(ProjectName "JoF_EJK" CACHE STRING "Project Name")
 project(${ProjectName})
