@@ -596,7 +596,7 @@ void CG_ParseSiegeState(const char *str)
 }
 
 int index_for_heal;
-
+int index_for_rage;
 /*
 =================
 CG_RegisterSounds
@@ -1041,6 +1041,10 @@ static void CG_RegisterSounds( void ) {
 		{
 			index_for_heal = i;		//saving the index where sound for heal is located
 		}
+		if (!strcmp(soundName, "sound/weapons/force/rageloop.wav"))
+		{
+			index_for_rage = i;
+		}
 		cgs.gameSounds[i] = trap->S_RegisterSound( soundName );
 
 	}
@@ -1172,7 +1176,10 @@ static void CG_RegisterEffects( void )
 	cgs.effects.waterSplash = trap->FX_RegisterEffect( "env/water_impact" );
 	cgs.effects.lavaSplash = trap->FX_RegisterEffect( "env/lava_splash" );
 	cgs.effects.acidSplash = trap->FX_RegisterEffect( "env/acid_splash" );
+	//FPs
+	cgs.effects.healFX = trap->FX_RegisterEffect("force/heal");
 	cgs.effects.heal2FX = trap->FX_RegisterEffect("force/heal2");
+	cgs.effects.rage2FX = trap->FX_RegisterEffect("force/rage2");
 
 }
 

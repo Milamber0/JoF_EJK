@@ -1189,6 +1189,13 @@ void ForceHeal( gentity_t *self )
 		{
 			self->health = self->client->ps.stats[STAT_MAX_HEALTH];
 		}
+		if (VectorLength(self->playerState->velocity) == 0.0)
+		{
+			
+			G_SetAnim(self, NULL, SETANIM_BOTH, BOTH_FORCEHEAL_START, SETANIM_FLAG_HOLD, 0);
+			
+
+		}
 		BG_ForcePowerDrain( &self->client->ps, FP_HEAL, 0 );
 	}
 	else if (self->client->ps.fd.forcePowerLevel[FP_HEAL] == FORCE_LEVEL_2)
@@ -1199,6 +1206,11 @@ void ForceHeal( gentity_t *self )
 		{
 			self->health = self->client->ps.stats[STAT_MAX_HEALTH];
 		}
+		if (VectorLength(self->playerState->velocity) == 0.0)
+		{
+			
+			G_SetAnim(self, NULL, SETANIM_BOTH, BOTH_FORCEHEAL_QUICK, SETANIM_FLAG_HOLD, 0);
+		}
 		BG_ForcePowerDrain( &self->client->ps, FP_HEAL, 0 );
 	}
 	else
@@ -1208,6 +1220,11 @@ void ForceHeal( gentity_t *self )
 		if (self->health > self->client->ps.stats[STAT_MAX_HEALTH])
 		{
 			self->health = self->client->ps.stats[STAT_MAX_HEALTH];
+		}
+		if (VectorLength(self->playerState->velocity) == 0.0)
+		{
+			
+			G_SetAnim(self, NULL, SETANIM_BOTH, BOTH_FORCEHEAL_QUICK, SETANIM_FLAG_HOLD, 0);
 		}
 		BG_ForcePowerDrain( &self->client->ps, FP_HEAL, 0 );
 	}
@@ -1727,6 +1744,18 @@ void ForceRage( gentity_t *self )
 //JAPRO - Serverside - Allow force combos - End
 
 	self->client->ps.forceAllowDeactivateTime = level.time + 1500;
+	if (VectorLength(self->playerState->velocity) == 0.0)
+		{
+			if(self->client->ps.fd.forcePowerLevel[FP_RAGE] == FORCE_LEVEL_3 || 
+				self->client->ps.fd.forcePowerLevel[FP_RAGE] == FORCE_LEVEL_2) {
+				
+				G_SetAnim(self, NULL, SETANIM_BOTH, BOTH_FORCE_RAGE, SETANIM_FLAG_HOLD, 0);
+			}
+			else if(self->client->ps.fd.forcePowerLevel[FP_RAGE] == FORCE_LEVEL_1) {
+				self->client->ps.torsoAnim = BOTH_FORCE_RAGE_LEVEL_1;
+			}
+
+		}
 
 	WP_ForcePowerStart( self, FP_RAGE, 0 );
 
