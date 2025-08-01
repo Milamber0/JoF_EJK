@@ -7210,6 +7210,28 @@ static void PM_Footsteps( void ) {
 
 			if ((pm->ps->legsAnim) != desiredAnim && ires == desiredAnim)
 			{
+
+				switch ((desiredAnim))
+				{
+				case BOTH_RUN1:
+				case BOTH_RUN2:
+				case BOTH_RUN_STAFF:
+				case BOTH_RUN_DUAL:
+				case BOTH_RUNBACK1:
+				case BOTH_RUNBACK2:
+				case BOTH_RUNBACK_STAFF:
+				case BOTH_RUNBACK_DUAL:
+				case BOTH_RUN1START:			//# Start into full run1
+				case BOTH_RUN1STOP:			//# Stop from full run1
+				case BOTH_RUNSTRAFE_LEFT1:	//# Sidestep left: should loop
+				case BOTH_RUNSTRAFE_RIGHT1:	//# Sidestep right: should loop
+				if (pm->ps->legsAnim == BOTH_FORCEHEAL_START || pm->ps->legsAnim == BOTH_FORCE_RAGE || pm->ps->legsAnim == BOTH_FORCEHEAL_QUICK) {
+					setAnimFlags += SETANIM_FLAG_OVERRIDE; //ANIM FIX #1
+					pm->ps->torsoTimer = 0; //ANIM FIX #2 - Need to set these both so the rage/heal animation stops when starting to walk
+				}
+				default:
+					break;
+			}
 				PM_SetAnim(SETANIM_LEGS, desiredAnim, setAnimFlags);
 			}
 			else

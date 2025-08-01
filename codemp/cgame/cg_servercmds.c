@@ -841,6 +841,7 @@ extern void CG_ParseSiegeState(const char *str); //cg_main.c
 extern int cg_beatingSiegeTime;
 extern int cg_siegeWinTeam;
 extern int index_for_heal;
+extern int index_for_rage;
 static void CG_ConfigStringModified( void ) {
 	const char	*str;
 	int		num;
@@ -974,6 +975,10 @@ static void CG_ConfigStringModified( void ) {
 			if (!strcmp(str, "sound/weapons/force/heal.wav"))
 			{
 				index_for_heal = num-CS_SOUNDS;		//saving the index where sound for heal is located
+			}
+			if (!strcmp(str, "sound/weapons/force/rageloop.wav"))
+			{
+				index_for_rage = num-CS_SOUNDS;
 			}
 			cgs.gameSounds[ num-CS_SOUNDS] = trap->S_RegisterSound( str );
 		}

@@ -1578,6 +1578,7 @@ stringID_table_t animTable [MAX_ANIMATIONS+1] =
 	ENUM2STRING(BOTH_TOSS1),				//# throwing to left after force gripping
 	ENUM2STRING(BOTH_TOSS2),				//# throwing to right after force gripping
 	//NEW force anims for JKA:
+	ENUM2STRING(BOTH_FORCE_RAGE_LEVEL_1),
 	ENUM2STRING(BOTH_FORCE_RAGE),
 	ENUM2STRING(BOTH_FORCE_2HANDEDLIGHTNING),
 	ENUM2STRING(BOTH_FORCE_2HANDEDLIGHTNING_START),

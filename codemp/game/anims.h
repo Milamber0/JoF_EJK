@@ -1583,6 +1583,7 @@ typedef enum //# animNumber_e
 	BOTH_TOSS2,				//# throwing to right after force gripping
 	//NEW force anims for JKA:
 	BOTH_FORCE_RAGE,
+	BOTH_FORCE_RAGE_LEVEL_1, 	//New ENUM to lil anim hack - need a own number to check in cg_event.c for to check if rage is lvl 3/2 or 1
 	BOTH_FORCE_2HANDEDLIGHTNING,
 	BOTH_FORCE_2HANDEDLIGHTNING_START,
 	BOTH_FORCE_2HANDEDLIGHTNING_HOLD,
@@ -1600,6 +1601,8 @@ typedef enum //# animNumber_e
 	BOTH_FORCE_ABSORB_END,
 	BOTH_FORCE_PROTECT,
 	BOTH_FORCE_PROTECT_FAST,
+
+	
 
 	BOTH_WIND,
 
