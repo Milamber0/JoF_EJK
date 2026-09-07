@@ -1838,6 +1838,7 @@ static bitInfo_T speedometerSettings[] = { // MAX_WEAPON_TWEAKS tweaks (24)
 	{ "Speed graph" },//7
 	{ "Display speed in kilometers instead of units" },//8
 	{ "Display speed in imperial miles instead of units" },//9
+	{ "XYZ speed" },//10
 };
 static const int MAX_SPEEDOMETER_SETTINGS = ARRAY_LEN(speedometerSettings);
 

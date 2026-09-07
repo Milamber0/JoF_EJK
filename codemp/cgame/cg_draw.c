@@ -307,6 +307,7 @@ static QINLINE void CG_PlayerView(centity_t *cent);
 #define SPEEDOMETER_SPEEDGRAPH		(1<<7)
 #define SPEEDOMETER_KPH				(1<<8)
 #define SPEEDOMETER_MPH				(1<<9)
+#define SPEEDOMETER_XYZ				(1<<10)
 //japro end
 
 // nmckenzie: DUEL_HEALTH
@@ -12274,7 +12275,7 @@ static void CG_Speedometer(void)
 		const char *accelStr, *accelStr2, *accelStr3;
 		char speedStr[32] = {0}, speedStr2[32] = {0}, speedStr3[32] = {0};
 		vec4_t colorSpeed = {1, 1, 1, 1};
-		const float currentSpeed = speedometerSpeed;
+		const float currentSpeed = (cg_speedometer.integer & SPEEDOMETER_XYZ) ? speedometerSpeed : cg.currentSpeed;
 		static float lastSpeed = 0, previousAccels[ACCEL_SAMPLES];
 		const float accel = currentSpeed - lastSpeed;
 		float total, avgAccel;
