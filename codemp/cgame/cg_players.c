@@ -14028,9 +14028,13 @@ stillDoSaber:
 	}
 	//For now, these two are using the old shield shader. This is just so that you
 	//can tell it apart from the JM/duel shaders, but it's still very obvious.
+	const qboolean useCombinedProtectAbsorbColor = (qboolean)(
+		cg_spprotabscolor.integer == 1 &&
+		!(cp_pluginDisable.integer & JAPRO_PLUGIN_NEWFORCEEFFECT));
+
 	if ((cent->currentState.forcePowersActive & (1 << FP_PROTECT) && (!(cent->currentState.forcePowersActive & (1 << FP_ABSORB))))
 		|| (cent->currentState.forcePowersActive & (1 << FP_PROTECT) && (cent->currentState.forcePowersActive & (1 << FP_ABSORB)) &&
-			cg_spprotabscolor.value == 0)
+			!useCombinedProtectAbsorbColor)
 		)
 
 	{ //protect is represented by green..
@@ -14074,7 +14078,7 @@ stillDoSaber:
 			cg_alwaysShowAbsorb.integer && cgs.serverMod != SVMOD_BASEENHANCED &&
 			cent->currentState.forcePowersActive & (1 << FP_ABSORB) &&
 			cent->currentState.forcePowersActive & (1 << FP_PROTECT) &&
-			cg_spprotabscolor.value == 0
+			!useCombinedProtectAbsorbColor
 			)
 		||
 		(cent->teamPowerEffectTime > cg.time && cent->teamPowerType == 3)
@@ -14094,12 +14098,11 @@ stillDoSaber:
 		trap->R_AddRefEntityToScene( &legs );
 	}
 
-	if (cg_spprotabscolor.value == 1 &&
+	if (useCombinedProtectAbsorbColor &&
 		((((cgs.serverMod != SVMOD_BASEENHANCED) &&
 			(cent->currentState.forcePowersActive & (1 << FP_ABSORB))) ||
 			(cent->teamPowerEffectTime > cg.time && cent->teamPowerType == 3)) &&
-			(cent->currentState.forcePowersActive & (1 << FP_PROTECT))) && 
-			!(cp_pluginDisable.integer & JAPRO_PLUGIN_NEWFORCEEFFECT))
+			(cent->currentState.forcePowersActive & (1 << FP_PROTECT))))
 
 	{ //absorb + protect is represented by cyan..
 
