@@ -221,6 +221,7 @@ static bitInfo_t speedometerSettings[] = {
 	{ "Speed graph" },
 	{ "Display speed in kilometers instead of units" },
 	{ "Display speed in imperial miles instead of units" },
+	{ "XYZ speed" },
 };
 static const int MAX_SPEEDOMETER_SETTINGS = ARRAY_LEN(speedometerSettings);
 
