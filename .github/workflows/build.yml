@@ -12,11 +12,18 @@ on:
       - "**.md"
       - ".gitignore"
       - "docs/**"
+      - ".github/**"
 
   # Master: manual + nightly
   workflow_dispatch:
   schedule:
     - cron: "0 0 * * *" # midnight UTC
+
+# One build per branch at a time. A newer prerelease push supersedes an
+# in-flight one; nightly master runs queue instead.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 
 jobs:
   # =========================
@@ -24,41 +31,75 @@ jobs:
   # =========================
   beta-version:
     if: github.ref == 'refs/heads/beta' && github.event_name == 'push'
-    name: Compute Beta Version
+    name: Reserve Beta Version
     runs-on: ubuntu-latest
     outputs:
       tag_version: ${{ steps.version.outputs.tag_version }}
       base_version: ${{ steps.version.outputs.base_version }}
       version_suffix: ${{ steps.version.outputs.version_suffix }}
     steps:
-      - name: Checkout beta branch
+      - name: Checkout triggering commit
         uses: actions/checkout@v4
         with:
-          ref: beta
+          ref: ${{ github.sha }}
           fetch-depth: 0
           fetch-tags: true
 
-      - name: Compute beta version
+      - name: Reserve beta version
         id: version
         shell: bash
         run: |
+          set -uo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin \
+            "https://x-access-token:${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git"
+
           # Find the latest non-beta release tag (e.g. 1.6.0)
           LAST_RELEASE=$(git tag --list | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
           if [ -z "$LAST_RELEASE" ]; then LAST_RELEASE="0.0.0"; fi
           echo "Base release: $LAST_RELEASE"
 
-          # Find the highest existing beta number and increment
-          LAST_BETA=$(git tag --list "${LAST_RELEASE}-beta.*" | sed "s/${LAST_RELEASE}-beta\.//" | sort -n | tail -1)
-          if [ -z "$LAST_BETA" ]; then LAST_BETA=0; fi
-          BETA_NUM=$((LAST_BETA + 1))
+          # The number goes into the binaries now but the tag isn't pushed until
+          # publish-beta, so claim it up front. reserve/* isn't a release tag.
+          for attempt in $(seq 1 10); do
+            git fetch --tags --force --quiet
 
-          TAG_VERSION="${LAST_RELEASE}-beta.${BETA_NUM}"
-          VERSION_SUFFIX=" beta ${BETA_NUM}"
+            # Highest number held by a published tag or an open reservation
+            LAST_BETA=$(
+              git tag --list "${LAST_RELEASE}-beta.*" "reserve/${LAST_RELEASE}-beta.*" \
+              | sed -E "s|^(reserve/)?${LAST_RELEASE}-beta\.||" \
+              | grep -E '^[0-9]+$' \
+              | sort -n | tail -1
+            )
+            if [ -z "$LAST_BETA" ]; then LAST_BETA=0; fi
+            BETA_NUM=$((LAST_BETA + 1))
 
-          echo "tag_version=$TAG_VERSION" >> $GITHUB_OUTPUT
-          echo "base_version=$LAST_RELEASE" >> $GITHUB_OUTPUT
-          echo "version_suffix=$VERSION_SUFFIX" >> $GITHUB_OUTPUT
-          echo "Computed version: $TAG_VERSION (base: $LAST_RELEASE, suffix: $VERSION_SUFFIX)"
+            TAG_VERSION="${LAST_RELEASE}-beta.${BETA_NUM}"
+            VERSION_SUFFIX=" beta ${BETA_NUM}"
+
+            # Annotated with the run id so each claim is a distinct object; a
+            # lightweight tag on the same commit is a no-op push that succeeds.
+            git tag -f -a -m "claimed by run ${{ github.run_id }}.${{ github.run_attempt }}" \
+              "reserve/${TAG_VERSION}" "${{ github.sha }}"
+
+            # Unforced push of a new ref is atomic; the loser retries.
+            if git push origin "refs/tags/reserve/${TAG_VERSION}"; then
+              echo "Reserved $TAG_VERSION for ${{ github.sha }}"
+              echo "tag_version=$TAG_VERSION" >> $GITHUB_OUTPUT
+              echo "base_version=$LAST_RELEASE" >> $GITHUB_OUTPUT
+              echo "version_suffix=$VERSION_SUFFIX" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+
+            echo "::notice::$TAG_VERSION already claimed; retrying (attempt $attempt)"
+            git tag -d "reserve/${TAG_VERSION}"
+            sleep $(( (RANDOM % 4) + 2 ))
+          done
+
+          echo "::error::Could not reserve beta version after 10 attempts"
+          exit 1
 
   windows:
     if: github.ref == 'refs/heads/beta' && github.event_name == 'push'
@@ -73,10 +114,10 @@ jobs:
           - arch: x86_64
             platform: x64
     steps:
-      - name: Checkout beta branch
+      - name: Checkout triggering commit
         uses: actions/checkout@v4
         with:
-          ref: beta
+          ref: ${{ github.sha }}
           fetch-depth: 0
           fetch-tags: true
 
@@ -151,10 +192,10 @@ jobs:
       matrix:
         arch: [x86, x86_64]
     steps:
-      - name: Checkout beta branch
+      - name: Checkout triggering commit
         uses: actions/checkout@v4
         with:
-          ref: beta
+          ref: ${{ github.sha }}
           fetch-depth: 0
           fetch-tags: true
 
@@ -238,10 +279,10 @@ jobs:
             runner: macos-15
             cmake_extra: "-DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_SYSTEM_PROCESSOR=arm64"
     steps:
-      - name: Checkout beta branch
+      - name: Checkout triggering commit
         uses: actions/checkout@v4
         with:
-          ref: beta
+          ref: ${{ github.sha }}
           fetch-depth: 0
           fetch-tags: true
 
@@ -321,10 +362,10 @@ jobs:
     needs: [beta-version, windows, linux, macos]
     runs-on: ubuntu-22.04
     steps:
-      - name: Checkout beta branch
+      - name: Checkout triggering commit
         uses: actions/checkout@v4
         with:
-          ref: beta
+          ref: ${{ github.sha }}
           fetch-depth: 0
           fetch-tags: true
 
@@ -353,15 +394,40 @@ jobs:
 
       - name: Create version tag
         id: tag
+        shell: bash
         run: |
-          git tag "$TAG_VERSION"
-          git push origin "$TAG_VERSION"
+          # Unforced: the number was reserved, so a clash here is a real problem
+          git tag -f "$TAG_VERSION" "${{ github.sha }}"
+          git push origin "refs/tags/$TAG_VERSION"
           echo "tag=$TAG_VERSION" >> $GITHUB_OUTPUT
 
       - name: Update latest-beta tag
         run: |
-          git tag -f latest-beta
-          git push origin latest-beta --force
+          git tag -f latest-beta "${{ github.sha }}"
+          git push origin refs/tags/latest-beta --force
+
+      - name: Retire spent beta reservations
+        shell: bash
+        run: |
+          set -uo pipefail
+          git fetch --tags --force --quiet
+
+          # A reservation whose tag now exists is spent. Ones left by cancelled
+          # or failed runs stay, holding the number.
+          BASE="${{ needs.beta-version.outputs.base_version }}"
+          DEAD=""
+          for t in $(git tag --list "reserve/${BASE}-beta.*"); do
+            if git rev-parse -q --verify "refs/tags/${t#reserve/}" >/dev/null; then
+              DEAD="$DEAD refs/tags/$t"
+            fi
+          done
+
+          if [ -n "$DEAD" ]; then
+            echo "Retiring:$DEAD"
+            git push origin --delete $DEAD || true
+          else
+            echo "No spent reservations to retire."
+          fi
 
       - name: Create GitHub prerelease
         uses: softprops/action-gh-release@v2
@@ -380,6 +446,7 @@ jobs:
 
       - name: Notify Discord
         if: success()
+        continue-on-error: true
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
           REPO: ${{ github.repository }}
@@ -407,10 +474,10 @@ jobs:
     outputs:
       should_run: ${{ steps.check.outputs.should_run }}
     steps:
-      - name: Checkout master
+      - name: Checkout triggering commit
         uses: actions/checkout@v4
         with:
-          ref: master
+          ref: ${{ github.sha }}
           fetch-depth: 0
           fetch-tags: true
 
@@ -458,10 +525,10 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
-      - name: Checkout master
+      - name: Checkout triggering commit
         uses: actions/checkout@v4
         with:
-          ref: master
+          ref: ${{ github.sha }}
           fetch-depth: 0
           fetch-tags: true
 
@@ -477,8 +544,10 @@ jobs:
             exit 1
           fi
 
-          # Count existing release tags for this MAJOR.MINOR to get next patch
-          PATCH=$(git tag --list "${MAJOR}.${MINOR}.*" | grep -v beta | wc -l | tr -d ' ')
+          # Count existing release tags for this MAJOR.MINOR to get next patch.
+          # Must match X.Y.Z exactly: `grep -v beta` let -alpha.N tags through.
+          PATCH=$(git tag --list "${MAJOR}.${MINOR}.*" \
+            | grep -cE '^[0-9]+\.[0-9]+\.[0-9]+$')
           VERSION="${MAJOR}.${MINOR}.${PATCH}"
 
           echo "version=$VERSION" >> $GITHUB_OUTPUT
@@ -497,10 +566,10 @@ jobs:
           - arch: x86_64
             platform: x64
     steps:
-      - name: Checkout master
+      - name: Checkout triggering commit
         uses: actions/checkout@v4
         with:
-          ref: master
+          ref: ${{ github.sha }}
           fetch-depth: 0
           fetch-tags: true
 
@@ -574,10 +643,10 @@ jobs:
       matrix:
         arch: [x86, x86_64]
     steps:
-      - name: Checkout master
+      - name: Checkout triggering commit
         uses: actions/checkout@v4
         with:
-          ref: master
+          ref: ${{ github.sha }}
           fetch-depth: 0
           fetch-tags: true
 
@@ -660,10 +729,10 @@ jobs:
             runner: macos-15
             cmake_extra: "-DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_SYSTEM_PROCESSOR=arm64"
     steps:
-      - name: Checkout master
+      - name: Checkout triggering commit
         uses: actions/checkout@v4
         with:
-          ref: master
+          ref: ${{ github.sha }}
           fetch-depth: 0
           fetch-tags: true
 
@@ -742,10 +811,10 @@ jobs:
     needs: [check-master-changes, master-version, windows-master, linux-master, macos-master]
     runs-on: ubuntu-22.04
     steps:
-      - name: Checkout master
+      - name: Checkout triggering commit
         uses: actions/checkout@v4
         with:
-          ref: master
+          ref: ${{ github.sha }}
           fetch-depth: 0
           fetch-tags: true
 
@@ -795,6 +864,7 @@ jobs:
 
       - name: Notify Discord
         if: success()
+        continue-on-error: true
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
           REPO: ${{ github.repository }}
