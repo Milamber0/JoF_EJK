@@ -4252,71 +4252,70 @@ static void PM_GrappleMove( void ) {
 /*
 ===================
 PM_GrappleMoveTarzan
-
 ===================
 */
 static void PM_GrappleMoveTarzan(void) {
 	vec3_t dist;
-	vec3_t facingFwd, facingRight, facingAngles;
-	int    anim = -1;
-	float dotR, dotF;
-	float length, length2;
+ 	vec3_t facingFwd, facingRight, facingAngles;
+ 	int    anim = -1;
+ 	float dotR, dotF;
+ 	float length, length2;
 
-	VectorSubtract(&pm->ps->lastHitLoc, &pml.previous_origin, &dist);
+ 	VectorSubtract(pm->ps->lastHitLoc, pml.previous_origin, dist);
 
-	length = VectorLength(&dist);
+ 	length = VectorLength(dist);
 
-	if (length > 0.0f) {
-		float    Unknown1, Unknown2;
-		vec3_t    UnknownVec;
+ 	if (length > 0.0f) {
+ 		float    Unknown1, Unknown2;
+ 		vec3_t    UnknownVec;
 
-		VectorSubtract(&pm->ps->lastHitLoc, &pm->ps->origin, &dist);
-		length2 = VectorLength(&dist);
-		VectorNormalize(&dist);
+ 		VectorSubtract(pm->ps->lastHitLoc, pm->ps->origin, dist);
+ 		length2 = VectorLength(dist);
+ 		VectorNormalize(dist);
 
-		Unknown1 = pm->ps->gravity * length2 / length * pml.frametime;
+ 		Unknown1 = pm->ps->gravity * length2 / length * pml.frametime;
 
-		VectorScale(&dist, Unknown1, &UnknownVec);
-		VectorAdd(&UnknownVec, &pm->ps->velocity, &UnknownVec);
+ 		VectorScale(dist, Unknown1, UnknownVec);
+ 		VectorAdd(UnknownVec, pm->ps->velocity, UnknownVec);
 
-		Unknown2 = UnknownVec[2] * dist[2] + UnknownVec[1] * dist[1] + UnknownVec[0] * dist[0];
-		pm->ps->velocity[0] = -Unknown2 * dist[0] + UnknownVec[0];
-		pm->ps->velocity[1] = -Unknown2 * dist[1] + UnknownVec[1];
-		pm->ps->velocity[2] = -Unknown2 * dist[2] + UnknownVec[2];
-	}
+ 		Unknown2 = UnknownVec[2] * dist[2] + UnknownVec[1] * dist[1] + UnknownVec[0] * dist[0];
+ 		pm->ps->velocity[0] = -Unknown2 * dist[0] + UnknownVec[0];
+ 		pm->ps->velocity[1] = -Unknown2 * dist[1] + UnknownVec[1];
+ 		pm->ps->velocity[2] = -Unknown2 * dist[2] + UnknownVec[2];
+ 	}
 
-	pml.groundPlane = qfalse;
+ 	pml.groundPlane = qfalse;
 
-	VectorSet(&facingAngles, 0, pm->ps->viewangles[1], 0);
+ 	VectorSet(facingAngles, 0, pm->ps->viewangles[1], 0);
 
-	AngleVectors(&facingAngles, &facingFwd, &facingRight, NULL);
-	dotR = DotProduct(&facingRight, &pm->ps->velocity);
-	dotF = DotProduct(&facingFwd, &pm->ps->velocity);
+ 	AngleVectors(facingAngles, facingFwd, facingRight, NULL);
+ 	dotR = DotProduct(facingRight, pm->ps->velocity);
+ 	dotF = DotProduct(facingFwd, pm->ps->velocity);
 
-	if (fabsf(dotR) > fabsf(dotF) * 1.5f) {
-		if (dotR > 150) {
-			anim = BOTH_FORCEJUMPRIGHT1;
-		}
-		else if (dotR < -150) {
-			anim = BOTH_FORCEJUMPLEFT1;
-		}
-	}
-	else {
-		if (dotF > 150) {
-			anim = BOTH_FORCEJUMP1;
-		}
-		else if (dotF < -150) {
-			anim = BOTH_FORCEJUMPBACK1;
-		}
-	}
-	if (anim != -1) {
-		int parts = SETANIM_BOTH;
-		if (pm->ps->weaponTime) {//FIXME: really only care if we're in a saber attack anim...
-			parts = SETANIM_LEGS;
-		}
+ 	if (fabsf(dotR) > fabsf(dotF) * 1.5f) {
+ 		if (dotR > 150) {
+ 			anim = BOTH_FORCEJUMPRIGHT1;
+ 		}
+ 		else if (dotR < -150) {
+ 			anim = BOTH_FORCEJUMPLEFT1;
+ 		}
+ 	}
+ 	else {
+ 		if (dotF > 150) {
+ 			anim = BOTH_FORCEJUMP1;
+ 		}
+ 		else if (dotF < -150) {
+ 			anim = BOTH_FORCEJUMPBACK1;
+ 		}
+ 	}
+ 	if (anim != -1) {
+ 		int parts = SETANIM_BOTH;
+ 		if (pm->ps->weaponTime) {//FIXME: really only care if we're in a saber attack anim...
+ 			parts = SETANIM_LEGS;
+ 		}
 
-		PM_SetAnim(parts, anim, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD);
-	}
+ 		PM_SetAnim(parts, anim, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD);
+ 	}
 }
 
 /*
