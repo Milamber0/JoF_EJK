@@ -1026,6 +1026,120 @@ static void UI_FreeSpecies( playerSpeciesInfo_t *species )
 	memset(species, 0, sizeof(playerSpeciesInfo_t));
 }
 
+static int uiSpeciesBrowserIndices[MAX_Q3PLAYERMODELS];
+static int uiSpeciesBrowserCount;
+
+static void UI_SpeciesBrowserDisplayName(int speciesIndex, char *displayName, int displayNameSize)
+{
+	char stringRef[MAX_QPATH + 7];
+
+	if (speciesIndex < 0 || speciesIndex >= uiInfo.playerSpeciesCount)
+	{
+		displayName[0] = '\0';
+		return;
+	}
+
+	Com_sprintf(stringRef, sizeof(stringRef), "MENUS_%s", uiInfo.playerSpecies[speciesIndex].Name);
+	Q_strupr(stringRef);
+	if (!trap->SE_GetStringTextString(stringRef, displayName, displayNameSize))
+	{
+		Q_strncpyz(displayName, uiInfo.playerSpecies[speciesIndex].Name, displayNameSize);
+	}
+}
+
+static int UI_CompareSpeciesBrowserIndices(const void *left, const void *right)
+{
+	const int leftIndex = *(const int *)left;
+	const int rightIndex = *(const int *)right;
+	char leftName[MAX_STRING_CHARS];
+	char rightName[MAX_STRING_CHARS];
+
+	UI_SpeciesBrowserDisplayName(leftIndex, leftName, sizeof(leftName));
+	UI_SpeciesBrowserDisplayName(rightIndex, rightName, sizeof(rightName));
+	return Q_stricmp(leftName, rightName);
+}
+
+static int UI_SpeciesBrowserActualIndex(int index)
+{
+	if (index < 0 || index >= uiSpeciesBrowserCount)
+	{
+		return -1;
+	}
+
+	return uiSpeciesBrowserIndices[index];
+}
+
+void UI_UpdateSpeciesBrowser(void)
+{
+	menuDef_t *menu;
+	int i;
+	int selectedIndex = -1;
+
+	uiSpeciesBrowserCount = 0;
+	for (i = 0; i < uiInfo.playerSpeciesCount && uiSpeciesBrowserCount < MAX_Q3PLAYERMODELS; i++)
+	{
+		char displayName[MAX_STRING_CHARS];
+
+		UI_SpeciesBrowserDisplayName(i, displayName, sizeof(displayName));
+		if (!ui_speciesSearch.string[0]
+			|| Q_stristr(displayName, ui_speciesSearch.string)
+			|| Q_stristr(uiInfo.playerSpecies[i].Name, ui_speciesSearch.string))
+		{
+			uiSpeciesBrowserIndices[uiSpeciesBrowserCount++] = i;
+		}
+	}
+
+	qsort(uiSpeciesBrowserIndices, uiSpeciesBrowserCount, sizeof(uiSpeciesBrowserIndices[0]),
+		UI_CompareSpeciesBrowserIndices);
+
+	for (i = 0; i < uiSpeciesBrowserCount; i++)
+	{
+		if (uiSpeciesBrowserIndices[i] == uiInfo.playerSpeciesIndex)
+		{
+			selectedIndex = i;
+			break;
+		}
+	}
+
+	trap->Cvar_SetValue("ui_speciesSearchCount", (float)uiSpeciesBrowserCount);
+	trap->Cvar_Update(&ui_speciesSearchCount);
+
+	menu = Menus_FindByName("ingame_species_browser");
+	if (menu)
+	{
+		for (i = 0; i < menu->itemCount; i++)
+		{
+			itemDef_t *item = menu->items[i];
+
+			if ((int)item->special == FEEDER_PLAYER_SPECIES_BROWSER)
+			{
+				listBoxDef_t *list = item->typeData.listbox;
+
+				item->cursorPos = selectedIndex;
+				if (list)
+				{
+					int startPos = 0;
+
+					list->cursorPos = selectedIndex;
+					if (selectedIndex >= 0 && list->elementHeight > 0.0f)
+					{
+						const int visibleRows = (int)(item->window.rect.h / list->elementHeight);
+						const int maxStart = uiSpeciesBrowserCount > visibleRows
+							? uiSpeciesBrowserCount - visibleRows : 0;
+
+						startPos = selectedIndex - visibleRows / 2;
+						if (startPos < 0)
+							startPos = 0;
+						else if (startPos > maxStart)
+							startPos = maxStart;
+					}
+					list->startPos = startPos;
+				}
+			}
+		}
+	}
+}
+
 /*
 =================
 UI_BuildPlayerModel_List
@@ -1230,6 +1344,8 @@ void UI_BuildPlayerModel_List( qboolean inGameLoad )
 	{
 		free(dirlist);
 	}
+
+	UI_UpdateSpeciesBrowser();
 }
 
 void UI_SetActiveMenu( uiMenuCommand_t menu ) {
@@ -7781,17 +7897,14 @@ static void UI_GetSaberCvars ( void )
 	trap->Cvar_Set ( "ui_saber2_color", UI_Cvar_VariableString ( "g_saber2_color" ) );
 }
 
-void UI_UpdateCharacterSkin( void )
+static void UI_UpdateCharacterSkinForMenu(menuDef_t *menu)
 {
-	menuDef_t *menu;
 	itemDef_t *item;
 	char skin[MAX_QPATH];
 	char model[MAX_QPATH];
 	char head[MAX_QPATH];
 	char torso[MAX_QPATH];
 	char legs[MAX_QPATH];
-
-	menu = Menu_GetFocused();	// Get current menu
 
 	if (!menu)
 	{
@@ -7820,14 +7933,15 @@ void UI_UpdateCharacterSkin( void )
 	ItemParse_model_g2skin_go( item, skin );
 }
 
-static void UI_ResetCharacterListBoxes( void )
+void UI_UpdateCharacterSkin( void )
 {
+	UI_UpdateCharacterSkinForMenu(Menu_GetFocused());
+}
 
+static void UI_ResetCharacterListBoxesForMenu(menuDef_t *menu)
+{
 	itemDef_t *item;
-	menuDef_t *menu;
 	listBoxDef_t *listPtr;
-
-	menu = Menu_GetFocused();
 
 	if (menu)
 	{
@@ -7877,20 +7991,22 @@ static void UI_ResetCharacterListBoxes( void )
 	}
 }
 
+static void UI_ResetCharacterListBoxes( void )
+{
+	UI_ResetCharacterListBoxesForMenu(Menu_GetFocused());
+}
+
 const char *saberSingleHiltInfo [MAX_SABER_HILTS];
 const char *saberStaffHiltInfo [MAX_SABER_HILTS];
 
 qboolean UI_SaberProperNameForSaber( const char *saberName, char *saberProperName );
 void WP_SaberGetHiltInfo( const char *singleHilts[MAX_SABER_HILTS], const char *staffHilts[MAX_SABER_HILTS] );
 
-static void UI_UpdateCharacter( qboolean changedModel )
+static void UI_UpdateCharacterForMenu(menuDef_t *menu, qboolean changedModel)
 {
-	menuDef_t *menu;
 	itemDef_t *item;
 	char modelPath[MAX_QPATH];
 	int	animRunLength;
-
-	menu = Menu_GetFocused();	// Get current menu
 
 	if (!menu)
 	{
@@ -7917,7 +8033,12 @@ static void UI_UpdateCharacter( qboolean changedModel )
 		UI_FeederSelection(FEEDER_PLAYER_SKIN_LEGS, 0, item);
 		UI_FeederSelection(FEEDER_COLORCHOICES, 0, item);
 	}
-	UI_UpdateCharacterSkin();
+	UI_UpdateCharacterSkinForMenu(menu);
+}
+
+static void UI_UpdateCharacter( qboolean changedModel )
+{
+	UI_UpdateCharacterForMenu(Menu_GetFocused(), changedModel);
 }
 
 /*
@@ -8422,6 +8543,10 @@ static void UI_RunMenuScript(char **args)
 			trap->Cvar_Set("com_errorMessage", "");
 		} else if (Q_stricmp(name, "clearModelSearch") == 0) {
 			trap->Cvar_Set("ui_modelSearch", "");
+		} else if (Q_stricmp(name, "prepareSpeciesBrowser") == 0) {
+			trap->Cvar_Set("ui_speciesSearch", "");
+			trap->Cvar_Update(&ui_speciesSearch);
+			UI_UpdateSpeciesBrowser();
 		} else if (Q_stricmp(name, "loadGameInfo") == 0) {
 			UI_ParseGameInfo("ui/jamp/gameinfo.txt");
 		} else if (Q_stricmp(name, "RefreshServers") == 0) {
@@ -11059,6 +11184,9 @@ static int UI_FeederCount(float feederID)
 		case FEEDER_PLAYER_SPECIES:
 			return uiInfo.playerSpeciesCount;
 
+		case FEEDER_PLAYER_SPECIES_BROWSER:
+			return uiSpeciesBrowserCount;
+
 		case FEEDER_PLAYER_SKIN_HEAD:
 			return uiInfo.playerSpecies[uiInfo.playerSpeciesIndex].SkinHeadCount;
 
@@ -11584,6 +11712,17 @@ static const char *UI_FeederItemText(float feederID, int index, int column,
 		if (index >= 0 && index < uiInfo.playerSpeciesCount)
 		{
 			return uiInfo.playerSpecies[index].Name;
+		}
+	}
+	else if (feederID == FEEDER_PLAYER_SPECIES_BROWSER)
+	{
+		const int actualIndex = UI_SpeciesBrowserActualIndex(index);
+		static char displayName[MAX_STRING_CHARS];
+
+		if (actualIndex >= 0)
+		{
+			UI_SpeciesBrowserDisplayName(actualIndex, displayName, sizeof(displayName));
+			return displayName;
 		}
 	}
 	else if (feederID == FEEDER_LANGUAGES)
@@ -12417,6 +12556,27 @@ qboolean UI_FeederSelection(float feederFloat, int index, itemDef_t *item)
 		if (index >= 0 && index < uiInfo.playerSpeciesCount)
 		{
 			uiInfo.playerSpeciesIndex = index;
+		}
+	}
+	else if (feederID == FEEDER_PLAYER_SPECIES_BROWSER)
+	{
+		const int actualIndex = UI_SpeciesBrowserActualIndex(index);
+
+		if (actualIndex >= 0 && actualIndex != uiInfo.playerSpeciesIndex)
+		{
+			menuDef_t *browserMenu = Menus_FindByName("ingame_species_browser");
+			menuDef_t *characterMenu = Menus_FindByName("ingame_player2");
+			if (!characterMenu)
+			{
+				characterMenu = Menus_FindByName("playerMenu2");
+			}
+
+			uiInfo.playerSpeciesIndex = actualIndex;
+			trap->Cvar_Set("ui_char_model", uiInfo.playerSpecies[actualIndex].Name);
+
+			UI_UpdateCharacterForMenu(browserMenu, qtrue);
+			UI_ResetCharacterListBoxesForMenu(characterMenu);
+			UI_UpdateCharacterForMenu(characterMenu, qfalse);
 		}
 	}
 	else if (feederID == FEEDER_LANGUAGES)

@@ -692,8 +692,7 @@
 			}  	  
 		}
 
-
-		itemDef 
+		itemDef
 		{
 			name				next_glow
 			group				mods

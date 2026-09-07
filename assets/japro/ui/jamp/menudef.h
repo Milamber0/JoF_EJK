@@ -136,6 +136,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 // NOTE: keep in sync with codemp/ui/menudef.h
 #define FEEDER_COSMETIC_HATS				0x2E
 #define FEEDER_COSMETIC_CAPES				0x2F
+#define FEEDER_PLAYER_SPECIES_BROWSER		0x30
 
 
 // Xbox specific, hope no one minds
