@@ -2064,6 +2064,7 @@ CG_DrawHUD
 */
 
 float speedometerXPos;
+static float speedometerSpeed;
 void Dzikie_CG_DrawLine (float x1, float y1, float x2, float y2, float size, vec4_t color, float alpha, float ycutoff);
 void CG_DrawHUD(centity_t	*cent)
 {
@@ -12196,16 +12197,21 @@ static void CG_DrawVerticalSpeed(void) {
 }
 
 static QINLINE void CG_CalculateSpeed(centity_t *cent) {
+	const vec_t *velocity;
+
 	if (cg.predictedPlayerState.m_iVehicleNum) {
 		centity_t *vehCent = &cg_entities[cg.predictedPlayerState.m_iVehicleNum];
 
-		const vec_t * const velocity = (cent->currentState.clientNum == cg.clientNum ? vehCent->playerState->velocity : vehCent->currentState.pos.trDelta);
-		cg.currentSpeed = sqrtf(velocity[0] * velocity[0] + velocity[1] * velocity[1]); // is this right?
+		velocity = (cent->currentState.clientNum == cg.clientNum ? vehCent->playerState->velocity : vehCent->currentState.pos.trDelta);
 	}
 	else {
-		const vec_t * const velocity = (cent->currentState.clientNum == cg.clientNum ? cg.predictedPlayerState.velocity : cent->currentState.pos.trDelta);
-		cg.currentSpeed = sqrtf(velocity[0] * velocity[0] + velocity[1] * velocity[1]); // is this right?
+		velocity = (cent->currentState.clientNum == cg.clientNum ? cg.predictedPlayerState.velocity : cent->currentState.pos.trDelta);
 	}
+
+	// Movement helpers and race statistics use horizontal speed, while the UPS
+	// readout should also account for vertical movement such as falling.
+	cg.currentSpeed = sqrtf(velocity[0] * velocity[0] + velocity[1] * velocity[1]);
+	speedometerSpeed = VectorLength(velocity);
 }
 
 static void CG_RaceTimer(void)
@@ -12268,7 +12274,7 @@ static void CG_Speedometer(void)
 		const char *accelStr, *accelStr2, *accelStr3;
 		char speedStr[32] = {0}, speedStr2[32] = {0}, speedStr3[32] = {0};
 		vec4_t colorSpeed = {1, 1, 1, 1};
-		const float currentSpeed = cg.currentSpeed;
+		const float currentSpeed = speedometerSpeed;
 		static float lastSpeed = 0, previousAccels[ACCEL_SAMPLES];
 		const float accel = currentSpeed - lastSpeed;
 		float total, avgAccel;
@@ -12353,7 +12359,7 @@ static void CG_Speedometer(void)
 			}
 			else if (!cg.firstTimeInAir) { //Moving up for first time
 				cg.firstTimeInAir = qtrue;
-				cg.lastGroundSpeed = currentSpeed;
+				cg.lastGroundSpeed = cg.currentSpeed;
 				cg.lastGroundTime = cg.time;
 			}
 
@@ -12375,7 +12381,7 @@ static void CG_Speedometer(void)
 		for (i = 0; i<MAX_CLIENT_SPEEDPOINTS; i++) { //Add a speedpoint to the first available slot
 			if (!cg.clientSpeedpoints[i].isSet)
 				break;
-			if ((int)(currentSpeed + 0.5f) >= cg.clientSpeedpoints[i].speed) {
+			if ((int)(cg.currentSpeed + 0.5f) >= cg.clientSpeedpoints[i].speed) {
 				if (!cg.clientSpeedpoints[i].reached) {
 					trap->S_StartLocalSound(cgs.media.hitSound2, CHAN_LOCAL_SOUND);
 					cg.clientSpeedpoints[i].reached = qtrue;
