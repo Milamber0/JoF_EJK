@@ -25,6 +25,7 @@
 			uiScript				"prepareSpeciesBrowser"
 			uiScript				"character"
 			setfocus				speciesSearch
+			hide					donebutton_glow
 		}
 
 		onESC
