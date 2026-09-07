@@ -17,10 +17,46 @@
 		descScale					1
 		descColor				1 .682 0 .8
 		descAlignment				ITEM_ALIGN_CENTER
+		popup
 		onOpen
 		{
 			uiScript				"cosmeticsmodel"	// show the model the player actually wears
 			uiScript				"getcosmetics"		// and what they already have on
+			hide					buttonglows
+		}
+
+		onESC
+		{
+			play					"sound/interface/esc.wav"
+			close					ingame_cosmetics
+		}
+
+// Cover the retained full-screen Profile menu when opened outside a game.
+		itemDef
+		{
+			name				mainMenuBackgroundFill
+			group				none
+			style				WINDOW_STYLE_FILLED
+			rect				-105 -40 640 480
+			backcolor			0 0 .04 1
+			cvarTest			ui_cosmeticsMain
+			showCvar			{ "1" }
+			visible				1
+			decoration
+		}
+
+		itemDef
+		{
+			name				mainMenuBackground
+			group				none
+			style				WINDOW_STYLE_SHADER
+			rect				-105 -40 640 480
+			background			"gfx/menus/main_background"
+			forecolor			1 1 1 1
+			cvarTest			ui_cosmeticsMain
+			showCvar			{ "1" }
+			visible				1
+			decoration
 		}
 
 // Overall window backdrop
@@ -272,7 +308,6 @@
 			{
 				play			"sound/interface/button1"
 				close			ingame_cosmetics
-				open			ingame_player
 			}
 			mouseEnter
 			{

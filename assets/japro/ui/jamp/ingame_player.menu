@@ -200,49 +200,47 @@
 			decoration
 		}
 		
-// COSMETICS - sits in the empty right-hand end of the title bar (the title itself is centred)
+		// Custom section header in the right-hand end of the model title bar.
 		itemDef
 		{
-			name				cosmeticsbutton_glow
-			group				none
-			style				WINDOW_STYLE_SHADER
-			rect				430 29 155 20
-			background			"gfx/menus/menu_buttonback"
-			forecolor			1 1 1 1
+name				customtitle
+			style			WINDOW_STYLE_EMPTY
+			text			"Custom"
+			rect			430 52 155 0
+			textalign		ITEM_ALIGN_CENTER
+			textalignx		77
+			outlinecolor		1 .5 .5 .5
+			backcolor		0 0 0 0
+			font			2
+			textscale		1
+			forecolor		.549 .854 1 1
+			visible			1
 			decoration
-			visible			0
 		}
 
+		// Cosmetics browser, immediately above the custom-character icon.
 		itemDef
 		{
 			name				cosmeticsbutton
 			group				none
-			text				"COSMETICS"
+			text				"Cosmetics"
 			descText			"Wear a hat or a cape"
 			type				ITEM_TYPE_BUTTON
 			style				WINDOW_STYLE_EMPTY
-			rect				430 29 155 20
+rect				425 78 160 26
 			textalign			ITEM_ALIGN_CENTER
-			textalignx			77
-			textaligny			-2
+			textalignx			80
+			textaligny			2
 			font				2
 			textscale			.9
 			backcolor			0 0 0 0
 			forecolor			1 .682 0 1
 			visible			1
 
-			mouseEnter
-			{
-				show			cosmeticsbutton_glow
-			}
-			mouseExit
-			{
-				hide			cosmeticsbutton_glow
-			}
 			action
 			{
 				play			"sound/interface/button1.wav"
-				close			ingame_player
+				setcvar			ui_cosmeticsMain "0"
 				open			ingame_cosmetics
 			}
 		}
@@ -484,26 +482,8 @@
 		}
 
 //------------------------------------------------------------------------------------------------
-// Custom skin
+// Custom character
 //------------------------------------------------------------------------------------------------
-		itemDef 
-		{
-			name				customtitle
-			style				0	
-			text				@MENUS_CUSTOM
-			rect				425 78 160 26
-			textalign			ITEM_ALIGN_CENTER
-			textalignx			80
-			textaligny			-3
-			outlinecolor		1 .5 .5 .5
-			backcolor			0 0 0 0
-			font				2
-			textscale			1
-			forecolor			.549 .854 1 1
-			visible			1 
-			decoration
-		}
-
 		itemDef 
 		{
 			name				custom
