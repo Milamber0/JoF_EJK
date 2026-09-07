@@ -23,7 +23,7 @@ jobs:
   # BETA
   # =========================
   beta-version:
-    if: github.ref == 'refs/heads/beta' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/beta' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     name: Compute Beta Version
     runs-on: ubuntu-latest
     outputs:
@@ -61,7 +61,7 @@ jobs:
           echo "Computed version: $TAG_VERSION (base: $LAST_RELEASE, suffix: $VERSION_SUFFIX)"
 
   windows:
-    if: github.ref == 'refs/heads/beta' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/beta' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     name: Windows ${{ matrix.arch }} Release (Beta)
     needs: beta-version
     runs-on: windows-2022
@@ -142,7 +142,7 @@ jobs:
           if-no-files-found: error
 
   linux:
-    if: github.ref == 'refs/heads/beta' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/beta' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     name: Linux ${{ matrix.arch }} Release (Beta)
     needs: beta-version
     runs-on: ubuntu-22.04
@@ -223,7 +223,7 @@ jobs:
           if-no-files-found: error
 
   macos:
-    if: github.ref == 'refs/heads/beta' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/beta' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     name: macOS ${{ matrix.arch }} Release (Beta)
     needs: beta-version
     runs-on: ${{ matrix.runner }}
@@ -316,7 +316,7 @@ jobs:
           if-no-files-found: error
 
   publish-beta:
-    if: github.ref == 'refs/heads/beta' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/beta' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     name: Publish Beta Release
     needs: [beta-version, windows, linux, macos]
     runs-on: ubuntu-22.04
