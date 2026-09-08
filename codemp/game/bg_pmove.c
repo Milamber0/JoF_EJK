@@ -44,6 +44,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 	extern qboolean TryGrapple(gentity_t *ent); //g_cmds.c
 #elif defined _CGAME
 	extern int cg_dueltypes[MAX_CLIENTS];//JAPRO - Serverside - Fullforce Dueling
+	extern qboolean BG_SaberInTransitionAny( int move );
 
 static qboolean PM_InJAPlusLedgeMove( int anim )
 {
@@ -2289,8 +2290,24 @@ static qboolean PM_JAPlusLedgeTrace( trace_t *trace, vec3_t dir,
 	float *lerpUp, float *lerpForward, float *lerpYaw )
 {
 	vec3_t traceTo, traceFrom, wallAngles;
+	float modelScale = 1.0f;
 
 	if ( !PM_JAPlusLedgeGrabEnabled() )
+	{
+		return qfalse;
+	}
+
+	if ( pm->ps->iModelScale > 0 )
+	{
+		modelScale = pm->ps->iModelScale / 100.0f;
+	}
+
+	// JA++ rejects ledges while the player's feet are still too close to the ground.
+	// Account for its model-origin adjustment before applying the scaled 40-unit cutoff.
+	if ( PM_GroundDistance() - 20.0f + 20.0f * modelScale <
+		LEDGEGRABMINHEIGHT * modelScale ||
+		BG_SaberInAttack(pm->ps->saberMove) ||
+		BG_SaberInTransitionAny(pm->ps->saberMove) )
 	{
 		return qfalse;
 	}
