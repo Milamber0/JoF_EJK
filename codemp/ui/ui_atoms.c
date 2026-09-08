@@ -162,7 +162,7 @@ static bitInfo_t playerStyles[] = {
 	{ "Fade corpses immediately" },
 	{ "Disable corpse fading SFX" },
 	{ "Color respawn bubbles by team" },
-	{ "Hide player cosmetics" }
+	{ "" } //bit 16 is reserved; cosmetics visibility is controlled by cg_cosmetics
 };
 static const int MAX_PLAYERSTYLES = ARRAY_LEN(playerStyles);
 
@@ -177,6 +177,8 @@ void UI_StylePlayer_f(void) {
 		int i = 0, display = 0;
 
 		for (i = 0; i < MAX_PLAYERSTYLES; i++) {
+			if (!playerStyles[i].string[0])
+				continue;
 			if ((cg_stylePlayer.integer & (1 << i))) {
 				Com_Printf("%2d [X] %s\n", display, playerStyles[i].string);
 			}
@@ -189,15 +191,24 @@ void UI_StylePlayer_f(void) {
 	}
 	else {
 		char arg[8] = { 0 };
-		int index, index2, n = 0;
+		int index, index2 = -1, i, n = 0;
 		const uint32_t mask = (1 << MAX_PLAYERSTYLES) - 1;
 
 		trap->Cmd_Argv(1, arg, sizeof(arg));
 		index = atoi(arg);
-		index2 = index;
 
-		if (index2 < 0 || index2 >= MAX_PLAYERSTYLES) {
-			Com_Printf("style: Invalid range: %i [0, %i]\n", index2, MAX_PLAYERSTYLES - 1);
+		for (i = 0; i < MAX_PLAYERSTYLES; i++) {
+			if (!playerStyles[i].string[0])
+				continue;
+			if (n == index) {
+				index2 = i;
+				break;
+			}
+			n++;
+		}
+
+		if (index2 < 0) {
+			Com_Printf("style: Invalid range: %i [0, %i]\n", index, n - 1);
 			return;
 		}
 
