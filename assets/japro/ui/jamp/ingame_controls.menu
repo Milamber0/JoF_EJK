@@ -13,7 +13,7 @@
 		style					1
 		border					1
 		descX					305
-		descY					390
+		descY					360
 		descScale				1
 		descColor				1 .682 0 .8					// Focus color for text and items
 		descAlignment				ITEM_ALIGN_CENTER		
