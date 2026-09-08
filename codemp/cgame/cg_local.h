@@ -139,7 +139,6 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define JAPRO_STYLE_NOBODIES				(1<<13)
 #define JAPRO_STYLE_NOFADESFX				(1<<14)
 #define JAPRO_STYLE_COLOREDSPAWNBUBBLE		(1<<15)
-#define JAPRO_STYLE_HIDECOSMETICS			(1<<16)
 #define JAPRO_COSMETICS_OFF				0
 #define JAPRO_COSMETICS_ON				1
 #define JAPRO_COSMETICS_ONLY_ME			2

@@ -13850,9 +13850,7 @@ stillDoSaber:
 
 	//[Kameleon] - Nerevar's Santa Hat.
 	// cg_cosmetics: 0 hides all cosmetics, 1 shows everyone, 2 shows only the local player.
-	// Keep the old cg_stylePlayer hide bit as an off switch for existing configurations.
 	if ( cg_cosmetics.integer != JAPRO_COSMETICS_OFF &&
-		!(cg_stylePlayer.integer & JAPRO_STYLE_HIDECOSMETICS) &&
 		(cg_cosmetics.integer != JAPRO_COSMETICS_ONLY_ME || cent->currentState.clientNum == cg.clientNum) )
 	{
 	//A hat the player picked for themselves wins the head slot. The server-granted jaPRO
