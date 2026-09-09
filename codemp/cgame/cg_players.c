@@ -10672,6 +10672,25 @@ void CG_DrawCosmeticOnPlayer( centity_t *cent, int time, qhandle_t *gameModels, 
         return;
     }
 
+    if ( cent->currentState.eFlags2 & EF2_HELD_BY_MONSTER )
+    {
+        return;
+    }
+
+    if ( cent->modelScale[0] > 0.0f && cent->modelScale[0] != 1.0f )
+    {
+        return;
+    }
+
+    if ( cent->currentState.powerups & ( 1 << PW_CLOAKED ) )
+    {
+        if ( !( cg.snap->ps.fd.forcePowersActive & ( 1 << FP_SEE ) )
+            || cg.snap->ps.clientNum == cent->currentState.number )
+        {
+            return;
+        }
+    }
+
     if (!cg.renderingThirdPerson && cent->currentState.clientNum == cg.clientNum)
     {
         return;
@@ -13831,9 +13850,7 @@ stillDoSaber:
 
 	//[Kameleon] - Nerevar's Santa Hat.
 	// cg_cosmetics: 0 hides all cosmetics, 1 shows everyone, 2 shows only the local player.
-	// Keep the old cg_stylePlayer hide bit as an off switch for existing configurations.
 	if ( cg_cosmetics.integer != JAPRO_COSMETICS_OFF &&
-		!(cg_stylePlayer.integer & JAPRO_STYLE_HIDECOSMETICS) &&
 		(cg_cosmetics.integer != JAPRO_COSMETICS_ONLY_ME || cent->currentState.clientNum == cg.clientNum) )
 	{
 	//A hat the player picked for themselves wins the head slot. The server-granted jaPRO
@@ -14028,9 +14045,13 @@ stillDoSaber:
 	}
 	//For now, these two are using the old shield shader. This is just so that you
 	//can tell it apart from the JM/duel shaders, but it's still very obvious.
+	const qboolean useCombinedProtectAbsorbColor = (qboolean)(
+		cg_spprotabscolor.integer == 1 &&
+		!(cp_pluginDisable.integer & JAPRO_PLUGIN_NEWFORCEEFFECT));
+
 	if ((cent->currentState.forcePowersActive & (1 << FP_PROTECT) && (!(cent->currentState.forcePowersActive & (1 << FP_ABSORB))))
 		|| (cent->currentState.forcePowersActive & (1 << FP_PROTECT) && (cent->currentState.forcePowersActive & (1 << FP_ABSORB)) &&
-			cg_spprotabscolor.value == 0)
+			!useCombinedProtectAbsorbColor)
 		)
 
 	{ //protect is represented by green..
@@ -14074,7 +14095,7 @@ stillDoSaber:
 			cg_alwaysShowAbsorb.integer && cgs.serverMod != SVMOD_BASEENHANCED &&
 			cent->currentState.forcePowersActive & (1 << FP_ABSORB) &&
 			cent->currentState.forcePowersActive & (1 << FP_PROTECT) &&
-			cg_spprotabscolor.value == 0
+			!useCombinedProtectAbsorbColor
 			)
 		||
 		(cent->teamPowerEffectTime > cg.time && cent->teamPowerType == 3)
@@ -14094,12 +14115,11 @@ stillDoSaber:
 		trap->R_AddRefEntityToScene( &legs );
 	}
 
-	if (cg_spprotabscolor.value == 1 &&
+	if (useCombinedProtectAbsorbColor &&
 		((((cgs.serverMod != SVMOD_BASEENHANCED) &&
 			(cent->currentState.forcePowersActive & (1 << FP_ABSORB))) ||
 			(cent->teamPowerEffectTime > cg.time && cent->teamPowerType == 3)) &&
-			(cent->currentState.forcePowersActive & (1 << FP_PROTECT))) && 
-			!(cp_pluginDisable.integer & JAPRO_PLUGIN_NEWFORCEEFFECT))
+			(cent->currentState.forcePowersActive & (1 << FP_PROTECT))))
 
 	{ //absorb + protect is represented by cyan..
 

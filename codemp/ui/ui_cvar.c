@@ -126,6 +126,14 @@ static void CVU_UpdateModelSearch(void) {
 	}
 }
 
+static void CVU_UpdateSpeciesSearch(void) {
+	if (startup) {
+		return;
+	}
+
+	UI_UpdateSpeciesBrowser();
+}
+
 
 static void CVU_UpdateQ3ModelList(void) {
 	if (startup) {

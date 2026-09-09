@@ -1692,7 +1692,7 @@ static qboolean japroPlayerStyles[] = {
 	qtrue,//Fade corpses immediately
 	qtrue,//Disable corpse fading SFX
 	qtrue,//Color respawn bubbles by team
-	qtrue,//Hide player cosmetics
+	qfalse,//Unused (former hide player cosmetics bit)
 	qtrue,//Disable breathing effects
 	qtrue,//Old JA+ style grapple line
 	qtrue,//Disable alternate standing pose
@@ -1719,7 +1719,7 @@ static qboolean japlusPlayerStyles[] = {
 	qtrue,//Fade corpses immediately
 	qtrue,//Disable corpse fading SFX
 	qtrue,//Color respawn bubbles by team
-	qtrue,//Hide player cosmetics
+	qfalse,//Unused (former hide player cosmetics bit)
 	qtrue,//Disable breathing effects
 	qtrue,//Old JA+ style grapple line
 	qtrue,//Disable alternate standing pose
@@ -1744,7 +1744,7 @@ static bitInfo_T playerStyles[] = { // MAX_WEAPON_TWEAKS tweaks (24)
 	{ "Fade corpses immediately" },//13
 	{ "Disable corpse fading SFX" },//14
 	{ "Color respawn bubbles by team" },//15
-	{ "Hide player cosmetics" },//16
+	{ "" },//16 - reserved; cosmetics visibility is controlled by cg_cosmetics
 	{ "Disable breathing effects" },//17
 	{ "Old JA+ style grapple line" },//18
 	{ "Enable alternate stand pose on some characters" },//19
@@ -1753,16 +1753,24 @@ static bitInfo_T playerStyles[] = { // MAX_WEAPON_TWEAKS tweaks (24)
 };
 static const int MAX_PLAYERSTYLES = ARRAY_LEN(playerStyles);
 
+static qboolean CG_StylePlayerOptionAvailable( int index )
+{
+	if ( !playerStyles[index].string[0] )
+		return qfalse;
+	if ( cgs.serverMod == SVMOD_JAPLUS )
+		return japlusPlayerStyles[index];
+	if ( cgs.serverMod == SVMOD_JAPRO )
+		return japroPlayerStyles[index];
+	return qtrue;
+}
+
 void CG_StylePlayer_f(void)
 {
 	if (trap->Cmd_Argc() == 1) {
 		int i = 0, display = 0;
 
 		for (i = 0; i < MAX_PLAYERSTYLES; i++) {
-
-			if (cgs.serverMod == SVMOD_JAPLUS && !japlusPlayerStyles[i])
-				continue;
-			if (cgs.serverMod == SVMOD_JAPRO && !japroPlayerStyles[i])
+			if (!CG_StylePlayerOptionAvailable(i))
 				continue;
 
 			if ((cg_stylePlayer.integer & (1 << i))) {
@@ -1777,20 +1785,18 @@ void CG_StylePlayer_f(void)
 	}
 	else {
 		char arg[8] = { 0 };
-		int index, index2, i, n = 0;
+		int index, index2 = -1, i, n = 0;
 		const uint32_t mask = (1 << MAX_PLAYERSTYLES) - 1;
 
 		trap->Cmd_Argv(1, arg, sizeof(arg));
 		index = atoi(arg);
-		index2 = index;
-
 		for (i = 0; i < MAX_PLAYERSTYLES; i++) {
 			//ok so, if they type /plugin #
 			//go through the list of plugindisables, from 0 to max,
 			//for each qtrue, increment I
 			//once I = #, thats the actual index we want
 
-			if ((cgs.serverMod == SVMOD_JAPLUS && japlusPlayerStyles[i]) || (cgs.serverMod == SVMOD_JAPRO && japroPlayerStyles[i])) {
+			if (CG_StylePlayerOptionAvailable(i)) {
 				//Com_Printf("Option found %i, %s, n is %i, index is %i\n", i, pluginDisables[i], n, index);
 				if (n == index) {
 					index2 = i;
@@ -1800,8 +1806,8 @@ void CG_StylePlayer_f(void)
 			}
 		}
 
-		if (index2 < 0 || index2 >= MAX_PLAYERSTYLES) {
-			Com_Printf("style: Invalid range: %i [0, %i]\n", index2, MAX_PLAYERSTYLES - 1);
+		if (index2 < 0) {
+			Com_Printf("style: Invalid range: %i [0, %i]\n", index, n - 1);
 			return;
 		}
 
@@ -1838,6 +1844,7 @@ static bitInfo_T speedometerSettings[] = { // MAX_WEAPON_TWEAKS tweaks (24)
 	{ "Speed graph" },//7
 	{ "Display speed in kilometers instead of units" },//8
 	{ "Display speed in imperial miles instead of units" },//9
+	{ "XYZ speed" },//10
 };
 static const int MAX_SPEEDOMETER_SETTINGS = ARRAY_LEN(speedometerSettings);
 

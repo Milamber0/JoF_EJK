@@ -73,6 +73,7 @@ void UI_GetCharacterCvars( void );
 const char *UI_GetModelWithSkin(char *model);
 int UI_HeadIndexForModel(const char *model);
 void UI_SetTeamColorFromModel(const char *model);
+void UI_UpdateSpeciesBrowser(void);
 
 //
 // ui_players.c

@@ -126,7 +126,7 @@ XCVAR_DEF( cg_jetpackOnSound,					"1",	NULL,								CVAR_ARCHIVE )
 XCVAR_DEF( cg_jetpackHoverSound,				"1",	NULL,								CVAR_ARCHIVE )
 XCVAR_DEF( cg_headTurn,							"1",	NULL,								CVAR_NONE )
 
-XCVAR_DEF( cg_alwaysShowAbsorb,					"0",	NULL,								CVAR_ARCHIVE )
+XCVAR_DEF( cg_alwaysShowAbsorb,					"1",	NULL,								CVAR_ARCHIVE )
 XCVAR_DEF( cg_spprotabscolor,					"1",	NULL,								CVAR_ARCHIVE )
 XCVAR_DEF( cg_zoomFov,							"30.0",	NULL,								CVAR_ARCHIVE )
 XCVAR_DEF( cg_fleshSparks,						"7",	NULL,								CVAR_ARCHIVE )
