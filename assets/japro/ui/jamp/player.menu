@@ -429,7 +429,7 @@
 			textaligny 			-5
 			font				2
 			textscale			1
-			forecolor			.615 .615 .956 1
+			forecolor			1 .682 0 1
 			outlinecolor 		1 .5 .5 .5
 			backcolor 			0 0 0 0
 			border 			0
@@ -488,7 +488,7 @@
 			backcolor			0 0 0 0
 			font				2
 			textscale			.6
-			forecolor			.615 .615 .956 1
+			forecolor			1 .682 0 1
 			border				0
 			bordercolor			0 0 0 0
 			//descText			"Currently selected model"
@@ -517,7 +517,7 @@
 			textaligny			8
 			font				2
 			textscale			.6
-			forecolor			.615 .615 .956 1
+			forecolor			1 .682 0 1
 			maxChars			32
 			maxPaintChars		18
 			visible				1
@@ -543,7 +543,7 @@
 			backcolor			0 0 0 0
 			font				2
 			textscale			.9
-			forecolor			.615 .615 .956 1
+			forecolor			1 .682 0 1
 			border				0
 			bordercolor			0 0 0 0
 			descText			@MENUS_CHOOSE_THE_COLOR_FOR
@@ -575,7 +575,7 @@
 			backcolor			0 0 0 0
 			font				2
 			textscale			.8
-			forecolor			.615 .615 .956 1
+			forecolor			1 .682 0 1
 			border				0
 			bordercolor			0 0 0 0
 			visible				1
@@ -645,8 +645,8 @@
 		{
 			name				customtitle
 			style				0	
-			text				@MENUS_CUSTOM
-			rect				425 250 200 26
+			text				"Custom"
+			rect				425 184 200 0
 			textalign			ITEM_ALIGN_CENTER
 			textalignx			100
 			textaligny			-3
@@ -657,6 +657,32 @@
 			forecolor			.549 .854 1 1
 			visible				1 
 			decoration
+		}
+
+		itemDef
+		{
+			name				cosmeticsbutton
+			group				none
+			text				"Cosmetics"
+			descText			"Wear a hat or a cape"
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_EMPTY
+			rect				425 250 200 26
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			100
+			textaligny			2
+			font				2
+			textscale			.9
+			backcolor			0 0 0 0
+			forecolor			1 .682 0 1
+			visible				1
+
+			action
+			{
+				play			"sound/interface/button1.wav"
+				setcvar			ui_cosmeticsMain "1"
+				open			ingame_cosmetics
+			}
 		}
 
 		itemDef 
