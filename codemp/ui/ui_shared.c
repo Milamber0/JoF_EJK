@@ -127,6 +127,7 @@ int BindingIDFromName(const char *name);
 qboolean Item_Bind_HandleKey(itemDef_t *item, int key, qboolean down);
 itemDef_t *Menu_SetPrevCursorItem(menuDef_t *menu);
 itemDef_t *Menu_SetNextCursorItem(menuDef_t *menu);
+static void Item_MouseLeave(itemDef_t *item);
 static qboolean Menu_OverActiveItem(menuDef_t *menu, float x, float y);
 static void Item_TextScroll_BuildLines ( itemDef_t* item );
 void Menu_SetItemText(const menuDef_t *menu,const char *itemName, const char *text);
@@ -1368,6 +1369,10 @@ void Menu_ShowGroup (menuDef_t *menu, const char *groupName, qboolean showFlag)
 			}
 			else
 			{
+				if (item->window.flags & (WINDOW_MOUSEOVER | WINDOW_MOUSEOVERTEXT))
+				{
+					Item_MouseLeave(item);
+				}
 				item->window.flags &= ~(WINDOW_VISIBLE | WINDOW_HASFOCUS |
 					WINDOW_MOUSEOVER | WINDOW_MOUSEOVERTEXT);
 			}
@@ -1385,6 +1390,9 @@ void Menu_ShowItemByName(menuDef_t *menu, const char *p, qboolean bShow) {
 			if (bShow) {
 				item->window.flags |= WINDOW_VISIBLE;
 			} else {
+				if (item->window.flags & (WINDOW_MOUSEOVER | WINDOW_MOUSEOVERTEXT)) {
+					Item_MouseLeave(item);
+				}
 				item->window.flags &= ~(WINDOW_VISIBLE | WINDOW_HASFOCUS |
 					WINDOW_MOUSEOVER | WINDOW_MOUSEOVERTEXT);
 				// stop cinematics playing in the window
@@ -1444,16 +1452,38 @@ static void Menu_RunCloseScript(menuDef_t *menu) {
 	}
 }
 
+static void Menu_ClearMouseOver(menuDef_t *menu)
+{
+	int i;
+
+	if (!menu)
+	{
+		return;
+	}
+
+	for (i = 0; i < menu->itemCount; i++)
+	{
+		itemDef_t *item = menu->items[i];
+		if (item->window.flags & (WINDOW_MOUSEOVER | WINDOW_MOUSEOVERTEXT))
+		{
+			// Closing a menu bypasses the normal cursor-leave path. Run the
+			// exit scripts so hover-driven decoration is reset before reopen.
+			Item_MouseLeave(item);
+		}
+	}
+}
+
 void Menus_CloseByName ( const char *p )
 {
 	menuDef_t *menu = Menus_FindByName(p);
-	int i;
 
 	// If the menu wasnt found just exit
 	if (menu == NULL)
 	{
 		return;
 	}
+
+	Menu_ClearMouseOver(menu);
 
 	// Run the close script for the menu
 	Menu_RunCloseScript(menu);
@@ -1479,10 +1509,6 @@ void Menus_CloseByName ( const char *p )
 
 	// Window is now invisible and doenst have focus
 	menu->window.flags &= ~(WINDOW_VISIBLE | WINDOW_HASFOCUS);
-	for (i = 0; i < menu->itemCount; i++)
-	{
-		menu->items[i]->window.flags &= ~(WINDOW_MOUSEOVER | WINDOW_MOUSEOVERTEXT);
-	}
 }
 
 int FPMessageTime = 0;
@@ -1495,13 +1521,9 @@ void Menus_CloseAll()
 
 	for (i = 0; i < menuCount; i++)
 	{
-		int j;
+		Menu_ClearMouseOver(&Menus[i]);
 		Menu_RunCloseScript ( &Menus[i] );
 		Menus[i].window.flags &= ~(WINDOW_HASFOCUS | WINDOW_VISIBLE);
-		for (j = 0; j < Menus[i].itemCount; j++)
-		{
-			Menus[i].items[j]->window.flags &= ~(WINDOW_MOUSEOVER | WINDOW_MOUSEOVERTEXT);
-		}
 	}
 
 	// Clear the menu stack
@@ -2993,7 +3015,7 @@ void Item_MouseEnter(itemDef_t *item, float x, float y) {
 	}
 }
 
-void Item_MouseLeave(itemDef_t *item) {
+static void Item_MouseLeave(itemDef_t *item) {
 	if (item) {
 		if (item->window.flags & WINDOW_MOUSEOVERTEXT) {
 			Item_RunScript(item, item->mouseExitText);
@@ -4261,12 +4283,14 @@ void Menus_HandleOOBClick(menuDef_t *menu, int key, qboolean down) {
 		// the cursor is within any of them.. if not close them otherwise activate them and pass the
 		// key on.. force a mouse move to activate focus and script stuff
 		if (down && menu->window.flags & WINDOW_OOB_CLICK) {
+			Menu_ClearMouseOver(menu);
 			Menu_RunCloseScript(menu);
 			menu->window.flags &= ~(WINDOW_HASFOCUS | WINDOW_VISIBLE);
 		}
 
 		for (i = 0; i < menuCount; i++) {
 			if (Menu_OverActiveItem(&Menus[i], DC->cursorx, DC->cursory)) {
+				Menu_ClearMouseOver(menu);
 				Menu_RunCloseScript(menu);
 				menu->window.flags &= ~(WINDOW_HASFOCUS | WINDOW_VISIBLE);
 			//	Menus_Activate(&Menus[i]);
