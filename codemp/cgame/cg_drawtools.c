@@ -549,7 +549,7 @@ Take x,y positions as if 640 x 480 and scales them to the proper resolution
 
 ==============
 */
-void CG_DrawNumField (float x, float y, int width, int value,float charWidth,float charHeight,int style,qboolean zeroFill)
+void CG_DrawNumField (float x, float y, int width, int value,float charWidth,float charHeight,int style,qboolean zeroFill, const float *color)
 {
 	char	num[16], *ptr;
 	int		l;
@@ -603,6 +603,52 @@ void CG_DrawNumField (float x, float y, int width, int value,float charWidth,flo
 	case NUM_FONT_BIG:
 		xWidth = (charWidth/2) + 7;//(charWidth/6);
 		break;
+	}
+
+	// Sharp HUD: render the digits with the scalable font instead of the low-res bitmap
+	// glyphs so they stay crisp at high resolution. The bitmap path right-aligns the
+	// number within a field 'width' digits wide; we mirror that placement and use the
+	// caller's explicit color (CG_Text_Paint needs the color passed directly).
+	if ( cg_sharpHud.integer )
+	{
+		const int sharpFont = (style == NUM_FONT_BIG) ? FONT_MEDIUM : FONT_SMALL;
+		char disp[16];
+		float fontScale, fontH, textW, fieldRight, tx, ty;
+		vec4_t drawColor;
+		int pad;
+
+		// Build the displayed string: optional leading zeros, then the (clamped) number.
+		disp[0] = '\0';
+		pad = zeroFill ? (width - l) : 0;
+		if (pad > 0) {
+			if (pad > (int)sizeof(disp) - 1)
+				pad = (int)sizeof(disp) - 1;
+			memset(disp, '0', pad);
+		}
+		Q_strncpyz(disp + pad, num, sizeof(disp) - pad);
+
+		fontH = CG_Text_Height("0", 1.0f, sharpFont);
+		fontScale = (fontH > 0.0f) ? (charHeight / fontH) : 1.0f;
+
+		// Right edge of the bitmap field, so the font number lines up the same way.
+		fieldRight = x + 2.0f + (xWidth * width);
+		textW = CG_Text_Width(disp, fontScale, sharpFont);
+		tx = fieldRight - textW;
+		ty = y - (charHeight * 0.30f);	// the font cell sits lower than the old bitmap digit; lift it up
+
+		// Use the caller's color (red health, green armor, blue force, etc.), forcing full
+		// alpha so the digits read as a solid, vivid color rather than a washed tint.
+		if (color) {
+			drawColor[0] = color[0];
+			drawColor[1] = color[1];
+			drawColor[2] = color[2];
+		} else {
+			drawColor[0] = drawColor[1] = drawColor[2] = 1.0f;
+		}
+		drawColor[3] = 1.0f;
+
+		CG_Text_Paint(tx, ty, fontScale, drawColor, disp, 0.0f, 0, ITEM_TEXTSTYLE_SHADOWED, sharpFont);
+		return;
 	}
 
 	if ( zeroFill )

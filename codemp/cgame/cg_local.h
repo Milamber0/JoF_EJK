@@ -2352,7 +2352,7 @@ void CG_DrawRotatePic2( float x, float y, float width, float height,float angle,
 void CG_DrawString( float x, float y, const char *string,
 				   float charWidth, float charHeight, const float *modulate );
 
-void CG_DrawNumField (float x, float y, int width, int value, float charWidth, float charHeight, int style, qboolean zeroFill);
+void CG_DrawNumField (float x, float y, int width, int value, float charWidth, float charHeight, int style, qboolean zeroFill, const float *color);
 
 void CG_DrawStringExt( float x, float y, const char *string, const float *setColor,
 		qboolean forceColor, qboolean shadow, float charWidth, float charHeight, int maxChars );

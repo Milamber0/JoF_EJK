@@ -38,6 +38,9 @@ XCVAR_DEF( g_forceRegenTime,		"0",	NULL,					CVAR_ARCHIVE )
 XCVAR_DEF( cl_currentServerAddress,	"0",	NULL,					CVAR_ROM )
 
 //JAPRO HUD / DISPLAY
+// Render numeric HUD fields (health/armor/force/ammo) and the FPS/timer text with the
+// scalable font instead of the legacy low-res bitmap glyphs, so they stay sharp at high res.
+XCVAR_DEF( cg_sharpHud,				"0",	NULL,					CVAR_ARCHIVE )
 XCVAR_DEF( cg_movementKeys,			"0",	NULL,					CVAR_ARCHIVE )
 XCVAR_DEF( cg_movementKeysX,		"465",	NULL,					CVAR_ARCHIVE )
 XCVAR_DEF( cg_movementKeysY,		"432",	NULL,					CVAR_ARCHIVE )
