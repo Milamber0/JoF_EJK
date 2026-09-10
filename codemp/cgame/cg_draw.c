@@ -6030,7 +6030,8 @@ static void CG_DrawInventory(int y)
 
 	for (i = 0; i < HI_NUM_HOLDABLE; i++)
 	{
-		if (i && i != HI_JETPACK && cg.snap->ps.stats[STAT_HOLDABLE_ITEMS] & (1 << i))
+		// Hide icons for jetpack and health dispenser (third grey bacta icon) from side inventory
+		if (i && i != HI_JETPACK && i != HI_HEALTHDISP && cg.snap->ps.stats[STAT_HOLDABLE_ITEMS] & (1 << i))
 		{
 			CG_DrawPic(xAlign, y, ico_size*cgs.widthRatioCoef, ico_size, cgs.media.invenIcons[i]);
 			y += ico_size;
