@@ -12712,7 +12712,7 @@ void PmoveSingle (pmove_t *pmove) {
 	{
 		stiffenedUp = qtrue;
 	}
-	else if (BG_InGrappleMove(pm->ps->torsoAnim))
+	else if (BG_InGrappleMove(pm->ps->torsoAnim) || BG_InGrappleMove(pm->ps->legsAnim))
 	{
 		stiffenedUp = qtrue;
 		PM_SetPMViewAngle(pm->ps, pm->ps->viewangles, &pm->cmd);
