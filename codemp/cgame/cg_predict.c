@@ -1119,6 +1119,361 @@ static qboolean CG_InJAPlusSpecialKickState( playerState_t *ps )
 
 	return qfalse;
 }
+
+// JA+ "amghost" makes an admin non-solid: server-side the ghost's clipmask loses CONTENTS_BODY,
+// so the server walks us straight through other players while our prediction still collides
+// with them. Every overlap then ends with the client blocked
+// and the server several units further along, and the error corrections that follow are smeared
+// into the view by cg_errorDecay - which is the stuttering, clonky movement.
+//
+// JA+ puts nothing in the playerstate when it ghosts us - forcePowersKnown, eFlags and the rest
+// are untouched across an amGhost - but it does centerprint at us, which is exact and instant, so
+// that is the primary signal (see CG_JAPlusGhostAnnouncement). Some builds blank that text in
+// their config, and the messages only cover transitions we witness anyway, so we also infer it
+// from the snapshot: if the server has us standing inside another player, it plainly isn't
+// clipping the two of us against each other.
+//
+// Either way we end up believing we are non-solid, and hold that until something contradicts it:
+// a prediction miss (if we were still non-solid we wouldn't be missing), or a respawn or team
+// change, which are JA+'s chances to drop the ghost without saying so. An announcement takes more
+// to disbelieve than a guess does, because it can't re-arm itself the way the guess can.
+//
+// cg_ghostPredict turns the whole thing off if it ever misbehaves.
+// Players only. JA++ also dropped CONTENTS_PLAYERCLIP for ghosts, but that came from a different
+// server's behaviour and we never confirmed it here - and a map's clip brushes commonly reach into
+// walkable space, so inferring the ghost from standing in one fires on people who aren't ghosted
+// at all, and then never lets go. Passing through players is the part we have actually observed.
+#define GHOST_CONTENTS			CONTENTS_BODY
+#define GHOST_OVERLAP_SLOP		1.0f	// ignore grazes - blocked contact leaves a sub-unit gap
+#define GHOST_MOVE_MIN			4.0f	// the server must be moving us for an overlap to mean anything
+#define GHOST_MISS_REVERT		4.0f	// a miss this big drops what we merely inferred
+#define GHOST_ANNOUNCE_REVERT	8.0f	// ... this big, three in a row, to disbelieve JA+ itself
+#define GHOST_MISS_STREAK		3
+#define GHOST_MISS_WINDOW		500		// ms, how close together they have to be to count as a run
+#define GHOST_ARM_GRACE			400		// ms before a fresh belief may be judged by a miss
+#define GHOST_REARM_DELAY		2000	// ms before a dropped belief may be armed again
+#define GHOST_DUEL_SETTLE		2000	// ms after a duel before an overlap means anything again
+
+// What JA+ centerprints when the ghost goes on and off. The wording is per build and the table is
+// meant to grow, but these are matched whole, not as substrings: centerprints carry player names,
+// and a substring match would let anyone who names themselves after one of these lines flip the
+// ghost on every client that sees their name.
+static const char *ghostOnMessages[] = {
+	"You become a Ghost",
+};
+static const char *ghostOffMessages[] = {
+	"You have been Unghosted",
+};
+
+static qboolean CG_GhostPredictAllowed( void )
+{
+	if ( !cg.snap || cgs.serverMod != SVMOD_JAPLUS || cg_ghostPredict.integer <= 0 )
+	{
+		return qfalse;
+	}
+
+	// spectating and following already come with their own clipping rules
+	if ( (cg.snap->ps.pm_flags & PMF_FOLLOW)
+		|| cg.snap->ps.pm_type == PM_SPECTATOR
+		|| cg.snap->ps.persistant[PERS_TEAM] == TEAM_SPECTATOR )
+	{
+		return qfalse;
+	}
+
+	return qtrue;
+}
+
+// do we predict ourselves passing through players and playerclip?
+static qboolean CG_JAPlusGhosted( void )
+{
+	if ( !CG_GhostPredictAllowed() )
+	{
+		return qfalse;
+	}
+
+	return (cg.ghostAnnounced || cg.ghostNonSolid);
+}
+
+/*
+====================
+CG_JAPlusGhostAnnouncement
+
+JA+ centerprints when it ghosts and unghosts us. Called for every centerprint it sends, and those
+carry player names, so the match is exact - a wrong positive here predicts us through players that
+are really solid.
+====================
+*/
+void CG_JAPlusGhostAnnouncement( const char *text )
+{
+	char	clean[MAX_STRING_CHARS], *msg, *end;
+	size_t	i;
+
+	if ( cgs.serverMod != SVMOD_JAPLUS )
+	{
+		return;
+	}
+
+	Q_strncpyz( clean, text, sizeof( clean ) );
+	Q_CleanStr( clean );
+
+	// the message is the whole line, give or take the whitespace a build might pad it with
+	msg = clean;
+	while ( *msg == ' ' )
+	{
+		msg++;
+	}
+	for ( end = msg + strlen( msg ); end > msg && end[-1] == ' '; end-- )
+	{
+		end[-1] = '\0';
+	}
+
+	for ( i = 0; i < ARRAY_LEN( ghostOffMessages ); i++ )
+	{
+		if ( !Q_stricmp( msg, ghostOffMessages[i] ) )
+		{
+			cg.ghostAnnounced = cg.ghostNonSolid = qfalse;
+			cg.ghostRevertTime = cg.time;	// don't let a lingering overlap argue with the server
+			if ( cg_showMiss.integer )
+			{
+				trap->Print( "Ghost prediction: announced unghosted\n" );
+			}
+			return;
+		}
+	}
+
+	for ( i = 0; i < ARRAY_LEN( ghostOnMessages ); i++ )
+	{
+		if ( !Q_stricmp( msg, ghostOnMessages[i] ) )
+		{
+			cg.ghostAnnounced = qtrue;
+			cg.ghostMissCount = 0;
+			cg.ghostArmTime = cg.time;
+			if ( cg_showMiss.integer )
+			{
+				trap->Print( "Ghost prediction: announced ghosted\n" );
+			}
+			return;
+		}
+	}
+}
+
+// We mispredicted. That only says anything about the ghost if a player or a playerclip brush
+// could have caused it - trace the disagreement and see. Grappling at speed, knockdowns and JA+'s
+// other physics quirks all miss by plenty while nothing solid is anywhere near us, and taking
+// those as proof we are solid drops the ghost and costs a stutter on the next bump.
+static qboolean CG_GhostMissWasBlocked( const vec3_t from, const vec3_t to )
+{
+	vec3_t	mins, maxs;
+	trace_t	tr;
+
+	VectorSet( mins, -15.0f, -15.0f, DEFAULT_MINS_2 );
+	VectorSet( maxs, 15.0f, 15.0f,
+		(cg.snap->ps.pm_flags & PMF_DUCKED) ? CROUCH_MAXS_2 : DEFAULT_MAXS_2 );
+
+	CG_Trace( &tr, from, mins, maxs, to, cg.snap->ps.clientNum, GHOST_CONTENTS );
+
+	// Starting inside someone counts too. A real ghost walking through a player doesn't
+	// accumulate misses - client and server agree the whole way - so missing repeatedly while
+	// overlapped means we are pressed against them and solid. Treating that as evidence for the
+	// ghost instead let a wrong belief survive forever, because being stuck is exactly the state
+	// that keeps producing the misses that should have disproved it.
+	return (tr.startsolid || tr.allsolid || tr.fraction < 1.0f);
+}
+
+static void CG_GhostPredictMiss( const vec3_t serverOrigin, const vec3_t predictedOrigin, float len )
+{
+	if ( len < GHOST_MISS_REVERT || (!cg.ghostNonSolid && !cg.ghostAnnounced) )
+	{ // believing nothing, there is nothing to disprove - and no reason to pay for the trace
+		return;
+	}
+
+	if ( !CG_GhostMissWasBlocked( serverOrigin, predictedOrigin ) )
+	{
+		return;
+	}
+
+	// the error that armed the belief was predicted before the belief existed, so judging it by
+	// that same error just disarms us again - first contact would oscillate instead of settling
+	if ( cg.ghostArmTime && cg.time - cg.ghostArmTime < GHOST_ARM_GRACE )
+	{
+		return;
+	}
+
+	if ( cg.ghostNonSolid )
+	{
+		if ( cg_showMiss.integer )
+		{
+			trap->Print( "Ghost prediction: miss of %.2f, dropping the inferred pass-through\n", len );
+		}
+		cg.ghostNonSolid = qfalse;
+		cg.ghostRevertTime = cg.time;
+	}
+
+	// An announcement outranks the odd miss - JA+ hands those out for its own reasons and dropping
+	// the ghost over one costs a stutter on the next bump. A ghost taken away silently is
+	// different: it leaves us walking into someone solid, which misses big and misses every frame
+	// until we believe it. And unlike a guess, an announcement can't re-arm itself, so it gets
+	// the benefit of the doubt until a run of them.
+	if ( len < GHOST_ANNOUNCE_REVERT || !cg.ghostAnnounced )
+	{
+		return;
+	}
+
+	if ( cg.time - cg.ghostMissTime > GHOST_MISS_WINDOW )
+	{
+		cg.ghostMissCount = 0;
+	}
+	cg.ghostMissTime = cg.time;
+
+	if ( ++cg.ghostMissCount < GHOST_MISS_STREAK )
+	{
+		return;
+	}
+
+	if ( cg_showMiss.integer )
+	{
+		trap->Print( "Ghost prediction: %i big misses in a row, the announcement was wrong\n",
+			cg.ghostMissCount );
+	}
+
+	cg.ghostAnnounced = qfalse;
+	cg.ghostRevertTime = cg.time;	// ... and don't infer it straight back from the same overlap
+}
+
+// Is the server standing us inside a player who ought to be clipping us? Snapshot origins only -
+// the predicted origin is the one we don't trust here. Returns the client, or -1.
+static int CG_GhostInsideAnyPlayer( void )
+{
+	vec3_t	ourMins, ourMaxs;
+	int		i;
+
+	// During a duel we pass through everyone, not just our opponent, so no overlap means anything
+	// - including for a moment afterwards, while whoever we were standing in goes solid around us.
+	// Dead, we don't clip anyone either way.
+	if ( cg.snap->ps.duelInProgress
+		|| cg.time - cg.ghostDuelEndTime < GHOST_DUEL_SETTLE
+		|| cg.snap->ps.pm_type == PM_DEAD
+		|| (cg.snap->ps.eFlags & EF_DEAD) )
+	{
+		return -1;
+	}
+
+	VectorSet( ourMins, -15.0f + GHOST_OVERLAP_SLOP, -15.0f + GHOST_OVERLAP_SLOP,
+		DEFAULT_MINS_2 + GHOST_OVERLAP_SLOP );
+	VectorSet( ourMaxs, 15.0f - GHOST_OVERLAP_SLOP, 15.0f - GHOST_OVERLAP_SLOP,
+		((cg.snap->ps.pm_flags & PMF_DUCKED) ? CROUCH_MAXS_2 : DEFAULT_MAXS_2) - GHOST_OVERLAP_SLOP );
+	VectorAdd( ourMins, cg.snap->ps.origin, ourMins );
+	VectorAdd( ourMaxs, cg.snap->ps.origin, ourMaxs );
+
+	for ( i = 0; i < cg.snap->numEntities; i++ )
+	{
+		entityState_t	*es = &cg.snap->entities[i];
+		vec3_t			theirMins, theirMaxs;
+		float			x, zd, zu;
+
+		if ( es->number >= MAX_CLIENTS || es->number == cg.snap->ps.clientNum )
+		{
+			continue;
+		}
+		if ( es->eType != ET_PLAYER || !es->solid || es->solid == SOLID_BMODEL )
+		{
+			continue;
+		}
+		if ( (es->eFlags & EF_DEAD) || es->bolt1
+			|| ((es->eFlags ^ cg.snap->ps.eFlags) & EF_ALT_DIM) )
+		{ // a corpse is CONTENTS_CORPSE, a duelist passes through us, and so does anyone JA+ has
+		  // put in the other dimension: everyone walks through these, ghost or not
+			continue;
+		}
+
+		// encoded bbox, same as CG_ClipMoveToEntities
+		x = (float)(es->solid & 255);
+		zd = (float)((es->solid >> 8) & 255);
+		zu = (float)(((es->solid >> 16) & 255) - 32);
+
+		VectorSet( theirMins, -x, -x, -zd );
+		VectorSet( theirMaxs, x, x, zu );
+		VectorAdd( theirMins, es->pos.trBase, theirMins );
+		VectorAdd( theirMaxs, es->pos.trBase, theirMaxs );
+
+		if ( ourMins[0] < theirMaxs[0] && ourMaxs[0] > theirMins[0]
+			&& ourMins[1] < theirMaxs[1] && ourMaxs[1] > theirMins[1]
+			&& ourMins[2] < theirMaxs[2] && ourMaxs[2] > theirMins[2] )
+		{
+			return es->number;
+		}
+	}
+
+	return -1;
+}
+
+static void CG_UpdateGhostPassThrough( void )
+{
+	static int	lastSnapTime = 0;
+	vec3_t		moved;
+	int			inside;
+
+	if ( !cg.snap || cg.snap->serverTime == lastSnapTime )
+	{
+		return;
+	}
+	lastSnapTime = cg.snap->serverTime;
+
+	// keep this current even when the rest is inert, or the movement gate below is meaningless
+	// on the first snapshot after spectating, joining or switching the cvar on
+	VectorSubtract( cg.snap->ps.origin, cg.ghostLastOrigin, moved );
+	VectorCopy( cg.snap->ps.origin, cg.ghostLastOrigin );
+
+	if ( !CG_GhostPredictAllowed() )
+	{
+		return;
+	}
+
+	if ( cg.snap->ps.duelInProgress )
+	{
+		cg.ghostDuelEndTime = cg.time;
+	}
+
+	// Nothing times the belief out - held while solid it does nothing at all until we touch
+	// someone, and then the miss drops it. But a respawn or a team change is JA+'s chance to take
+	// the ghost away without saying so, so those do clear it.
+	if ( cg.snap->ps.persistant[PERS_SPAWN_COUNT] != cg.ghostSpawnCount
+		|| cg.snap->ps.persistant[PERS_TEAM] != cg.ghostTeam )
+	{
+		if ( cg_showMiss.integer && (cg.ghostAnnounced || cg.ghostNonSolid) )
+		{
+			trap->Print( "Ghost prediction: respawn or team change, back to solid\n" );
+		}
+		cg.ghostSpawnCount = cg.snap->ps.persistant[PERS_SPAWN_COUNT];
+		cg.ghostTeam = cg.snap->ps.persistant[PERS_TEAM];
+		cg.ghostAnnounced = cg.ghostNonSolid = qfalse;
+	}
+
+	// Overlapping someone only means we passed through them if the server is actually moving us.
+	// Standing inside a player who has gone solid around us is being stuck, not being a ghost,
+	// and predicting our way out of that just replaces the stuck with a stutter. Same for a
+	// belief a miss has just dropped: leave it, or the same overlap arms it straight back.
+	if ( cg.ghostNonSolid
+		|| VectorLength( moved ) < GHOST_MOVE_MIN
+		|| cg.time - cg.ghostRevertTime < GHOST_REARM_DELAY )
+	{
+		return;
+	}
+
+	inside = CG_GhostInsideAnyPlayer();
+	if ( inside < 0 )
+	{
+		return;
+	}
+
+	cg.ghostNonSolid = qtrue;
+	cg.ghostArmTime = cg.time;
+	if ( cg_showMiss.integer )
+	{
+		trap->Print( "Ghost prediction: server has us inside client %i, passing through\n", inside );
+	}
+}
+
 void CG_PredictPlayerState( void ) {
 	int			cmdNum, current, i;
 	playerState_t	oldPlayerState;
@@ -1131,6 +1486,8 @@ void CG_PredictPlayerState( void ) {
 	const int REAL_CMD_BACKUP = (cl_commandsize.integer >= 4 && cl_commandsize.integer <= 512 ) ? (cl_commandsize.integer) : (CMD_BACKUP); //Loda - FPS UNLOCK client modcode
 
 	cg.hyperspace = qfalse;	// will be set if touching a trigger_teleport
+
+	CG_UpdateGhostPassThrough();
 
 	// if this is the first frame we must guarantee
 	// predictedPlayerState is valid even if there is some
@@ -1219,6 +1576,10 @@ void CG_PredictPlayerState( void ) {
 	}
 	if ( cg.snap->ps.persistant[PERS_TEAM] == TEAM_SPECTATOR || cg.snap->ps.pm_type == PM_SPECTATOR ) {
 		cg_pmove.tracemask &= ~CONTENTS_BODY;	// spectators can fly through bodies
+	}
+	if ( CG_JAPlusGhosted() ) {
+		// ghosts pass through players and playerclip brushes server-side, so we have to as well
+		cg_pmove.tracemask &= ~GHOST_CONTENTS;
 	}
 	cg_pmove.noFootsteps = ( cgs.dmflags & DF_NO_FOOTSTEPS ) > 0;
 
@@ -1445,6 +1806,7 @@ void CG_PredictPlayerState( void ) {
 				}
 				VectorSubtract( oldPlayerState.origin, adjusted, delta );
 				len = VectorLength( delta );
+				CG_GhostPredictMiss( adjusted, oldPlayerState.origin, len );
 				if ( len > 0.1 ) {
 					if ( cg_showMiss.integer ) {
 						// dump the snapshot anim state too, to identify states (e.g. JA+

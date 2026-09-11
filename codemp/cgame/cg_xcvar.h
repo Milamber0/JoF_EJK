@@ -190,6 +190,10 @@ XCVAR_DEF( cg_drawHud,							"1",		NULL,				CVAR_ARCHIVE )
 
 XCVAR_DEF( cg_predictKnockback,					"0",		NULL,				0 )
 
+//JA+ amghost pass-through prediction
+// 0 = off, 1 = detect it (default)
+XCVAR_DEF( cg_ghostPredict,						"1",		NULL,				CVAR_ARCHIVE )
+
 
 XCVAR_DEF( cp_pluginDisable,					"1568",		NULL,				CVAR_ARCHIVE|CVAR_USERINFO ) //Disable all plugins except ledgegrab and new force effect
 XCVAR_DEF( com_maxFPS,							"125",		NULL,				CVAR_ARCHIVE )
