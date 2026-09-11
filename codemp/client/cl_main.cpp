@@ -176,6 +176,7 @@ char cl_reconnectArgs[MAX_OSPATH] = {0};
 // Structure containing functions exported from refresh DLL
 refexport_t	*re = NULL;
 static void	*rendererLib = NULL;
+static char	activeRendererName[MAX_QPATH] = { 0 };
 
 ping_t	cl_pinglist[MAX_PINGREQUESTS];
 
@@ -1405,6 +1406,12 @@ doesn't know what graphics to reload
 */
 extern bool g_nOverrideChecked;
 void CL_Vid_Restart_f( void ) {
+	const char *requestedRenderer = cl_renderer && cl_renderer->latchedString
+		? cl_renderer->latchedString
+		: ( cl_renderer ? cl_renderer->string : "" );
+	const qboolean rendererChanged = ( activeRendererName[0] &&
+		Q_stricmp( activeRendererName, requestedRenderer ) != 0 ) ? qtrue : qfalse;
+
 	// Settings may have changed so stop recording now
 	if( CL_VideoRecording( ) ) {
 		CL_CloseAVI( );
@@ -1425,7 +1432,11 @@ void CL_Vid_Restart_f( void ) {
 	// shutdown the CGame
 	CL_ShutdownCGame();
 	// shutdown the renderer and clear the renderer interface
-	CL_ShutdownRef( qtrue );
+	// A different renderer cannot inherit the old renderer's window/context.
+	// Treat that transition as a full renderer shutdown; this is particularly
+	// important for Vulkan, whose device and instance otherwise survive the DLL
+	// unload.  Same-renderer restarts retain the established lightweight path.
+	CL_ShutdownRef( rendererChanged ? qfalse : qtrue );
 	// client is no longer pure untill new checksums are sent
 	CL_ResetPureClientAtServer();
 	// clear pak references
@@ -3119,6 +3130,8 @@ static void CL_ShutdownRef( qboolean restarting ) {
 		Sys_UnloadDll (rendererLib);
 		rendererLib = NULL;
 	}
+
+	activeRendererName[0] = '\0';
 }
 
 /*
@@ -3377,6 +3390,7 @@ void CL_InitRef( void ) {
 	}
 
 	re = ret;
+	Q_strncpyz( activeRendererName, cl_renderer->string, sizeof( activeRendererName ) );
 
 	// unpause so the cgame definately gets a snapshot and renders a frame
 	Cvar_Set( "cl_paused", "0" );
