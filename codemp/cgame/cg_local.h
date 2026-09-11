@@ -1121,6 +1121,19 @@ typedef struct cg_s {
 	int			predictedErrorTime;
 	vec3_t		predictedError;
 
+	// JA+ amghost and friends: we predict ourselves non-solid, because the server was seen moving
+	// us through something - held until contradicted, see CG_UpdateGhostPassThrough
+	qboolean	ghostNonSolid;
+	qboolean	ghostAnnounced;			// ... and JA+ said so outright, which beats inferring it
+	int			ghostMissCount;			// misses in a row, to tell a hiccup from actually being solid
+	int			ghostMissTime;
+	int			ghostArmTime;			// when pass-through last came on, to ignore the miss that armed it
+	int			ghostSpawnCount;		// respawn/team change ends a ghost silently, so watch for them
+	int			ghostTeam;
+	vec3_t		ghostLastOrigin;		// where the server had us last snapshot, to tell moving from stuck
+	int			ghostRevertTime;		// when a miss last dropped the belief, to stop it flapping
+	int			ghostDuelEndTime;		// duels pass through everyone, so overlaps around them prove nothing
+
 	int			eventSequence;
 	int			predictableEvents[MAX_PREDICTED_EVENTS];
 	int			lastExternalEvent;		// last ps.externalEvent played, so the predicted and snapshot dispatch paths don't double-play
@@ -2456,6 +2469,7 @@ void CG_G2Trace( trace_t *result, const vec3_t start, const vec3_t mins, const v
 					 int skipNumber, int mask );
 void CG_CrosshairTrace(trace_t *result, const vec3_t start, const vec3_t mins, const vec3_t maxs, const vec3_t end, int skipNumber, qboolean g2Check); //japro
 void CG_PredictPlayerState( void );
+void CG_JAPlusGhostAnnouncement( const char *text );
 void CG_LoadDeferredPlayers( void );
 
 
