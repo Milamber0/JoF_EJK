@@ -247,7 +247,7 @@ if(BuildMPEngine OR BuildMPDed)
 	set(MPEngineAndDedLibraries ${MPBotLib})
 	# Platform-specific libraries
 	if(WIN32)
-		set(MPEngineAndDedLibraries ${MPEngineAndDedLibraries} "winmm" "wsock32")
+		set(MPEngineAndDedLibraries ${MPEngineAndDedLibraries} "winmm" "wsock32" "dbghelp")
 	endif(WIN32)
 
 	# Include directories
@@ -627,6 +627,7 @@ if(BuildMPEngine)
 		"${SharedDir}/sys/sys_public.h"
 		"${SharedDir}/sys/con_local.h"
 		"${SharedDir}/sys/con_log.cpp"
+		"${SharedDir}/sys/sys_crashdump.cpp"
 		)
 
 	if(WIN32)
@@ -801,6 +802,7 @@ if(BuildMPDed)
 			"${SharedDir}/sys/con_local.h"
 			"${SharedDir}/sys/con_log.cpp"
 			"${SharedDir}/sys/con_win32.cpp"
+			"${SharedDir}/sys/sys_crashdump.cpp"
 			)
 		set(MPDedLibraries ${MPDedLibraries} ${CMAKE_DL_LIBS})
 		source_group("sys" FILES ${MPDedSysFiles})
@@ -816,6 +818,7 @@ if(BuildMPDed)
 			"${SharedDir}/sys/con_local.h"
 			"${SharedDir}/sys/con_log.cpp"
 			"${SharedDir}/sys/con_tty.cpp"
+			"${SharedDir}/sys/sys_crashdump.cpp"
 			)
 		set(MPDedLibraries ${MPDedLibraries} ${CMAKE_DL_LIBS})
 		source_group("sys" FILES ${MPDedSysFiles})

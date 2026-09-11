@@ -135,6 +135,11 @@ void		Sys_ShowIP(void);
 
 qboolean	Sys_Mkdir( const char *path );
 char	*Sys_Cwd( void );
+
+// Installs a crash handler that writes a crashdump-<timestamp>.log file
+// (with a stack trace and recent console output) to the home path whenever
+// the game crashes from an unhandled exception/signal.
+void	Sys_InstallCrashHandler( void );
 void	Sys_SetDefaultInstallPath(const char *path);
 char	*Sys_DefaultInstallPath(void);
 
