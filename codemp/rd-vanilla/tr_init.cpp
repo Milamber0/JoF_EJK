@@ -1882,10 +1882,14 @@ void RE_Shutdown( qboolean destroyWindow, qboolean restarting ) {
 	if ( r_DynamicGlow )
 	{
 		// r_DynamicGlow is shared by all renderer DLLs. Preserve vanilla's
-		// mode, but translate its mode 3 to Rend2's highest supported mode
-		// before another renderer can inherit the cvar.
+		// mode, but translate it to Rend2's mode range before another
+		// renderer can inherit the cvar.
 		ri.Cvar_Set( "r_dynamicGlowVanilla", r_DynamicGlow->string );
-		if ( r_DynamicGlow->integer == 3 )
+		if ( r_DynamicGlow->integer == 1 || r_DynamicGlow->integer == 2 )
+		{
+			ri.Cvar_Set( "r_DynamicGlow", "1" );
+		}
+		else if ( r_DynamicGlow->integer == 3 )
 		{
 			ri.Cvar_Set( "r_DynamicGlow", "2" );
 		}
