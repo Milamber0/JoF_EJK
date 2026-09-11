@@ -1721,6 +1721,80 @@ static qboolean CG_ScanForExistingClientInfo( clientInfo_t *ci, int clientNum ) 
 
 /*
 ======================
+CG_LoadPlaceholderClientInfo
+
+Loads a stand-in model for a client whose real model hasn't been loaded yet,
+so deferred players don't all show up wearing the first loaded client's skin.
+
+cg_deferPlayersModel:
+	0			use the old behaviour (copy the first valid clientinfo)
+	1			the player's configured default model, per gender
+	model[/skin]	always use this model
+
+For 1 this honours cg_defaultModel / cg_defaultFemaleModel (the "Default Male
+Model" / "Default Female" fields in the profile menu), falling back to
+DEFAULT_MODEL / DEFAULT_MODEL_FEMALE when they are empty. cg_defaultModelRandom
+is deliberately not consulted: it exists to scatter clients whose model failed
+to register, whereas this is a short lived stand-in for a model that is about
+to load correctly.
+
+The real modelName/skinName/gender are preserved so the deferred load can
+still bring in the correct model later.
+======================
+*/
+static qboolean CG_LoadPlaceholderClientInfo( clientInfo_t *ci, int clientNum ) {
+	char	placeholder[MAX_QPATH];
+	char	realModel[MAX_QPATH], realSkin[MAX_QPATH];
+	int		realGender;
+	char	*slash;
+
+	if ( !cg_deferPlayersModel.string[0] || !Q_stricmp( cg_deferPlayersModel.string, "0" ) ) {
+		return qfalse;
+	}
+
+	if ( !Q_stricmp( cg_deferPlayersModel.string, "1" ) ) {
+		const char *configured;
+
+		if ( ci->gender == GENDER_FEMALE ) {
+			configured = cg_defaultFemaleModel.string[0] ? cg_defaultFemaleModel.string : DEFAULT_MODEL_FEMALE;
+		}
+		else {
+			configured = cg_defaultModel.string[0] ? cg_defaultModel.string : DEFAULT_MODEL;
+		}
+		Q_strncpyz( placeholder, configured, sizeof( placeholder ) );
+	}
+	else {
+		Q_strncpyz( placeholder, cg_deferPlayersModel.string, sizeof( placeholder ) );
+	}
+
+	Q_strncpyz( realModel, ci->modelName, sizeof( realModel ) );
+	Q_strncpyz( realSkin, ci->skinName, sizeof( realSkin ) );
+	realGender = ci->gender;
+
+	slash = strchr( placeholder, '/' );
+	if ( slash ) {
+		*slash = 0;
+		Q_strncpyz( ci->skinName, slash + 1, sizeof( ci->skinName ) );
+	}
+	else {
+		Q_strncpyz( ci->skinName, "default", sizeof( ci->skinName ) );
+	}
+	Q_strncpyz( ci->modelName, placeholder, sizeof( ci->modelName ) );
+
+	CG_LoadClientInfo( ci, clientNum );
+
+	Q_strncpyz( ci->modelName, realModel, sizeof( ci->modelName ) );
+	Q_strncpyz( ci->skinName, realSkin, sizeof( ci->skinName ) );
+	ci->gender = realGender;
+
+	// CG_LoadClientInfo cleared this, but the real model still needs loading
+	ci->deferred = qtrue;
+
+	return qtrue;
+}
+
+/*
+======================
 CG_SetDeferredClientInfo
 
 We aren't going to load it now, so grab some other
@@ -1789,6 +1863,12 @@ static void CG_SetDeferredClientInfo( clientInfo_t *ci, int clientNum ) {
 		// player, when the second enters.  Combat shouldn't be going on
 		// yet, so it shouldn't matter
 		CG_LoadClientInfo( ci, clientNum );
+		return;
+	}
+
+	// load a generic placeholder model instead of wearing whichever client
+	// happened to be loaded first (which was almost always client 0)
+	if ( CG_LoadPlaceholderClientInfo( ci, clientNum ) ) {
 		return;
 	}
 
