@@ -1452,7 +1452,7 @@ static void Menu_RunCloseScript(menuDef_t *menu) {
 	}
 }
 
-static void Menu_ClearMouseOver(menuDef_t *menu)
+static void Menu_ClearHoverState(menuDef_t *menu)
 {
 	int i;
 
@@ -1469,6 +1469,11 @@ static void Menu_ClearMouseOver(menuDef_t *menu)
 			// Closing a menu bypasses the normal cursor-leave path. Run the
 			// exit scripts so hover-driven decoration is reset before reopen.
 			Item_MouseLeave(item);
+
+			// The item was only focused because the cursor was over it, so
+			// drop the focus too. Otherwise it keeps painting in focusColor
+			// when the menu is opened again.
+			item->window.flags &= ~WINDOW_HASFOCUS;
 		}
 	}
 }
@@ -1483,7 +1488,7 @@ void Menus_CloseByName ( const char *p )
 		return;
 	}
 
-	Menu_ClearMouseOver(menu);
+	Menu_ClearHoverState(menu);
 
 	// Run the close script for the menu
 	Menu_RunCloseScript(menu);
@@ -1521,7 +1526,7 @@ void Menus_CloseAll()
 
 	for (i = 0; i < menuCount; i++)
 	{
-		Menu_ClearMouseOver(&Menus[i]);
+		Menu_ClearHoverState(&Menus[i]);
 		Menu_RunCloseScript ( &Menus[i] );
 		Menus[i].window.flags &= ~(WINDOW_HASFOCUS | WINDOW_VISIBLE);
 	}
@@ -4283,14 +4288,14 @@ void Menus_HandleOOBClick(menuDef_t *menu, int key, qboolean down) {
 		// the cursor is within any of them.. if not close them otherwise activate them and pass the
 		// key on.. force a mouse move to activate focus and script stuff
 		if (down && menu->window.flags & WINDOW_OOB_CLICK) {
-			Menu_ClearMouseOver(menu);
+			Menu_ClearHoverState(menu);
 			Menu_RunCloseScript(menu);
 			menu->window.flags &= ~(WINDOW_HASFOCUS | WINDOW_VISIBLE);
 		}
 
 		for (i = 0; i < menuCount; i++) {
 			if (Menu_OverActiveItem(&Menus[i], DC->cursorx, DC->cursory)) {
-				Menu_ClearMouseOver(menu);
+				Menu_ClearHoverState(menu);
 				Menu_RunCloseScript(menu);
 				menu->window.flags &= ~(WINDOW_HASFOCUS | WINDOW_VISIBLE);
 			//	Menus_Activate(&Menus[i]);
@@ -7001,6 +7006,13 @@ void Menu_HandleMouseMove(menuDef_t *menu, float x, float y) {
       } else if (menu->items[i]->window.flags & WINDOW_MOUSEOVER) {
           Item_MouseLeave(menu->items[i]);
           Item_SetMouseOver(menu->items[i], qfalse);
+
+          // Focus was handed to this item by the cursor being over it, and
+          // nothing takes it back unless some other item is hovered. Drop it
+          // here so the item stops painting in focusColor once the cursor
+          // moves off it into empty space. Items focused by keyboard
+          // navigation never carry WINDOW_MOUSEOVER, so they are untouched.
+          menu->items[i]->window.flags &= ~WINDOW_HASFOCUS;
       }
     }
   }
