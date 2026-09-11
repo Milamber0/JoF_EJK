@@ -227,7 +227,7 @@ name				customtitle
 			descText			"Wear a hat or a cape"
 			type				ITEM_TYPE_BUTTON
 			style				WINDOW_STYLE_EMPTY
-rect				425 78 160 26
+			rect				425 126 160 26
 			textalign			ITEM_ALIGN_CENTER
 			textalignx			80
 			textaligny			2
@@ -492,7 +492,7 @@ rect				425 78 160 26
 			descText			@MENUS_CUSTOMPLAYER_DESC
 			type				ITEM_TYPE_BUTTON
 			style				WINDOW_STYLE_SHADER
-			rect				470 104 75 75
+			rect				470 152 75 75
 			font				3
 			textscale			1
 			textaligny			-1
@@ -526,7 +526,7 @@ rect				425 78 160 26
 			type				ITEM_TYPE_INTSLIDER
 			text				"R:"
 			cvarint				"ui_char_color_red" 50 0 255
-			rect				450 182 100 20
+			rect				450 231 100 20
 			textalign			ITEM_ALIGN_RIGHT
 			textalignx			0
 			textaligny			-2
@@ -551,7 +551,7 @@ rect				425 78 160 26
 			type				ITEM_TYPE_INTSLIDER
 			text				"G:"
 			cvarint				"ui_char_color_green" 50 0 255
-			rect				450 202 100 20
+			rect				450 251 100 20
 			textalign			ITEM_ALIGN_RIGHT
 			textalignx			0
 			textaligny			-2
@@ -576,7 +576,7 @@ rect				425 78 160 26
 			type				ITEM_TYPE_INTSLIDER
 			text				"B:"
 			cvarint				"ui_char_color_blue" 50 0 255
-			rect				450 222 100 20
+			rect				450 271 100 20
 			textalign			ITEM_ALIGN_RIGHT
 			textalignx			0
 			textaligny			-2
@@ -602,7 +602,7 @@ rect				425 78 160 26
 			cvar 				"ui_char_color_red"
 			maxchars			3
 			maxPaintChars 		3
-			rect 				563 182 20 20
+			rect 				563 231 20 20
 			textalign			ITEM_ALIGN_RIGHT		
 			textalignx 			0
 			textaligny 			-2
@@ -633,7 +633,7 @@ rect				425 78 160 26
 			cvar 				"ui_char_color_green"
 			maxchars 			3
 			maxPaintChars 		3
-			rect 				563 202 20 20
+			rect 				563 251 20 20
 			textalign			ITEM_ALIGN_RIGHT		
 			textalignx 			0
 			textaligny 			-2
@@ -664,7 +664,7 @@ rect				425 78 160 26
 			cvar 				"ui_char_color_blue"
 			maxchars 			3
 			maxPaintChars 		3 
-			rect 				563 222 20 20
+			rect 				563 271 20 20
 			textalign			ITEM_ALIGN_RIGHT		
 			textalignx 			0
 			textaligny 			-2
