@@ -4888,7 +4888,12 @@ void CL_GetPing( int n, char *buf, int buflen, int *pingtime )
 		}
 	}
 
-	CL_SetServerInfoByAddress(cl_pinglist[n].adr, cl_pinglist[n].info, cl_pinglist[n].time);
+	// Do not treat an empty ping info buffer as a valid response, or offline
+	// favorites lose their cached hostname and are subsequently rejected by
+	// the UI's validity filter.
+	CL_SetServerInfoByAddress(cl_pinglist[n].adr,
+		cl_pinglist[n].info[0] ? cl_pinglist[n].info : NULL,
+		cl_pinglist[n].time);
 
 	*pingtime = time;
 }
@@ -4983,6 +4988,7 @@ ping_t* CL_GetFreePing( void )
 
 		// clear it
 		pingptr->adr.port = 0;
+		pingptr->info[0] = '\0';
 		return (pingptr);
 	}
 
@@ -5001,6 +5007,7 @@ ping_t* CL_GetFreePing( void )
 		}
 	}
 
+	best->info[0] = '\0';
 	return (best);
 }
 
@@ -5103,6 +5110,7 @@ qboolean CL_UpdateVisiblePings_f(int source) {
 						memcpy(&cl_pinglist[j].adr, &server[i].adr, sizeof(netadr_t));
 						cl_pinglist[j].start = Sys_Milliseconds();
 						cl_pinglist[j].time = 0;
+						cl_pinglist[j].info[0] = '\0';
 						NET_OutOfBandPrint( NS_CLIENT, cl_pinglist[j].adr, "getinfo xxx" );
 
 						serverStatus_t *serverStatus = CL_GetServerStatus(cl_pinglist[j].adr);
