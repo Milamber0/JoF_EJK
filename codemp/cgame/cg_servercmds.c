@@ -1874,6 +1874,33 @@ static void CG_ServerCommand( void ) {
 		return;
 	}
 
+	// JA+ announces amGhost by centerprinting at us, which is the one exact, instant signal we get
+	// for it - everything else about the ghost has to be inferred (see cg_predict.c). The wording
+	// is per build and some blank it entirely, so this only recognises the servers it knows.
+	// centerprints only: JA+ sends this one straight to the ghost, while plain prints carry other
+	// players' names and would hand anyone a way to flip the ghost on everyone else's client
+	if ( cgs.serverMod == SVMOD_JAPLUS && !Q_stricmp( cmd, "cp" ) )
+	{
+		char	text[MAX_STRING_CHARS] = {0};
+		int		i, argc = trap->Cmd_Argc();
+
+		// a build that sends the line unquoted arrives as several arguments, not one
+		for ( i = 1; i < argc; i++ )
+		{
+			if ( i > 1 )
+			{
+				Q_strcat( text, sizeof( text ), " " );
+			}
+			Q_strcat( text, sizeof( text ), CG_Argv( i ) );
+		}
+
+		CG_JAPlusGhostAnnouncement( text );
+	}
+
+	// CG_Argv hands out one shared static buffer, so anything above has left cmd pointing at the
+	// last argument fetched rather than at the command name
+	cmd = CG_Argv( 0 );
+
 	command = (serverCommand_t *)Q_LinearSearch( cmd, commands, numCommands, sizeof( commands[0] ), svcmdcmp );
 
 	if ( command ) {
