@@ -1476,6 +1476,70 @@ static qboolean CG_ProximityCheck(vec3_t pos1, vec3_t pos2) { //Returns qtrue if
 	return qtrue;
 }
 
+// Per-client, per-sound debounce for saber on/off sounds.  A dual saber setup can
+// legitimately emit different sounds in quick succession, so one timer for the
+// whole client would suppress the second hilt or the opposite transition.
+#define MAX_SABER_SOUND_DEBOUNCES (MAX_SABERS * 2)
+typedef struct {
+	sfxHandle_t	sfx;
+	int			time;
+} saberSoundDebounce_t;
+
+static saberSoundDebounce_t cg_saberSoundDebounce[MAX_CLIENTS][MAX_SABER_SOUND_DEBOUNCES];
+
+// Returns qtrue (suppress the sound) if the sfx is a saber on/off sound that was
+// played too recently for the nearest client. Updates the debounce timer when allowed.
+static qboolean CG_SaberSoundThrottled( sfxHandle_t sfx, vec3_t origin ) {
+	int			i, bestClient, debounceIndex, oldestIndex;
+	float		bestDistSq, distSq;
+	qboolean	isSaberSound;
+
+	if ( !sfx )
+		return qfalse;
+
+	bestClient = -1;
+	bestDistSq = 999999999.0f;
+	isSaberSound = qfalse;
+
+	for ( i = 0; i < MAX_CLIENTS; i++ ) {
+		clientInfo_t *ci = &cgs.clientinfo[i];
+		if ( !ci->infoValid )
+			continue;
+		if ( sfx != ci->saber[0].soundOn  && sfx != ci->saber[0].soundOff &&
+		     sfx != ci->saber[1].soundOn  && sfx != ci->saber[1].soundOff )
+			continue;
+		isSaberSound = qtrue;
+		distSq = DistanceSquared( cg_entities[i].lerpOrigin, origin );
+		if ( distSq < bestDistSq ) {
+			bestDistSq = distSq;
+			bestClient = i;
+		}
+	}
+
+	if ( !isSaberSound || bestClient < 0 )
+		return qfalse;
+
+	oldestIndex = 0;
+	for ( debounceIndex = 0; debounceIndex < MAX_SABER_SOUND_DEBOUNCES; debounceIndex++ ) {
+		saberSoundDebounce_t *debounce = &cg_saberSoundDebounce[bestClient][debounceIndex];
+
+		if ( debounce->sfx == sfx ) {
+			if ( cg.time - debounce->time < 800 )
+				return qtrue; // suppress a repeat of this sound only
+
+			debounce->time = cg.time;
+			return qfalse;
+		}
+
+		if ( debounce->time < cg_saberSoundDebounce[bestClient][oldestIndex].time )
+			oldestIndex = debounceIndex;
+	}
+
+	cg_saberSoundDebounce[bestClient][oldestIndex].sfx = sfx;
+	cg_saberSoundDebounce[bestClient][oldestIndex].time = cg.time;
+	return qfalse;
+}
+
 /*
 ==============
 CG_EntityEvent
@@ -2757,13 +2821,18 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 
 			if (ci)
 			{
-				if (ci->saber[0].soundOn)
+				centity_t *saberCent = &cg_entities[es->number];
+				if (cg.time - saberCent->saberSoundOnDebounceTime >= 800)
 				{
-					trap->S_StartSound (NULL, es->number, CHAN_AUTO, ci->saber[0].soundOn );
-				}
-				if (ci->saber[1].soundOn)
-				{
-					trap->S_StartSound (NULL, es->number, CHAN_AUTO, ci->saber[1].soundOn );
+					saberCent->saberSoundOnDebounceTime = cg.time;
+					if (ci->saber[0].soundOn)
+					{
+						trap->S_StartSound (NULL, es->number, CHAN_AUTO, ci->saber[0].soundOn );
+					}
+					if (ci->saber[1].soundOn)
+					{
+						trap->S_StartSound (NULL, es->number, CHAN_AUTO, ci->saber[1].soundOn );
+					}
 				}
 			}
 		}
@@ -3698,12 +3767,15 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 			}
 			else
 			{
+				sfxHandle_t sfx;
 				if ( cgs.gameSounds[ es->eventParm ] ) {
-					trap->S_StartSound (NULL, es->number, es->saberEntityNum, cgs.gameSounds[ es->eventParm ] );
+					sfx = cgs.gameSounds[ es->eventParm ];
 				} else {
 					s = CG_ConfigString( CS_SOUNDS + es->eventParm );
-					trap->S_StartSound (NULL, es->number, es->saberEntityNum, CG_CustomSound( es->number, s ) );
+					sfx = CG_CustomSound( es->number, s );
 				}
+				if ( !CG_SaberSoundThrottled( sfx, es->pos.trBase ) )
+					trap->S_StartSound (NULL, es->number, es->saberEntityNum, sfx );
 			}
 
 	break;
