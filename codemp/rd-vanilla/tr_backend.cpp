@@ -761,8 +761,17 @@ void RB_RenderDrawSurfList( drawSurf_t *drawSurfs, int numDrawSurfs ) {
 		}
 		R_DecomposeSort( drawSurf->sort, &entityNum, &shader, &fogNum, &dlighted );
 
-		// If we're rendering glowing objects, but this shader has no stages with glow, skip it!
-		if ( g_bRenderGlowingObjects && !shader->hasGlow )
+		// Mode 2 renders the glow pass for lightsabers only. RT_SABER_GLOW
+		// identifies saber blades without relying on shader names, including
+		// custom saber shaders.
+		const bool dynamicGlowEntity =
+			r_DynamicGlow->integer != 2 ||
+			(entityNum != REFENTITYNUM_WORLD &&
+			 backEnd.refdef.entities[entityNum].e.reType == RT_SABER_GLOW);
+
+		// If we're rendering glowing objects, but this shader has no stages with
+		// glow (or this entity is excluded by mode 2), skip it!
+		if ( g_bRenderGlowingObjects && (!shader->hasGlow || !dynamicGlowEntity) )
 		{
 			shader = oldShader;
 			entityNum = oldEntityNum;
@@ -2457,7 +2466,7 @@ static inline void RB_DrawGlowOverlay()
 	qglEnable( GL_TEXTURE_RECTANGLE_ARB );
 
 	// For debug purposes.
-	if ( r_DynamicGlow->integer != 2 )
+	if ( r_DynamicGlow->integer != 3 )
 	{
 		// Render the normal scene texture.
 		qglBindTexture( GL_TEXTURE_RECTANGLE_ARB, tr.sceneImage );

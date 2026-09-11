@@ -113,6 +113,7 @@ cvar_t	*r_DynamicGlowSoft;
 cvar_t	*r_DynamicGlowWidth;
 cvar_t	*r_DynamicGlowHeight;
 cvar_t	*r_DynamicGlowScale;
+static cvar_t *r_dynamicGlowVanilla;
 
 cvar_t	*r_smartpicmip;
 
@@ -1627,6 +1628,8 @@ void R_Register( void )
 	r_gammaShaders						= ri.Cvar_Get( "r_gammaShaders",					"1",						CVAR_ARCHIVE_ND|CVAR_LATCH, "Set gamma using pixel shaders inside the game window only." );
 	r_environmentMapping				= ri.Cvar_Get( "r_environmentMapping",				"1",						CVAR_ARCHIVE_ND, "" );
 	r_DynamicGlow						= ri.Cvar_Get( "r_DynamicGlow",						"0",						CVAR_ARCHIVE_ND, "" );
+	r_dynamicGlowVanilla				= ri.Cvar_Get( "r_dynamicGlowVanilla",				r_DynamicGlow->string,		CVAR_ARCHIVE, "Saved dynamic glow mode for the vanilla renderer." );
+	ri.Cvar_Set( "r_DynamicGlow", r_dynamicGlowVanilla->string );
 	r_DynamicGlowPasses					= ri.Cvar_Get( "r_DynamicGlowPasses",				"5",						CVAR_ARCHIVE_ND, "" );
 	r_DynamicGlowDelta					= ri.Cvar_Get( "r_DynamicGlowDelta",				"0.8f",						CVAR_ARCHIVE_ND, "" );
 	r_DynamicGlowIntensity				= ri.Cvar_Get( "r_DynamicGlowIntensity",			"1.13f",					CVAR_ARCHIVE_ND, "" );
@@ -1875,6 +1878,22 @@ RE_Shutdown
 void RE_Shutdown( qboolean destroyWindow, qboolean restarting ) {
 
 //	ri.Printf( PRINT_ALL, "RE_Shutdown( %i )\n", destroyWindow );
+
+	if ( r_DynamicGlow )
+	{
+		// r_DynamicGlow is shared by all renderer DLLs. Preserve vanilla's
+		// mode, but translate it to Rend2's mode range before another
+		// renderer can inherit the cvar.
+		ri.Cvar_Set( "r_dynamicGlowVanilla", r_DynamicGlow->string );
+		if ( r_DynamicGlow->integer == 1 || r_DynamicGlow->integer == 2 )
+		{
+			ri.Cvar_Set( "r_DynamicGlow", "1" );
+		}
+		else if ( r_DynamicGlow->integer == 3 )
+		{
+			ri.Cvar_Set( "r_DynamicGlow", "2" );
+		}
+	}
 
 	for ( size_t i = 0; i < numCommands; i++ )
 		ri.Cmd_RemoveCommand( commands[i].cmd );
