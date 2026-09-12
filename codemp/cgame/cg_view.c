@@ -3058,6 +3058,11 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView, qboolean demo
 			cg.predictedPlayerState.forceHandExtend == HANDEXTEND_KNOCKDOWN || cg.predictedPlayerState.fallingToDeath ||
 			cg.predictedPlayerState.m_iVehicleNum || PM_InKnockDown(&cg.predictedPlayerState))
 		{
+			if (cg.predictedPlayerState.zoomMode &&
+				(cg.predictedPlayerState.weapon == WP_SABER || cg.predictedPlayerState.weapon == WP_MELEE))
+			{ //force first person when entering binoculars with saber or melee
+				cg.renderingThirdPerson = qfalse;
+			}
 			if (!cg_thirdPerson.integer && cg_fpls.integer && !(cg.snap->ps.pm_flags & PMF_FOLLOW) && (cg.predictedPlayerState.weapon == WP_SABER || cg.predictedPlayerState.weapon == WP_MELEE))
 			{ //force to first person for fpls
 				cg.renderingThirdPerson = qfalse;
