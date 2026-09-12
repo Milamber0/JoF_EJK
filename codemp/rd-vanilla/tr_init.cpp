@@ -1628,6 +1628,8 @@ void R_Register( void )
 	r_gammaShaders						= ri.Cvar_Get( "r_gammaShaders",					"1",						CVAR_ARCHIVE_ND|CVAR_LATCH, "Set gamma using pixel shaders inside the game window only." );
 	r_environmentMapping				= ri.Cvar_Get( "r_environmentMapping",				"1",						CVAR_ARCHIVE_ND, "" );
 	r_DynamicGlow						= ri.Cvar_Get( "r_DynamicGlow",						"0",						CVAR_ARCHIVE_ND, "Enable dynamic glow effect" );
+	// Vulkan latches this shared cvar; Vanilla applies it immediately.
+	r_DynamicGlow->flags &= ~CVAR_LATCH;
 	r_dynamicGlowVanilla				= ri.Cvar_Get( "r_dynamicGlowVanilla",				r_DynamicGlow->string,		CVAR_ARCHIVE, "Saved dynamic glow mode for the vanilla renderer." );
 	ri.Cvar_Set( "r_DynamicGlow", r_dynamicGlowVanilla->string );
 	r_DynamicGlowPasses					= ri.Cvar_Get( "r_DynamicGlowPasses",				"5",						CVAR_ARCHIVE_ND, "" );
