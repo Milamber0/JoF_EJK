@@ -3131,6 +3131,7 @@ static void CL_ShutdownRef( qboolean restarting ) {
 		rendererLib = NULL;
 	}
 
+	Cvar_DeactivateRendererCvars();
 	activeRendererName[0] = '\0';
 }
 
@@ -3227,18 +3228,29 @@ static void CM_SetUsingCache( qboolean usingCache ) { gbUsingCachedMapDataRightN
 ============
 CL_RefCvar_Get
 
-Cvar_Get normally accumulates flags from every subsystem that registers a
-cvar.  Renderer DLLs are mutually exclusive, however, so CVAR_LATCH must
-reflect the active renderer rather than a renderer that was unloaded.
+Cvar_Get normally accumulates state from every subsystem that registers a
+cvar.  Renderer DLLs are mutually exclusive, however, so renderer-specific
+state must reflect the active renderer rather than one that was unloaded.
 ============
 */
 static cvar_t *CL_RefCvar_Get( const char *var_name, const char *value, uint32_t flags, const char *var_desc ) {
 	cvar_t *var = Cvar_Get( var_name, value, flags, var_desc );
+	const qboolean rendererOwned = !Q_stricmpn( var_name, "r_", 2 ) ? qtrue : qfalse;
+
+	if ( rendererOwned ) {
+		Cvar_ActivateRendererCvar( var );
+	}
 
 	if ( flags & CVAR_LATCH ) {
 		var->flags |= CVAR_LATCH;
 	} else {
 		var->flags &= ~CVAR_LATCH;
+	}
+
+	// An empty description is authoritative for renderer-owned cvars.  This
+	// removes help text left behind by a previously loaded renderer.
+	if ( var_desc && !var_desc[0] && rendererOwned ) {
+		Cvar_SetDescription( var, NULL );
 	}
 
 	return var;
