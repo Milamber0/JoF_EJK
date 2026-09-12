@@ -473,6 +473,13 @@ cvar_t *Cvar_Get( const char *var_name, const char *value, uint32_t flags, const
 // that allows variables to be unarchived without needing bitflags
 // if value is "", the value will not override a previously set value.
 
+void Cvar_SetDescription( cvar_t *var, const char *description );
+// replaces or clears the engine-provided description for an existing cvar
+
+void Cvar_ActivateRendererCvar( cvar_t *var );
+void Cvar_DeactivateRendererCvars( void );
+// tracks whether renderer-owned cvars belong to the currently loaded renderer
+
 void	Cvar_Register( vmCvar_t *vmCvar, const char *varName, const char *defaultValue, uint32_t flags );
 // basically a slightly modified Cvar_Get for the interpreted modules
 

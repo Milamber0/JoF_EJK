@@ -795,6 +795,8 @@ typedef struct cvar_s {
 	struct cvar_s	*next, *prev;
 	struct cvar_s	*hashNext, *hashPrev;
 	int				hashIndex;
+	qboolean		rendererOwned;		// registered through the renderer import table
+	qboolean		rendererActive;		// available through the currently loaded renderer
 } cvar_t;
 
 #define	MAX_CVAR_VALUE_STRING	256
