@@ -1456,8 +1456,6 @@ void R_Register( void )
 	r_ext_texture_filter_anisotropic = ri.Cvar_Get( "r_ext_texture_filter_anisotropic", "16", CVAR_ARCHIVE, "Disable/enable anisotropic texture filtering" );
 
 	r_dynamicGlow						= ri.Cvar_Get( "r_dynamicGlow",			"0",		CVAR_ARCHIVE, "Enable dynamic glow effect" );
-	// Vulkan latches this shared cvar; Rend2 applies it immediately.
-	r_dynamicGlow->flags &= ~CVAR_LATCH;
 	r_dynamicGlowPasses					= ri.Cvar_Get( "r_dynamicGlowPasses",		"5",		CVAR_ARCHIVE, "" );
 	r_dynamicGlowDelta					= ri.Cvar_Get( "r_dynamicGlowDelta",		"0.8f",		CVAR_ARCHIVE, "" );
 	r_dynamicGlowIntensity				= ri.Cvar_Get( "r_dynamicGlowIntensity",	"1.13f",	CVAR_ARCHIVE, "" );

@@ -3223,6 +3223,27 @@ static void *CM_GetCachedMapDiskImage( void ) { return gpvCachedMapDiskImage; }
 static void CM_SetCachedMapDiskImage( void *ptr ) { gpvCachedMapDiskImage = ptr; }
 static void CM_SetUsingCache( qboolean usingCache ) { gbUsingCachedMapDataRightNow = usingCache; }
 
+/*
+============
+CL_RefCvar_Get
+
+Cvar_Get normally accumulates flags from every subsystem that registers a
+cvar.  Renderer DLLs are mutually exclusive, however, so CVAR_LATCH must
+reflect the active renderer rather than a renderer that was unloaded.
+============
+*/
+static cvar_t *CL_RefCvar_Get( const char *var_name, const char *value, uint32_t flags, const char *var_desc ) {
+	cvar_t *var = Cvar_Get( var_name, value, flags, var_desc );
+
+	if ( flags & CVAR_LATCH ) {
+		var->flags |= CVAR_LATCH;
+	} else {
+		var->flags &= ~CVAR_LATCH;
+	}
+
+	return var;
+}
+
 #define G2_VERT_SPACE_SERVER_SIZE 2048 //256 originally
 IHeapAllocator *G2VertSpaceServer = NULL;
 CMiniHeap IHeapAllocator_singleton(G2_VERT_SPACE_SERVER_SIZE * 1024);
@@ -3306,7 +3327,7 @@ void CL_InitRef( void ) {
 	ri.Cmd_AddCommand = Cmd_AddCommand;
 	ri.Cmd_RemoveCommand = Cmd_RemoveCommand;
 	ri.Cvar_Set = Cvar_Set;
-	ri.Cvar_Get = Cvar_Get;
+	ri.Cvar_Get = CL_RefCvar_Get;
 	ri.Cvar_SetValue = Cvar_SetValue;
 	ri.Cvar_CheckRange = Cvar_CheckRange;
 	ri.Cvar_VariableStringBuffer = Cvar_VariableStringBuffer;
