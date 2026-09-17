@@ -96,13 +96,39 @@ if(NOT ZIP_EXECUTABLE)
 endif()
 
 function(add_zip_command output)
+  set(OneValueArgs WORKING_DIRECTORY)
   set(MultiValueArgs FILES DEPENDS)
-  cmake_parse_arguments(ARGS "" "" "${MultiValueArgs}" ${ARGN})
-  
+  cmake_parse_arguments(ARGS "" "${OneValueArgs}" "${MultiValueArgs}" ${ARGN})
+
+  # Every zip tool stores entry names relative to the directory it runs in, so
+  # an archive of content that lives outside the build tree has to be packed
+  # from inside that content's root.  Packing from the build directory with
+  # absolute FILES instead produces entries like
+  # "../../assets/japro/ui/jamp/setup.menu", which the engine cannot resolve --
+  # the pk3 mounts fine but every lookup inside it misses.
+  if(ARGS_WORKING_DIRECTORY)
+    set(WorkingDirectory "${ARGS_WORKING_DIRECTORY}")
+  else()
+    set(WorkingDirectory "${CMAKE_CURRENT_BINARY_DIR}")
+  endif()
+
+  # Keep the archive itself addressed absolutely, so it still lands in the build
+  # directory no matter where we pack from.
+  if(IS_ABSOLUTE "${output}")
+    set(ArchivePath "${output}")
+  else()
+    set(ArchivePath "${CMAKE_CURRENT_BINARY_DIR}/${output}")
+  endif()
+
   set(ZipCommand ${ZIP_COMMAND})
-  string(REPLACE <ARCHIVE> "${output}" ZipCommand "${ZipCommand}")
+  string(REPLACE <ARCHIVE> "${ArchivePath}" ZipCommand "${ZipCommand}")
   string(REPLACE <FILES> "${ARGS_FILES}" ZipCommand "${ZipCommand}")
+
+  # zip, 7z and winrar all ADD to an existing archive rather than replacing it,
+  # so a stale archive would keep serving entries that no longer exist.
   add_custom_command(OUTPUT ${output}
+    COMMAND ${CMAKE_COMMAND} -E remove -f ${ArchivePath}
     COMMAND ${ZipCommand}
+    WORKING_DIRECTORY ${WorkingDirectory}
     DEPENDS ${ARGS_DEPENDS})
 endfunction(add_zip_command)
