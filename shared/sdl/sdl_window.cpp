@@ -33,6 +33,10 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "sys/sys_local.h"
 #include "sdl_icon.h"
 
+#ifdef MACOS_X
+#include <unistd.h>	// access(), for locating the bundled MoltenVK
+#endif
+
 enum rserr_t
 {
 	RSERR_OK,
@@ -623,11 +627,12 @@ static rserr_t GLimp_SetMode(
 		case GRAPHICS_API_OPENGL:
 			flags |= SDL_WINDOW_OPENGL;
 			break;
-#if WIN32
 		case GRAPHICS_API_VULKAN:
+			// Not Windows-only: without this flag SDL creates a plain window and
+			// SDL_Vulkan_CreateSurface() then fails, taking WIN_VK_createSurfaceImpl
+			// into Com_Error( ERR_FATAL ) during renderer init.
 			flags |= SDL_WINDOW_VULKAN;
 			break;
-#endif
 		default:
 			break;
 	}
@@ -1200,10 +1205,43 @@ qboolean WIN_VK_IsMinimized(void) {
 	return qfalse;
 }
 
+/*
+===============
+WIN_VK_LibraryPath
+
+When looking for a Vulkan loader on its own, SDL only dlopen()s bare library
+names ("libvulkan.1.dylib", "libMoltenVK.dylib", ...), which never resolves to a
+file inside a .app bundle.  macOS has no system Vulkan, so we ship MoltenVK in
+Contents/Frameworks and point SDL straight at it -- otherwise the Vulkan
+renderer would only work for users who separately installed the Vulkan SDK.
+
+Returns NULL when there is no bundled copy, which leaves SDL to do its usual
+search.  That is always the case off macOS.
+===============
+*/
+const char *WIN_VK_LibraryPath(void)
+{
+#ifdef MACOS_X
+	static char path[MAX_OSPATH];
+
+	// Inside the .app, alongside the other bundled frameworks.
+	Com_sprintf(path, sizeof(path), "%s/../Frameworks/libMoltenVK.dylib", Sys_BinaryPath());
+	if (access(path, R_OK) == 0)
+		return path;
+
+	// Unbundled build: the dylib sits next to the binary.
+	Com_sprintf(path, sizeof(path), "%s/libMoltenVK.dylib", Sys_BinaryPath());
+	if (access(path, R_OK) == 0)
+		return path;
+#endif
+
+	return NULL;
+}
+
 void* WIN_VK_GetInstanceProcAddress(void)
 {
 
-	int code = SDL_Vulkan_LoadLibrary(NULL);
+	int code = SDL_Vulkan_LoadLibrary(WIN_VK_LibraryPath());
 
 	if (code) {
 		Com_Error(ERR_FATAL, "Failed to load Vulkan library (code %d): %s", code, SDL_GetError());
