@@ -780,7 +780,7 @@ typedef enum {
 // The rest are roughly the length of the stock line, so a line never layers over itself
 // while ordinary play - a bunny hop, a hard landing - still gets its grunt.
 static const int cg_voiceLineDebounce[NUM_VOICE_LINES] = {
-	5000,	// VOICE_LINE_TAUNT
+	2500,	// VOICE_LINE_TAUNT
 	2000,	// VOICE_LINE_GASP
 	1000,	// VOICE_LINE_JUMP
 	1000,	// VOICE_LINE_ROLL

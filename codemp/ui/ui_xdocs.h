@@ -82,7 +82,7 @@ XDOCS_CVAR_DEF("cg_tauntAntiSpam", "Throttle repeated model voice lines per play
 	"A player's taunt, bow, meditate, flourish and gloat lines share one timer, so no single player can repeat them back to back." NL
 	"The gasp, jump, roll and landing grunts get a shorter timer of their own, so a player bobbing at a water surface cannot gasp on every frame, and one spammed line never silences the others." NL
 	SETTING("0", "Off, every voice line plays") NL
-	SETTING("1", "On, one taunt per player every 5 seconds and no line layered over itself (default)")
+	SETTING("1", "On, one taunt per player every 2.5 seconds and no line layered over itself (default)")
 )
 
 //XDOCS_CVAR_DEF("cg_", "Description",
