@@ -452,6 +452,7 @@ void UI_LoadCosmetics( void );
 void UI_ClearCosmetics( void );
 void UI_GetCosmeticCvars( void );
 void UI_UpdateCosmeticsCharacter( void );
+void UI_UpdateWornCharacter( itemDef_t *item, int *animRunLength );
 
 qboolean	UI_ConsoleCommand( int realTime );
 void		UI_DrawHandlePic( float x, float y, float w, float h, qhandle_t hShader );

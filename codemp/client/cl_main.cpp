@@ -176,6 +176,7 @@ char cl_reconnectArgs[MAX_OSPATH] = {0};
 // Structure containing functions exported from refresh DLL
 refexport_t	*re = NULL;
 static void	*rendererLib = NULL;
+static char	activeRendererName[MAX_QPATH] = { 0 };
 
 ping_t	cl_pinglist[MAX_PINGREQUESTS];
 
@@ -1405,6 +1406,12 @@ doesn't know what graphics to reload
 */
 extern bool g_nOverrideChecked;
 void CL_Vid_Restart_f( void ) {
+	const char *requestedRenderer = cl_renderer && cl_renderer->latchedString
+		? cl_renderer->latchedString
+		: ( cl_renderer ? cl_renderer->string : "" );
+	const qboolean rendererChanged = ( activeRendererName[0] &&
+		Q_stricmp( activeRendererName, requestedRenderer ) != 0 ) ? qtrue : qfalse;
+
 	// Settings may have changed so stop recording now
 	if( CL_VideoRecording( ) ) {
 		CL_CloseAVI( );
@@ -1425,7 +1432,11 @@ void CL_Vid_Restart_f( void ) {
 	// shutdown the CGame
 	CL_ShutdownCGame();
 	// shutdown the renderer and clear the renderer interface
-	CL_ShutdownRef( qtrue );
+	// A different renderer cannot inherit the old renderer's window/context.
+	// Treat that transition as a full renderer shutdown; this is particularly
+	// important for Vulkan, whose device and instance otherwise survive the DLL
+	// unload.  Same-renderer restarts retain the established lightweight path.
+	CL_ShutdownRef( rendererChanged ? qfalse : qtrue );
 	// client is no longer pure untill new checksums are sent
 	CL_ResetPureClientAtServer();
 	// clear pak references
@@ -3119,6 +3130,9 @@ static void CL_ShutdownRef( qboolean restarting ) {
 		Sys_UnloadDll (rendererLib);
 		rendererLib = NULL;
 	}
+
+	Cvar_DeactivateRendererCvars();
+	activeRendererName[0] = '\0';
 }
 
 /*
@@ -3209,6 +3223,38 @@ static qboolean CGVMLoaded( void ) { return (qboolean)cls.cgameStarted; }
 static void *CM_GetCachedMapDiskImage( void ) { return gpvCachedMapDiskImage; }
 static void CM_SetCachedMapDiskImage( void *ptr ) { gpvCachedMapDiskImage = ptr; }
 static void CM_SetUsingCache( qboolean usingCache ) { gbUsingCachedMapDataRightNow = usingCache; }
+
+/*
+============
+CL_RefCvar_Get
+
+Cvar_Get normally accumulates state from every subsystem that registers a
+cvar.  Renderer DLLs are mutually exclusive, however, so renderer-specific
+state must reflect the active renderer rather than one that was unloaded.
+============
+*/
+static cvar_t *CL_RefCvar_Get( const char *var_name, const char *value, uint32_t flags, const char *var_desc ) {
+	cvar_t *var = Cvar_Get( var_name, value, flags, var_desc );
+	const qboolean rendererOwned = !Q_stricmpn( var_name, "r_", 2 ) ? qtrue : qfalse;
+
+	if ( rendererOwned ) {
+		Cvar_ActivateRendererCvar( var );
+	}
+
+	if ( flags & CVAR_LATCH ) {
+		var->flags |= CVAR_LATCH;
+	} else {
+		var->flags &= ~CVAR_LATCH;
+	}
+
+	// An empty description is authoritative for renderer-owned cvars.  This
+	// removes help text left behind by a previously loaded renderer.
+	if ( var_desc && !var_desc[0] && rendererOwned ) {
+		Cvar_SetDescription( var, NULL );
+	}
+
+	return var;
+}
 
 #define G2_VERT_SPACE_SERVER_SIZE 2048 //256 originally
 IHeapAllocator *G2VertSpaceServer = NULL;
@@ -3347,7 +3393,7 @@ void CL_InitRef( void ) {
 	ri.Cmd_AddCommand = Cmd_AddCommand;
 	ri.Cmd_RemoveCommand = Cmd_RemoveCommand;
 	ri.Cvar_Set = Cvar_Set;
-	ri.Cvar_Get = Cvar_Get;
+	ri.Cvar_Get = CL_RefCvar_Get;
 	ri.Cvar_SetValue = Cvar_SetValue;
 	ri.Cvar_CheckRange = Cvar_CheckRange;
 	ri.Cvar_VariableStringBuffer = Cvar_VariableStringBuffer;
@@ -3431,6 +3477,7 @@ void CL_InitRef( void ) {
 	}
 
 	re = ret;
+	Q_strncpyz( activeRendererName, cl_renderer->string, sizeof( activeRendererName ) );
 
 	// unpause so the cgame definately gets a snapshot and renders a frame
 	Cvar_Set( "cl_paused", "0" );
@@ -4942,7 +4989,12 @@ void CL_GetPing( int n, char *buf, int buflen, int *pingtime )
 		}
 	}
 
-	CL_SetServerInfoByAddress(cl_pinglist[n].adr, cl_pinglist[n].info, cl_pinglist[n].time);
+	// Do not treat an empty ping info buffer as a valid response, or offline
+	// favorites lose their cached hostname and are subsequently rejected by
+	// the UI's validity filter.
+	CL_SetServerInfoByAddress(cl_pinglist[n].adr,
+		cl_pinglist[n].info[0] ? cl_pinglist[n].info : NULL,
+		cl_pinglist[n].time);
 
 	*pingtime = time;
 }
@@ -5037,6 +5089,7 @@ ping_t* CL_GetFreePing( void )
 
 		// clear it
 		pingptr->adr.port = 0;
+		pingptr->info[0] = '\0';
 		return (pingptr);
 	}
 
@@ -5055,6 +5108,7 @@ ping_t* CL_GetFreePing( void )
 		}
 	}
 
+	best->info[0] = '\0';
 	return (best);
 }
 
@@ -5157,6 +5211,7 @@ qboolean CL_UpdateVisiblePings_f(int source) {
 						memcpy(&cl_pinglist[j].adr, &server[i].adr, sizeof(netadr_t));
 						cl_pinglist[j].start = Sys_Milliseconds();
 						cl_pinglist[j].time = 0;
+						cl_pinglist[j].info[0] = '\0';
 						NET_OutOfBandPrint( NS_CLIENT, cl_pinglist[j].adr, "getinfo xxx" );
 
 						serverStatus_t *serverStatus = CL_GetServerStatus(cl_pinglist[j].adr);

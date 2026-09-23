@@ -1213,6 +1213,11 @@ void BG_SiegeLoadClasses(siegeClassDesc_t *descBuffer)
 	bgNumSiegeClasses = 0;
 
 	numFiles = trap->FS_GetFileList("ext_data/Siege/Classes", ".scl", filelist, sizeof( filelist ) );
+	if (numFiles > MAX_SIEGE_CLASSES)
+	{
+		Com_Printf("WARNING: Found %i Siege classes, only loading the first %i\n", numFiles, MAX_SIEGE_CLASSES);
+		numFiles = MAX_SIEGE_CLASSES;
+	}
 
 	fileptr = filelist;
 
@@ -1302,8 +1307,8 @@ void BG_SiegeParseTeamFile(const char *filename)
 
 	if (BG_SiegeGetValueGroup(teamInfo, "Classes", teamInfo))
 	{
-		while (success && i < MAX_SIEGE_CLASSES)
-		{ //keep checking for group values named class# up to MAX_SIEGE_CLASSES until we can't find one.
+		while (success && bgSiegeTeams[bgNumSiegeTeams].numClasses < MAX_SIEGE_CLASSES_PER_TEAM)
+		{ //keep checking for group values named class# until we can't find one or the team is full.
 			Q_strncpyz(lookString, va("class%i", i), sizeof(lookString));
 
 			success = BG_SiegeGetPairedValue(teamInfo, lookString, parseBuf);
@@ -1347,6 +1352,11 @@ void BG_SiegeLoadTeams(void)
 	bgNumSiegeTeams = 0;
 
 	numFiles = trap->FS_GetFileList("ext_data/Siege/Teams", ".team", filelist, sizeof( filelist ) );
+	if (numFiles > MAX_SIEGE_TEAMS)
+	{
+		Com_Printf("WARNING: Found %i Siege teams, only loading the first %i\n", numFiles, MAX_SIEGE_TEAMS);
+		numFiles = MAX_SIEGE_TEAMS;
+	}
 
 	fileptr = filelist;
 

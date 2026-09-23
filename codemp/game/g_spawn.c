@@ -138,6 +138,7 @@ field_t fields[] = {
 	{ "delay",					FOFS( delay ),							F_INT },
 	{ "delayscript",			FOFS( behaviorSet[BSET_DELAYED] ),		F_STRING },//name of script to run
 	{ "delayscripttime",		FOFS( delayScriptTime ),				F_INT },//name of script to run
+	{ "dialogue",				FOFS( dialogue ),						F_STRING },
 	{ "dmg",					FOFS( damage ),							F_INT },
 	{ "ffdeathscript",			FOFS( behaviorSet[BSET_FFDEATH] ),		F_STRING },//name of script to run
 	{ "ffirescript",			FOFS( behaviorSet[BSET_FFIRE] ),		F_STRING },//name of script to run
@@ -278,6 +279,7 @@ void SP_trigger_KOTH (gentity_t *ent);//JAPRO koth
 void SP_target_remove_powerups( gentity_t *ent );
 void SP_target_give (gentity_t *ent);
 void SP_target_delay (gentity_t *ent);
+void SP_target_dialogue (gentity_t *ent);
 void SP_target_speaker (gentity_t *ent);
 void SP_target_print (gentity_t *ent);
 void SP_target_laser (gentity_t *self);
@@ -297,6 +299,7 @@ void SP_target_deactivate (gentity_t *self);
 void SP_target_level_change( gentity_t *self );
 void SP_target_play_music( gentity_t *self );
 void SP_target_push (gentity_t *ent);
+void SP_target_queststage (gentity_t *ent);
 
 void SP_target_restrict (gentity_t *ent);//JAPRO Onlybhop
 
@@ -855,6 +858,7 @@ spawn_t	spawns[] = {
 	{ "target_counter",					qtrue,	SP_target_counter },
 	{ "target_deactivate",				qtrue,	SP_target_deactivate },
 	{ "target_delay",					qtrue,	SP_target_delay },
+	{ "target_dialogue",				qtrue,	SP_target_dialogue },
 	{ "target_escapetrig",				qtrue,	SP_target_escapetrig },
 	{ "target_give",					qtrue,	SP_target_give },
 	{ "target_interest",				qtrue,	SP_target_interest },
@@ -866,6 +870,7 @@ spawn_t	spawns[] = {
 	{ "target_position",				qtrue,	SP_target_position },
 	{ "target_print",					qtrue,	SP_target_print },
 	{ "target_push",					qtrue,	SP_target_push },
+	{ "target_queststage",				qtrue,	SP_target_queststage },
 	{ "target_random",					qtrue,	SP_target_random },
 	{ "target_relay",					qtrue,	SP_target_relay },
 	{ "target_remove_powerups",			qtrue,	SP_target_remove_powerups },

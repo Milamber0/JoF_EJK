@@ -351,6 +351,9 @@ typedef struct clientInfo_s {
 	float			colorOverride[3];
 
 	saberInfo_t		saber[MAX_SABERS];
+	// Original server saber sounds, before cg_forceOwnSaber replaces the hilts.
+	sfxHandle_t		serverSaberSoundOn[MAX_SABERS];
+	sfxHandle_t		serverSaberSoundOff[MAX_SABERS];
 	void			*ghoul2Weapons[MAX_SABERS];
 
 	char			saberName[MAX_QPATH];
@@ -569,6 +572,7 @@ typedef struct centity_s {
 	int				bolt2;
 	int				bolt3;
 	int				bolt4;
+	qboolean		limbNoSmoke; // Cached owner type: HD packs replace limb smoke with blood.
 
 	float			bodyHeight;
 
@@ -613,6 +617,9 @@ typedef struct centity_s {
 
 	int				serverSaberHitIndex;
 	int				serverSaberHitTime;
+	char			saberHiltModel[MAX_QPATH]; //hilt this saber entity's ghoul2 instance was built from
+	qhandle_t		saberHiltSkin;
+	int				saberHiltOwner; //client who owns this saber entity, +1 (0 = not known)
 	qboolean		serverSaberFleshImpact; //true if flesh, false if anything else.
 
 	qboolean		ikStatus;
@@ -630,6 +637,7 @@ typedef struct centity_s {
 	int				lastStrafeTrailTime;
 
 	int				breathPuffTime;
+	int				saberRainSteamTime[MAX_SABERS][MAX_BLADES];
 	int				breathTime; //can maybe just use breathPuffTime from ci?
 #endif
 
@@ -1062,6 +1070,9 @@ typedef struct clientCheckpoint_s {
 } clientCheckpoint_t;
 
 typedef struct cg_s {
+	binocularTarget_t binocularTargets[MAX_BINOCULAR_TARGETS];
+	int binocularTargetCount;
+	int binocularUpdateTime;
 	int			clientFrame;		// incremented each frame
 
 	int			clientNum;
@@ -1121,6 +1132,8 @@ typedef struct cg_s {
 	int			eventSequence;
 	int			predictableEvents[MAX_PREDICTED_EVENTS];
 	int			lastExternalEvent;		// last ps.externalEvent played, so the predicted and snapshot dispatch paths don't double-play
+	int			forceSaberSoundPending[2]; // on/off hilt masks from the authoritative snapshot transition
+	int			forceSaberSoundUsed[2]; // hilt sounds already matched in this snapshot
 
 	float		stepChange;				// for stair up smoothing
 	int			stepTime;
@@ -1137,6 +1150,7 @@ typedef struct cg_s {
 	short		lastWeaponSelect[2];//japro
 
 	int			forceSelect;
+	qboolean	forceSelectLightningOverride; // Observed real lightning despite JA+'s merc bit.
 	int			itemSelect;
 
 	// auto rotating items
@@ -1155,6 +1169,8 @@ typedef struct cg_s {
 	int			damageTaken[32];
 
 	qboolean	coldBreathEffects;
+	qboolean	saberRainActive;
+	qboolean	saberRainFrozen;
 	qboolean	rainSoundEffects;
 
 	float		zoomSensitivity;
@@ -1242,6 +1258,12 @@ typedef struct cg_s {
 	//==========================
 
 	int			itemPickup;
+	int             pickupQueue[16];
+	qboolean pickupConfirmed;
+	qboolean pickupHandshakeActive;
+	int             pickupQueueHead, pickupQueueCount;
+	int			pickupEventSequences[MAX_PREDICTED_EVENTS];
+	int			pickupEventParms[MAX_PREDICTED_EVENTS];
 	int			itemPickupTime;
 	int			itemPickupBlendTime;	// the pulse around the crosshair is timed seperately
 
@@ -1666,6 +1688,7 @@ typedef struct cgMedia_s {
 	qhandle_t	playerShieldDamage;
 	qhandle_t	protectShader;
 	qhandle_t	forceSightBubble;
+	qhandle_t	forceSenseOverlay;
 	qhandle_t	forceShell;
 	qhandle_t	sightShell;
 
@@ -1892,6 +1915,7 @@ typedef struct cgMedia_s {
 	qhandle_t forcePowerIcons[NUM_FORCE_POWERS];
 	qhandle_t repulseIcon;		// JoF: custom Force Repulse wheel icon
 	qhandle_t dashIcon;			// JoF: custom Force Dash wheel icon
+	qhandle_t flamethrowerIcon;	// JoF: JA+ merc-mode replacement for Force Lightning
 
 	qhandle_t rageRecShader;
 
@@ -2045,6 +2069,7 @@ typedef struct cgEffects_s {
 
 	fxHandle_t	mSparks;
 	fxHandle_t	mSaberCut;
+	fxHandle_t	mSaberRainSteam;
 	fxHandle_t	mTurretMuzzleFlash;
 	fxHandle_t	mSaberBlock;
 	fxHandle_t	mSaberBloodSparks;
@@ -2432,9 +2457,14 @@ void CG_CreateNPCClient(clientInfo_t **ci);
 void CG_DestroyNPCClient(clientInfo_t **ci);
 
 void CG_Player( centity_t *cent );
-void CG_ResetPlayerEntity( centity_t *cent );
+void CG_ResetPlayerEntity( centity_t *cent, qboolean preserveAnimations );
+qboolean CG_StaffSwapHoldIgnitionSound( int clientNum, sfxHandle_t sound );
+qboolean CG_StaffSwapShutdownSounded( int clientNum );
+qboolean CG_StaffSwapHoldGeneralSound( vec3_t origin, sfxHandle_t sound );
 void CG_AddRefEntityWithPowerups( refEntity_t *ent, entityState_t *state, int team );
 void CG_NewClientInfo( int clientNum, qboolean entitiesInitialized );
+saberInfo_t *CG_SaberEntityOwnerSaber( centity_t *saberEnt );
+const char *CG_SaberEntityHiltModel( saberInfo_t *saber, centity_t *saberEnt, qhandle_t *skin );
 qboolean CG_ModelIsBlacklisted( const char *modelName );
 sfxHandle_t	CG_CustomSound( int clientNum, const char *soundName );
 void CG_PlayerShieldHit(int entitynum, vec3_t angles, int amount);
@@ -2460,6 +2490,7 @@ void CG_LoadDeferredPlayers( void );
 void CG_CheckEvents( centity_t *cent );
 const char	*CG_PlaceString( int rank );
 void CG_EntityEvent( centity_t *cent, vec3_t position );
+void CG_PrepareForceOwnSaberSounds( const playerState_t *ps, const playerState_t *oldPs );
 void CG_PainEvent( centity_t *cent, int health );
 void CG_ReattachLimb(centity_t *source);
 
@@ -2578,6 +2609,7 @@ void CG_Chunks( int owner, vec3_t origin, const vec3_t normal, const vec3_t mins
 void CG_MiscModelExplosion( vec3_t mins, vec3_t maxs, int size, material_t chunkType );
 
 void CG_Bleed( vec3_t origin, int entityNum );
+qboolean CG_IsDroidEntity( int entityNum );
 
 localEntity_t *CG_MakeExplosion( vec3_t origin, vec3_t dir,
 								qhandle_t hModel, int numframes, qhandle_t shader, int msec,
@@ -2637,6 +2669,11 @@ void CG_FreeCosmetics( void );
 //
 void CG_ExecuteNewServerCommands( int latestSequence );
 void CG_ParseServerinfo( void );
+void CG_ConfirmedPickup_f( void );
+void CG_AdvancePickupQueue( void );
+qboolean CG_UsesPickupConfirmation( void );
+void CG_UpdatePickupHandshake(void);
+void CG_PickupReady_f(void);
 void CG_SetConfigValues( void );
 void CG_ShaderStateChanged(void);
 
@@ -2647,6 +2684,8 @@ int CG_IsMindTricked(int trickIndex1, int trickIndex2, int trickIndex3, int tric
 void CG_Respawn( void );
 void CG_TransitionPlayerState( playerState_t *ps, playerState_t *ops );
 void CG_CheckExternalEvent( playerState_t *ps, playerState_t *ops );
+void CG_CheckLegacyPickupEvents( playerState_t *ps, playerState_t *ops );
+void CG_ResetPickupEventTracking( void );
 void CG_CheckChangedPredictableEvents( playerState_t *ps );
 
 

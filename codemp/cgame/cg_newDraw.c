@@ -22,6 +22,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "cg_local.h"
+#include "cg_dialogue.h"
 #include "ui/ui_shared.h"
 
 extern displayContextDef_t cgDC;
@@ -768,6 +769,11 @@ void CG_MouseEvent(int x, int y) {
 	else if (cgs.cursorY > 480)
 		cgs.cursorY = 480;
 
+	if ( CG_DialogueIsActive() ) {
+		CG_DialogueMouseMove();
+		return;
+	}
+
 	n = Display_CursorType(cgs.cursorX, cgs.cursorY);
 	cgs.activeCursor = 0;
 	if (n == CURSOR_ARROW) {
@@ -818,6 +824,9 @@ type 0 - no event handling
 
 */
 void CG_EventHandling(int type) {
+	if ( type == CGAME_EVENT_NONE && cgs.eventHandling == CGAME_EVENT_DIALOGUE && CG_DialogueIsActive() ) {
+		CG_DialogueCancel();
+	}
 	cgs.eventHandling = type;
 	if (type == CGAME_EVENT_NONE) {
 		CG_HideTeamMenu();
@@ -834,6 +843,11 @@ void CG_EventHandling(int type) {
 void CG_KeyEvent(int key, qboolean down) {
 	
 	if (!down) {
+		return;
+	}
+
+	if ( CG_DialogueIsActive() ) {
+		CG_DialogueKeyEvent( key );
 		return;
 	}
 

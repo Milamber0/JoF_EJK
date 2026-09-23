@@ -47,6 +47,17 @@ void LAN_LoadCachedServers( ) {
 			FS_Read(&cls.globalServers, sizeof(cls.globalServers), fileIn);
 			FS_Read(&cls_mplayerServers, sizeof(cls_mplayerServers), fileIn);
 			FS_Read(&cls.favoriteServers, sizeof(cls.favoriteServers), fileIn);
+
+			// Older clients cleared cached server info when a favorite timed out.
+			// Keep those favorites usable and visible by falling back to their
+			// address until the server responds again.
+			for (int i = 0; i < cls.numfavoriteservers && i < MAX_OTHER_SERVERS; i++) {
+				if (!cls.favoriteServers[i].hostName[0]) {
+					Q_strncpyz(cls.favoriteServers[i].hostName,
+						NET_AdrToString(cls.favoriteServers[i].adr),
+						sizeof(cls.favoriteServers[i].hostName));
+				}
+			}
 		} else {
 			cls.numglobalservers = cls_nummplayerservers = cls.numfavoriteservers = 0;
 			cls.numGlobalServerAddresses = 0;

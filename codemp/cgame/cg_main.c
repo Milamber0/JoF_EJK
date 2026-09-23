@@ -24,6 +24,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 // cg_main.c -- initialization and primary entry point for cgame
 #include "cg_local.h"
+#include "cg_dialogue.h"
 
 #include "ui/ui_shared.h"
 // display context for new ui stuff
@@ -540,14 +541,49 @@ static void CG_AS_Register(void)
 	trap->AS_ParseSets();
 }
 
+//every rain variant the world effect system knows about
+static qboolean CG_WeatherIsRain(const char *token)
+{
+	return (qboolean)(!Q_stricmp(token, "rain") || !Q_stricmp(token, "lightrain") ||
+		!Q_stricmp(token, "heavyrain") || !Q_stricmp(token, "heavyrainfog") ||
+		!Q_stricmp(token, "acidrain"));
+}
+
 //a global weather effect (rain, snow, etc)
 void CG_ParseWeatherEffect(const char *str)
 {
 	char *sptr = (char *)str;
+	qboolean isRain = qfalse;
 	sptr++; //pass the '*'
 
-	if (Q_stricmpn(sptr, "die", 3) && Q_stricmpn(sptr, "clear", 5) && Q_stricmpn(sptr, "freeze", 6)
-	&& Q_stricmpn(sptr, "zone", 4) && Q_stricmpn(sptr, "acidrain", 8) && Q_stricmpn(sptr, "spacedust", 9)
+	// Weather commands accumulate clouds; snow/wind do not remove existing rain.
+	{
+		const char *command = sptr;
+		const char *token = COM_ParseExt(&command, qfalse);
+		isRain = CG_WeatherIsRain(token);
+		if (!Q_stricmp(token, "die") || !Q_stricmp(token, "clear"))
+		{
+			cg.saberRainActive = qfalse;
+			if (!Q_stricmp(token, "die"))
+				cg.saberRainFrozen = qfalse;
+		}
+		else if (!Q_stricmp(token, "freeze"))
+		{
+			cg.saberRainFrozen = !cg.saberRainFrozen;
+		}
+		else if (!Q_stricmp(token, "rain") || !Q_stricmp(token, "acidrain") ||
+			!Q_stricmp(token, "lightrain") || !Q_stricmp(token, "heavyrain"))
+		{
+			cg.saberRainActive = qtrue;
+		}
+	}
+
+	if (isRain)
+	{ //rain is wet, not cold - kill the puffs even if something earlier turned them on
+		cg.coldBreathEffects = qfalse;
+	}
+	else if (Q_stricmpn(sptr, "die", 3) && Q_stricmpn(sptr, "clear", 5) && Q_stricmpn(sptr, "freeze", 6)
+	&& Q_stricmpn(sptr, "zone", 4) && Q_stricmpn(sptr, "spacedust", 9)
 	&& Q_stricmpn(sptr, "sand", 4) && Q_stricmpn(sptr, "outsideshake", 12) && Q_stricmpn(sptr, "outsidepain", 11))
 	{ //should come with a better way to detect this...
 		cg.coldBreathEffects = qtrue;
@@ -1322,6 +1358,7 @@ static void CG_RegisterGraphics( void )
 	cgs.effects.mTurretMuzzleFlash = trap->FX_RegisterEffect("effects/turret/muzzle_flash.efx");
 	cgs.effects.mSparks = trap->FX_RegisterEffect("sparks/spark_nosnd.efx"); //sparks/spark.efx
 	cgs.effects.mSaberCut = trap->FX_RegisterEffect("saber/saber_cut.efx");
+	cgs.effects.mSaberRainSteam = trap->FX_RegisterEffect("saber/fizz.efx");
 	cgs.effects.mSaberBlock = trap->FX_RegisterEffect("saber/saber_block.efx");
 	cgs.effects.mSaberBloodSparks = trap->FX_RegisterEffect("saber/blood_sparks_mp.efx");
 	cgs.effects.mSaberBloodSparksSmall = trap->FX_RegisterEffect("saber/blood_sparks_25_mp.efx");
@@ -1372,6 +1409,7 @@ static void CG_RegisterGraphics( void )
 	cgs.media.playerShieldDamage = trap->R_RegisterShader("gfx/misc/personalshield");
 	cgs.media.protectShader = trap->R_RegisterShader("gfx/misc/forceprotect");
 	cgs.media.forceSightBubble = trap->R_RegisterShader("gfx/misc/sightbubble");
+	cgs.media.forceSenseOverlay = trap->R_RegisterShader("gfx/2d/jsense");
 	cgs.media.forceShell = trap->R_RegisterShader("powerups/forceshell");
 	cgs.media.sightShell = trap->R_RegisterShader("powerups/sightshell");
 
@@ -3031,6 +3069,7 @@ Ghoul2 Insert End
 	cgDC.Assets.qhBigFont = cgDC.Assets.qhMediumFont;
 
 	memset( &cgs, 0, sizeof( cgs ) );
+	CG_DialogueReset();
 	memset( cg_weapons, 0, sizeof(cg_weapons) );
 	memset( cg_dueltypes, 0, sizeof(cg_dueltypes) );//JAPRO - Clientside - Fullforce Duels
 
@@ -3125,6 +3164,7 @@ Ghoul2 Insert End
 	cgs.media.rageRecShader = trap->R_RegisterShaderNoMip("gfx/mp/f_icon_ragerec");
 	cgs.media.repulseIcon   = trap->R_RegisterShaderNoMip("gfx/jof/force_repulse.tga");	// JoF: Force Repulse wheel icon
 	cgs.media.dashIcon      = trap->R_RegisterShaderNoMip("gfx/jof/force_dash.tga");		// JoF: Force Dash wheel icon
+	cgs.media.flamethrowerIcon = trap->R_RegisterShaderNoMip("gfx/jof/force_flamethrower.png");
 
 
 	//body decal shaders -rww
@@ -3134,6 +3174,8 @@ Ghoul2 Insert End
 	cgs.media.mSaberDamageGlow = trap->R_RegisterShader("gfx/effects/saberDamageGlow");
 
 	CG_RegisterCvars();
+	trap->Cvar_Set("cg_pickupConfirm", "1");
+	trap->Cvar_Set("cg_pickupReady", "3");
 
 	CG_InitConsoleCommands();
 
@@ -3328,6 +3370,10 @@ Called before every level change or subsystem restart
 */
 void CG_Shutdown( void )
 {
+	// Userinfo is handled by the engine even when game commands are flood
+	// filtered. Do not leave readiness behind for a subsequently loaded mod.
+	trap->Cvar_Set("cg_pickupReady", "0");
+	cg.pickupHandshakeActive = cg.pickupConfirmed = qfalse;
 	BG_ClearAnimsets(); //free all dynamic allocations made through the engine
 
 	CG_FreeCosmetics();

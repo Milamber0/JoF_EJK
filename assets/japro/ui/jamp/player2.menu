@@ -371,18 +371,6 @@
 			decoration
 		}
 
-		itemDef
-		{
-			name				speciesbut_glow
-			group				none
-			style				WINDOW_STYLE_SHADER
-			rect				176 92 120 16
-			background			"gfx/menus/menu_buttonback"
-			forecolor			1 1 1 1
-			visible			0
-			decoration
-		}
-
 		itemDef 
 		{
 			name				speciesbut
@@ -406,14 +394,6 @@
 
 			visible			1
 			 
-			mouseEnter 
-			{ 
-				show			speciesbut_glow 
-			}
-			mouseExit 
-			{ 
-				hide			speciesbut_glow 
-			}	  	  
 			action 
 			{
 				play			"sound/interface/button1.wav"
@@ -422,17 +402,6 @@
 			}
 		}
 
-
-		itemDef
-		{
-			name speciesbrowse_glow
-			style WINDOW_STYLE_SHADER
-			rect 296 88 24 24
-			background "gfx/menus/menu_buttonback"
-			forecolor 1 1 1 1
-			visible 0
-			decoration
-		}
 
 		itemDef
 		{
@@ -446,12 +415,10 @@
 			visible 1
 			mouseEnter
 			{
-				show speciesbrowse_glow
 				setitemcolor speciesbrowse forecolor 1 1 1 1
 			}
 			mouseExit
 			{
-				hide speciesbrowse_glow
 				setitemcolor speciesbrowse forecolor 1 .682 0 1
 			}
 			action
@@ -533,18 +500,6 @@
 		// HEAD BUTTON
 		itemDef 
 		{
-			name				headbut_glow
-			group				none
-			style				WINDOW_STYLE_SHADER
-			rect				30 280 90 16
-			background			"gfx/menus/menu_buttonback"
-			forecolor			1 1 1 1
-			visible			0
-			decoration
-		}
-
-		itemDef 
-		{
 			name				headbut
 			group				none
 			text				@MENUS_HEAD
@@ -562,14 +517,6 @@
 			forecolor			1 .682 0 1
 			visible			1
 			 
-			mouseEnter 
-			{ 
-				show			headbut_glow 
-			}
-			mouseExit 
-			{ 
-				hide			headbut_glow 
-			}	  	  
 			action 
 			{
 				play			"sound/interface/button1.wav"
@@ -582,18 +529,6 @@
 
 
 		// TORSO BUTTON
-		itemDef 
-		{
-			name				torsobut_glow
-			group				none
-			style				WINDOW_STYLE_SHADER
-			rect				126 280 90 16
-			background			"gfx/menus/menu_buttonback"
-			forecolor			1 1 1 1
-			visible				0
-			decoration
-		}
-
 		itemDef 
 		{
 			name				torsobut
@@ -613,14 +548,6 @@
 			forecolor			1 .682 0 1
 			visible			1
 
-			mouseEnter 
-			{ 
-				show			torsobut_glow 
-			}
-			mouseExit 
-			{ 
-				hide			torsobut_glow 
-			}	  	  
 			action 
 			{
 				play			"sound/interface/button1.wav" 
@@ -632,18 +559,6 @@
 		}
 
 		// LEGS BUTTON
-		itemDef 
-		{
-			name				legsbut_glow
-			group				none
-			style				WINDOW_STYLE_SHADER
-			rect				224 280 90 16
-			background			"gfx/menus/menu_buttonback"
-			forecolor			1 1 1 1
-			visible				0
-			decoration
-		}
-
 		itemDef 
 		{
 			name				legsbut
@@ -663,14 +578,6 @@
 			forecolor			1 .682 0 1
 			visible				1
 			 
-			mouseEnter 
-			{ 
-				show			legsbut_glow 
-			}
-			mouseExit 
-			{ 
-				hide			legsbut_glow 
-			}	  	  
 			action 
 			{
 				play			"sound/interface/button1.wav"

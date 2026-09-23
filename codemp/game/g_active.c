@@ -6045,10 +6045,141 @@ A fast client will have multiple ClientThink for each ClientEdFrame,
 while a slow client may have multiple ClientEndFrame between ClientThink.
 ==============
 */
+extern qboolean G_IsMindTricked(forcedata_t *fd, int client);
+
+static void G_BinocularName(gentity_t *target, char *name, int size) {
+	const char *source = target->fullName;
+	int i;
+	// The stock spawner installs this generic label even when a type is known.
+	if (!source || !source[0] || !Q_stricmp(source, "Humanoid Lifeform"))
+		source = target->NPC_type;
+	Q_strncpyz(name, source && source[0] ? source : "Unknown contact", size);
+	Q_CleanStr(name);
+	// Names are quoted command arguments: never allow quotes, command syntax,
+	// or control characters from map/script data to escape the argument.
+	for (i = 0; name[i]; i++) {
+		if ((unsigned char)name[i] < 32 || name[i] == 127 ||
+			name[i] == '"' || name[i] == '\\' || name[i] == ';')
+			name[i] = ' ';
+	}
+}
+
+static void G_UpdateBinocularScan(gentity_t *viewer) {
+	gclient_t *client = viewer->client;
+	binocularTarget_t targets[MAX_BINOCULAR_TARGETS];
+	float scores[MAX_BINOCULAR_TARGETS];
+	vec3_t eye, forward;
+	char userinfo[MAX_INFO_STRING], command[MAX_STRING_CHARS], payload[MAX_STRING_CHARS];
+	int i, count = 0;
+
+	if (viewer->s.number >= MAX_CLIENTS || (viewer->r.svFlags & SVF_BOT))
+		return;
+	if (client->ps.zoomMode != 2 || viewer->health <= 0 ||
+		client->sess.sessionTeam == TEAM_SPECTATOR || level.intermissiontime) {
+		if (client->binocularScanActive)
+			trap->SendServerCommand(viewer->s.number, va("binoStats %i 0", level.time));
+		client->binocularScanActive = qfalse;
+		client->binocularNextUpdate = 0;
+		return;
+	}
+	if (level.time < client->binocularNextUpdate)
+		return;
+	client->binocularNextUpdate = level.time + BINOCULAR_UPDATE_MSEC;
+	trap->GetUserinfo(viewer->s.number, userinfo, sizeof(userinfo));
+	if (strcmp(Info_ValueForKey(userinfo, "binoScan"), "1"))
+		return;
+	client->binocularScanActive = qtrue;
+	VectorCopy(client->ps.origin, eye);
+	eye[2] += client->ps.viewheight;
+	AngleVectors(client->ps.viewangles, forward, NULL, NULL);
+	for (i = 0; i < level.num_entities; i++) {
+		gentity_t *target = &g_entities[i];
+		vec3_t point, direction;
+		float distance, score;
+		trace_t trace;
+		int slot, j;
+		if (target == viewer || !target->inuse || !target->client || !target->r.linked ||
+			(target->s.eType != ET_PLAYER && target->s.eType != ET_NPC) ||
+			target->health <= 0 || (target->s.eFlags & (EF_DEAD | EF_NODRAW)) ||
+			(target->r.svFlags & SVF_NOCLIENT))
+			continue;
+		if (target->s.eType == ET_PLAYER && (target->client->pers.connected != CON_CONNECTED ||
+			target->client->sess.sessionTeam == TEAM_SPECTATOR))
+			continue;
+		if (((target->r.svFlags & SVF_SINGLECLIENT) && target->r.singleClient != viewer->s.number) ||
+			((target->r.svFlags & SVF_NOTSINGLECLIENT) && target->r.singleClient == viewer->s.number) ||
+			((target->r.svFlags & SVF_BROADCASTCLIENTS) &&
+			 !(target->r.broadcastClients[viewer->s.number / 32] & (1u << (viewer->s.number % 32)))) ||
+			target->client->ps.powerups[PW_CLOAKED] || G_IsMindTricked(&target->client->ps.fd, viewer->s.number))
+			continue;
+		VectorCopy(target->r.currentOrigin, point);
+		point[2] += (target->r.mins[2] + target->r.maxs[2]) * 0.5f;
+		VectorSubtract(point, eye, direction);
+		distance = VectorNormalize(direction);
+		score = DotProduct(direction, forward);
+		if (distance > BINOCULAR_RANGE || score < 0.7f || !trap->InPVS(eye, point))
+			continue;
+		// Prefer targets near the reticle; bound both the packet and HUD clutter.
+		if (count == MAX_BINOCULAR_TARGETS && score <= scores[count - 1])
+			continue;
+		trap->Trace(&trace, eye, NULL, NULL, point, viewer->s.number, MASK_SHOT, qfalse, 0, 0);
+		if (trace.startsolid || trace.allsolid || (trace.fraction < 1.0f && trace.entityNum != i))
+			continue;
+		slot = count < MAX_BINOCULAR_TARGETS ? count++ : count - 1;
+		for (j = slot; j > 0 && score > scores[j - 1]; j--) {
+			targets[j] = targets[j - 1];
+			scores[j] = scores[j - 1];
+		}
+		scores[j] = score;
+		targets[j].entityNum = i;
+		targets[j].health = target->health;
+		targets[j].maxHealth = Q_max(1, target->client->ps.stats[STAT_MAX_HEALTH]);
+		targets[j].armor = Q_max(0, target->client->ps.stats[STAT_ARMOR]);
+	}
+	// Keep complete records inside the engine's reliable-command limit, even
+	// with 32 contacts and unusually large NPC health/armor values.
+	payload[0] = '\0';
+	for (i = 0; i < count; i++) {
+		char record[64];
+		Com_sprintf(record, sizeof(record), " %i %i %i %i", targets[i].entityNum,
+			targets[i].health, targets[i].maxHealth, targets[i].armor);
+		if (strlen(payload) + strlen(record) >= sizeof(payload) - 64) {
+			count = i;
+			break;
+		}
+		Q_strcat(payload, sizeof(payload), record);
+	}
+	Com_sprintf(command, sizeof(command), "binoStats %i %i%s", level.time, count, payload);
+	trap->SendServerCommand(viewer->s.number, command);
+	if (strcmp(Info_ValueForKey(userinfo, "binoNames"), "1"))
+		return;
+	payload[0] = '\0';
+	for (i = 0; i < count; i++) {
+		gentity_t *target = &g_entities[targets[i].entityNum];
+		char record[96];
+		if (target->s.eType != ET_NPC)
+			continue;
+		G_BinocularName(target, targets[i].name, sizeof(targets[i].name));
+		Com_sprintf(record, sizeof(record), " %i \"%s\"", targets[i].entityNum, targets[i].name);
+		if (strlen(payload) + strlen(record) >= sizeof(payload) - 64) {
+			Com_sprintf(command, sizeof(command), "binoNames %i%s", level.time, payload);
+			trap->SendServerCommand(viewer->s.number, command);
+			payload[0] = '\0';
+		}
+		Q_strcat(payload, sizeof(payload), record);
+	}
+	if (payload[0]) {
+		Com_sprintf(command, sizeof(command), "binoNames %i%s", level.time, payload);
+		trap->SendServerCommand(viewer->s.number, command);
+	}
+}
+
 void ClientEndFrame( gentity_t *ent ) {
 	int			i;
 	qboolean isNPC = qfalse;
 	int frames; //japro smoothclients
+
+	G_UpdateBinocularScan(ent);
 
 	if (ent->s.eType == ET_NPC)
 	{

@@ -1,0 +1,64 @@
+// Native JoF dialogue example. Quest stages are per player and start at 0.
+dialogue {
+	start greeting
+
+	node greeting {
+		speaker "Quartermaster"
+		text "A supply crate vanished near the old landing pad. Will you look for it?"
+
+		choice {
+			text "I'll find it."
+			next accepted
+			require missing_supplies eq 0
+		}
+		choice {
+			text "I am still looking for the crate."
+			next reminder
+			require missing_supplies eq 1
+		}
+		choice {
+			text "Not right now."
+			next goodbye
+		}
+		choice {
+			text "How did the crate disappear?"
+			next details
+		}
+		choice {
+			text "What should I expect near the landing pad?"
+			next danger
+		}
+	}
+
+	node accepted {
+		speaker "Quartermaster"
+		text "Good. Search the landing pad and report back when you know more."
+		setquest missing_supplies 1
+		fire supplies_quest_started
+		next goodbye
+	}
+
+	node reminder {
+		speaker "Quartermaster"
+		text "The crate carries a blue Republic seal. Check behind the damaged transport."
+		next goodbye
+	}
+
+	node details {
+		speaker "Quartermaster"
+		text "The perimeter alarm failed for eleven seconds. Long enough for someone who knew our patrol route."
+		next greeting
+	}
+
+	node danger {
+		speaker "Quartermaster"
+		text "Scavengers work that district, and Imperial probes pass overhead. Keep your weapon close."
+		next greeting
+	}
+
+	node goodbye {
+		speaker "Quartermaster"
+		text "May the Force be with you."
+		end
+	}
+}

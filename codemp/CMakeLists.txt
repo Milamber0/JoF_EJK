@@ -930,9 +930,12 @@ add_zip_command(japro-assets.pk3
 	FILES *
 	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/assets/japro
 	DEPENDS ${JAPRO_MENU_FILES})
+file(GLOB_RECURSE JOFCLIENT_ASSET_FILES CONFIGURE_DEPENDS
+	"${CMAKE_SOURCE_DIR}/assets/jofclient/*")
 add_zip_command(jofclient-assets.pk3
 	FILES *
-	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/assets/jofclient)
+	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/assets/jofclient
+	DEPENDS ${JOFCLIENT_ASSET_FILES})
 add_custom_target(Assets
 	ALL
 	DEPENDS japro-assets.pk3 jofclient-assets.pk3)

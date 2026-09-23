@@ -22,6 +22,57 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "g_local.h"
+#include "g_dialogue.h"
+
+//==========================================================
+
+/*QUAKED target_dialogue (0.2 0.7 1.0) (-8 -8 -8) (8 8 8)
+Starts a native dialogue for the activating player.
+
+"dialogue" file name relative to dialogues/, without the .dlg extension.
+"target"   fires after the player reaches a completed dialogue exit.
+*/
+static void Use_Target_Dialogue( gentity_t *ent, gentity_t *other, gentity_t *activator ) {
+	if ( !activator || !activator->client || !ent->dialogue ) return;
+	G_DialogueStart( activator, ent->dialogue, ent );
+}
+
+void SP_target_dialogue( gentity_t *ent ) {
+	if ( !ent->dialogue || !ent->dialogue[0] ) {
+		trap->Print( "target_dialogue without a dialogue key at %s\n", vtos( ent->s.origin ) );
+		G_FreeEntity( ent );
+		return;
+	}
+	ent->use = Use_Target_Dialogue;
+}
+
+//==========================================================
+
+/*QUAKED target_queststage (0.2 0.7 1.0) (-8 -8 -8) (8 8 8)
+Sets an integer quest stage for the activating player.
+
+"quest" quest identifier used by dialogue conditions.
+"stage" integer stage to assign (default 1).
+"target" optional target to fire after the stage is set.
+*/
+static void Use_Target_QuestStage( gentity_t *ent, gentity_t *other, gentity_t *activator ) {
+	if ( !activator || !activator->client || !ent->message ) return;
+	if ( G_DialogueSetQuestStage( activator, ent->message, ent->count ) ) {
+		G_UseTargets( ent, activator );
+	}
+}
+
+void SP_target_queststage( gentity_t *ent ) {
+	char *quest;
+	if ( !G_SpawnString( "quest", "", &quest ) || !quest[0] ) {
+		trap->Print( "target_queststage without a quest key at %s\n", vtos( ent->s.origin ) );
+		G_FreeEntity( ent );
+		return;
+	}
+	G_SpawnInt( "stage", "1", &ent->count );
+	ent->message = G_NewString( quest );
+	ent->use = Use_Target_QuestStage;
+}
 
 //==========================================================
 

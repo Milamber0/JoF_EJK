@@ -27,6 +27,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 // when the snapshot transitions like all the other entities
 
 #include "cg_local.h"
+#include "game/bg_pickup.h"
 
 /*
 ==============
@@ -257,6 +258,66 @@ void CG_CheckExternalEvent( playerState_t *ps, playerState_t *ops ) {
 	CG_EntityEvent( cent, cent->lerpOrigin );
 }
 
+static qboolean CG_IsConfirmedPickupEvent( int event, int entityNum ) {
+	int index;
+
+	if ((event & ~EV_EVENT_BITS) != EV_ITEM_PICKUP ||
+		entityNum < 0 || entityNum >= MAX_GENTITIES) {
+		return qfalse;
+	}
+	index = cg_entities[entityNum].currentState.modelindex;
+	return index > 0 && index < bg_numItems &&
+		BG_ConfirmedPickupType(bg_itemlist[index].giType);
+}
+
+static qboolean CG_PickupEventWasPlayed( int sequence, int entityNum ) {
+	const int slot = sequence & (MAX_PREDICTED_EVENTS - 1);
+	return cg.pickupEventSequences[slot] == sequence + 1 &&
+		cg.pickupEventParms[slot] == entityNum;
+}
+
+static void CG_MarkPickupEventPlayed( int sequence, int entityNum ) {
+	const int slot = sequence & (MAX_PREDICTED_EVENTS - 1);
+	cg.pickupEventSequences[slot] = sequence + 1;
+	cg.pickupEventParms[slot] = entityNum;
+}
+
+void CG_ResetPickupEventTracking( void ) {
+	memset(cg.pickupEventSequences, 0, sizeof(cg.pickupEventSequences));
+	memset(cg.pickupEventParms, 0, sizeof(cg.pickupEventParms));
+}
+
+// Prediction can overwrite an accepted pickup in the two-entry player-state
+// event ring before it is presented. Recover new authoritative pickup events
+// from snapshots on legacy servers, while preserving normal item prediction.
+void CG_CheckLegacyPickupEvents( playerState_t *ps, playerState_t *ops ) {
+	int i;
+	centity_t *cent;
+
+	if (CG_UsesPickupConfirmation()) {
+		return;
+	}
+	if (ps->clientNum != ops->clientNum || ps->eventSequence < ops->eventSequence) {
+		CG_ResetPickupEventTracking();
+		return;
+	}
+	cent = &cg_entities[ps->clientNum];
+	for (i = ps->eventSequence - MAX_PS_EVENTS; i < ps->eventSequence; i++) {
+		const int slot = i & (MAX_PS_EVENTS - 1);
+		const int parm = ps->eventParms[slot];
+		if (i < ops->eventSequence ||
+			!CG_IsConfirmedPickupEvent(ps->events[slot], parm) ||
+			CG_PickupEventWasPlayed(i, parm)) {
+			continue;
+		}
+		cent->currentState.event = ps->events[slot];
+		cent->currentState.eventParm = parm;
+		cent->playerState = ps;
+		CG_MarkPickupEventPlayed(i, parm);
+		CG_EntityEvent(cent, cent->lerpOrigin);
+	}
+}
+
 /*
 ==============
 CG_CheckPlayerstateEvents
@@ -283,7 +344,14 @@ void CG_CheckPlayerstateEvents( playerState_t *ps, playerState_t *ops ) {
 			cent->currentState.eventParm = ps->eventParms[ i & (MAX_PS_EVENTS-1) ];
 //JLF ADDED to hopefully mark events as player event
 			cent->playerState = ps;
-			CG_EntityEvent( cent, cent->lerpOrigin );
+			if (!CG_IsConfirmedPickupEvent(event, cent->currentState.eventParm) ||
+				!CG_PickupEventWasPlayed(i, cent->currentState.eventParm)) {
+				if (!CG_UsesPickupConfirmation() &&
+					CG_IsConfirmedPickupEvent(event, cent->currentState.eventParm)) {
+					CG_MarkPickupEventPlayed(i, cent->currentState.eventParm);
+				}
+				CG_EntityEvent( cent, cent->lerpOrigin );
+			}
 
 			cg.predictableEvents[ i & (MAX_PREDICTED_EVENTS-1) ] = event;
 
@@ -316,7 +384,14 @@ void CG_CheckChangedPredictableEvents( playerState_t *ps ) {
 				event = ps->events[ i & (MAX_PS_EVENTS-1) ];
 				cent->currentState.event = event;
 				cent->currentState.eventParm = ps->eventParms[ i & (MAX_PS_EVENTS-1) ];
-				CG_EntityEvent( cent, cent->lerpOrigin );
+				if (!CG_IsConfirmedPickupEvent(event, cent->currentState.eventParm) ||
+					!CG_PickupEventWasPlayed(i, cent->currentState.eventParm)) {
+					if (!CG_UsesPickupConfirmation() &&
+						CG_IsConfirmedPickupEvent(event, cent->currentState.eventParm)) {
+						CG_MarkPickupEventPlayed(i, cent->currentState.eventParm);
+					}
+					CG_EntityEvent( cent, cent->lerpOrigin );
+				}
 
 				cg.predictableEvents[ i & (MAX_PREDICTED_EVENTS-1) ] = event;
 

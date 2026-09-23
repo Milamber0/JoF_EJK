@@ -22,6 +22,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 //NPC_reactions.cpp
 #include "b_local.h"
+#include "g_dialogue.h"
 #include "anims.h"
 #include "w_saber.h"
 
@@ -1027,6 +1028,11 @@ void NPC_Use( gentity_t *self, gentity_t *other, gentity_t *activator )
 {
 	if (self->client->ps.pm_type == PM_DEAD)
 	{//or just remove ->pain in player_die?
+		return;
+	}
+	if ( self->dialogue && activator && activator->client &&
+		 activator->s.number >= 0 && activator->s.number < MAX_CLIENTS ) {
+		G_DialogueStart( activator, self->dialogue, NULL );
 		return;
 	}
 

@@ -8497,9 +8497,22 @@ backAgain:
 				}
 				break;
 
+			case WP_BRYAR_PISTOL:
 			case WP_BLASTER:
+			case WP_DISRUPTOR:
+			case WP_BOWCASTER:
+			case WP_REPEATER:
+			case WP_DEMP2:
+			case WP_FLECHETTE:
+			case WP_ROCKET_LAUNCHER:
+			case WP_CONCUSSION:
+			case WP_BRYAR_OLD:
 				// Override the shoot anim.
-				if ( pm->ps->torsoAnim == BOTH_ATTACK3 )
+				if ( pm->ps->torsoAnim == WeaponAttackAnim[pm->ps->weapon]
+#ifdef _CGAME
+					|| (pm->ps->weapon == WP_BOWCASTER && pm->ps->weaponstate == WEAPON_CHARGING)
+#endif
+					)
 				{
 					if ( pm->cmd.rightmove > 0 )			//right side attack
 					{
@@ -8564,7 +8577,16 @@ backAgain:
 				}
 				break;
 
+			case WP_BRYAR_PISTOL:
 			case WP_BLASTER:
+			case WP_DISRUPTOR:
+			case WP_BOWCASTER:
+			case WP_REPEATER:
+			case WP_DEMP2:
+			case WP_FLECHETTE:
+			case WP_ROCKET_LAUNCHER:
+			case WP_CONCUSSION:
+			case WP_BRYAR_OLD:
 				// In the Air.
 				//if ( pVeh->m_ulFlags & VEH_FLYING )
 				if (0)
@@ -10208,6 +10230,21 @@ void PM_AdjustAttackStates( pmove_t *pmove )
 			return;
 		}
 	}
+
+	if (pmove->ps->m_iVehicleNum && pmove->ps->weapon == WP_DISRUPTOR)
+	{
+		// Scoped disruptor fire is incompatible with vehicle-relative rider aiming.
+		pmove->cmd.buttons &= ~BUTTON_ALT_ATTACK;
+		if (pmove->ps->zoomMode == 1)
+		{
+			pmove->ps->zoomMode = 0;
+			pmove->ps->zoomFov = 0;
+			pmove->ps->zoomTime = pmove->ps->commandTime;
+			pmove->ps->zoomLocked = qfalse;
+			pmove->ps->zoomLockTime = 0;
+		}
+	}
+
 	// get ammo usage
 	if ( pmove->cmd.buttons & BUTTON_ALT_ATTACK )
 	{
@@ -10219,7 +10256,8 @@ void PM_AdjustAttackStates( pmove_t *pmove )
 	}
 
 	// disruptor alt-fire should toggle the zoom mode, but only bother doing this for the player?
-	if ( pmove->ps->weapon == WP_DISRUPTOR && pmove->ps->weaponstate == WEAPON_READY )
+	if ( pmove->ps->weapon == WP_DISRUPTOR && pmove->ps->weaponstate == WEAPON_READY &&
+		!pmove->ps->m_iVehicleNum )
 	{
 		if ( !(pmove->ps->eFlags & EF_ALT_FIRING) && (pmove->cmd.buttons & BUTTON_ALT_ATTACK) /*&&
 			pmove->cmd.upmove <= 0 && !pmove->cmd.forwardmove && !pmove->cmd.rightmove*/)
@@ -12119,18 +12157,19 @@ void PM_VehicleViewAngles(playerState_t *ps, bgEntity_t *veh, usercmd_t *ucmd)
 //see if a weapon is ok to use on a vehicle
 qboolean PM_WeaponOkOnVehicle( int weapon )
 {
-	//FIXME: check g_vehicleInfo for our vehicle?
+	if (BG_WeaponIsVehicleGun(weapon))
+	{
+		return qtrue;
+	}
+
 	switch ( weapon )
 	{
-	//case WP_NONE:
 	case WP_MELEE:
 	case WP_SABER:
-	case WP_BLASTER:
-	//case WP_THERMAL:
 		return qtrue;
-		break;
+	default:
+		return qfalse;
 	}
-	return qfalse;
 }
 
 //do we have a weapon that's ok for using on the vehicle?
@@ -12685,7 +12724,7 @@ void PmoveSingle (pmove_t *pmove) {
 	{
 		stiffenedUp = qtrue;
 	}
-	else if (BG_InGrappleMove(pm->ps->torsoAnim))
+	else if (BG_InGrappleMove(pm->ps->torsoAnim) || BG_InGrappleMove(pm->ps->legsAnim))
 	{
 		stiffenedUp = qtrue;
 		PM_SetPMViewAngle(pm->ps, pm->ps->viewangles, &pm->cmd);

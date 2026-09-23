@@ -90,6 +90,7 @@ enum
 	MD_SINGLE_STRONG,
 	MD_DUAL_SABERS,
 	MD_SABER_STAFF,
+	MD_MELEE,
 	MD_MOVE_TITLE_MAX
 };
 
@@ -103,6 +104,7 @@ const char *datapadMoveTitleData[MD_MOVE_TITLE_MAX] =
 "@MENUS_SINGLE_STRONG",
 "@MENUS_DUAL_SABERS",
 "@MENUS_SABER_STAFF",
+"Melee & other attacks",
 };
 
 const char *datapadMoveTitleBaseAnims[MD_MOVE_TITLE_MAX] =
@@ -113,6 +115,7 @@ const char *datapadMoveTitleBaseAnims[MD_MOVE_TITLE_MAX] =
 "BOTH_SABERSLOW_STANCE",
 "BOTH_SABERDUAL_STANCE",
 "BOTH_SABERSTAFF_STANCE",
+"BOTH_WALK1",
 };
 
 #define MAX_MOVES 16
@@ -125,115 +128,96 @@ typedef struct datpadmovedata_s
 	short	sound;
 } datpadmovedata_t;
 
+// Move titles, descriptions, animations and sounds from JA+ clientPlugin_v1.4B4.
 static datpadmovedata_t datapadMoveData[MD_MOVE_TITLE_MAX][MAX_MOVES] = {
-	{// Acrobatics
-		{ "@MENUS_FORCE_JUMP1",				"@MENUS_FORCE_JUMP1_DESC",				"BOTH_FORCEJUMP1",				MDS_FORCE_JUMP },
-		{ "@MENUS_FORCE_FLIP",				"@MENUS_FORCE_FLIP_DESC",				"BOTH_FLIP_F",					MDS_FORCE_JUMP },
-		{ "@MENUS_ROLL",					"@MENUS_ROLL_DESC",						"BOTH_ROLL_F",					MDS_ROLL },
-		{ "@MENUS_BACKFLIP_OFF_WALL",		"@MENUS_BACKFLIP_OFF_WALL_DESC",		"BOTH_WALL_FLIP_BACK1",			MDS_FORCE_JUMP },
-		{ "@MENUS_SIDEFLIP_OFF_WALL",		"@MENUS_SIDEFLIP_OFF_WALL_DESC",		"BOTH_WALL_FLIP_RIGHT",			MDS_FORCE_JUMP },
-		{ "@MENUS_WALL_RUN",				"@MENUS_WALL_RUN_DESC",					"BOTH_WALL_RUN_RIGHT",			MDS_FORCE_JUMP },
-		{ "@MENUS_WALL_GRAB_JUMP",			"@MENUS_WALL_GRAB_JUMP_DESC",			"BOTH_FORCEWALLREBOUND_FORWARD",MDS_FORCE_JUMP },
-		{ "@MENUS_RUN_UP_WALL_BACKFLIP",	"@MENUS_RUN_UP_WALL_BACKFLIP_DESC",		"BOTH_FORCEWALLRUNFLIP_START",	MDS_FORCE_JUMP },
-		{ "@MENUS_JUMPUP_FROM_KNOCKDOWN",	"@MENUS_JUMPUP_FROM_KNOCKDOWN_DESC",	"BOTH_KNOCKDOWN3",				MDS_NONE },
-		{ "@MENUS_JUMPKICK_FROM_KNOCKDOWN",	"@MENUS_JUMPKICK_FROM_KNOCKDOWN_DESC",	"BOTH_KNOCKDOWN2",				MDS_NONE },
-		{ "@MENUS_ROLL_FROM_KNOCKDOWN",		"@MENUS_ROLL_FROM_KNOCKDOWN_DESC",		"BOTH_KNOCKDOWN1",				MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
+	{ // Acrobatics
+		{ "@MENUS_FORCE_JUMP1", "@MENUS_FORCE_JUMP1_DESC", "BOTH_FORCEJUMP1", MDS_FORCE_JUMP },
+		{ "@MENUS_FORCE_FLIP", "@MENUS_FORCE_FLIP_DESC", "BOTH_FLIP_F", MDS_FORCE_JUMP },
+		{ "@MENUS_ROLL", "@MENUS_ROLL_DESC", "BOTH_ROLL_F", MDS_ROLL },
+		{ "@MENUS_BACKFLIP_OFF_WALL", "@MENUS_BACKFLIP_OFF_WALL_DESC", "BOTH_WALL_FLIP_BACK1", MDS_FORCE_JUMP },
+		{ "@MENUS_SIDEFLIP_OFF_WALL", "@MENUS_SIDEFLIP_OFF_WALL_DESC", "BOTH_WALL_FLIP_RIGHT", MDS_FORCE_JUMP },
+		{ "@MENUS_WALL_RUN", "@MENUS_WALL_RUN_DESC", "BOTH_WALL_RUN_RIGHT", MDS_FORCE_JUMP },
+		{ "@MENUS_WALL_GRAB_JUMP", "@MENUS_WALL_GRAB_JUMP_DESC", "BOTH_FORCEWALLREBOUND_FORWARD", MDS_FORCE_JUMP },
+		{ "@MENUS_RUN_UP_WALL_BACKFLIP", "@MENUS_RUN_UP_WALL_BACKFLIP_DESC", "BOTH_FORCEWALLRUNFLIP_START", MDS_FORCE_JUMP },
+		{ "@MENUS_JUMPUP_FROM_KNOCKDOWN", "@MENUS_JUMPUP_FROM_KNOCKDOWN_DESC", "BOTH_KNOCKDOWN3", MDS_NONE },
+		{ "@MENUS_JUMPKICK_FROM_KNOCKDOWN", "@MENUS_JUMPKICK_FROM_KNOCKDOWN_DESC", "BOTH_KNOCKDOWN2", MDS_NONE },
+		{ "@MENUS_ROLL_FROM_KNOCKDOWN", "@MENUS_ROLL_FROM_KNOCKDOWN_DESC", "BOTH_KNOCKDOWN1", MDS_NONE },
+		{ "@MENUS_LONG_JUMP", "@MENUS_LONG_JUMP_DESC", "BOTH_FORCELONGLEAP_START", MDS_FORCE_JUMP },
 	},
-	{//Single Saber, Fast Style
-		{ "@MENUS_STAB_BACK",				"@MENUS_STAB_BACK_DESC",				"BOTH_A2_STABBACK1",			MDS_SABER },
-		{ "@MENUS_LUNGE_ATTACK",			"@MENUS_LUNGE_ATTACK_DESC",				"BOTH_LUNGE2_B__T_",			MDS_SABER },
-		{ "@MENUS_FAST_ATTACK_KATA",		"@MENUS_FAST_ATTACK_KATA_DESC",			"BOTH_A1_SPECIAL",				MDS_SABER },
-		{ "@MENUS_ATTACK_ENEMYONGROUND",	"@MENUS_ATTACK_ENEMYONGROUND_DESC",		"BOTH_STABDOWN",				MDS_FORCE_JUMP },
-		{ "@MENUS_CARTWHEEL",				"@MENUS_CARTWHEEL_DESC",				"BOTH_ARIAL_RIGHT",				MDS_FORCE_JUMP },
-		{ "@MENUS_BOTH_ROLL_STAB",			"@MENUS_BOTH_ROLL_STAB2_DESC",			"BOTH_ROLL_STAB",				MDS_SABER },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
+	{ // Single Saber, Fast Style
+		{ "@MENUS_STAB_BACK", "@MENUS_STAB_BACK_DESC", "BOTH_A2_STABBACK1", MDS_SABER },
+		{ "@MENUS_LUNGE_ATTACK", "@MENUS_LUNGE_ATTACK_DESC", "BOTH_LUNGE2_B__T_", MDS_SABER },
+		{ "@MENUS_FAST_ATTACK_KATA", "@MENUS_FAST_ATTACK_KATA_DESC", "BOTH_A1_SPECIAL", MDS_SABER },
+		{ "@MENUS_ATTACK_ENEMYONGROUND", "@MENUS_ATTACK_ENEMYONGROUND_DESC", "BOTH_STABDOWN", MDS_FORCE_JUMP },
+		{ "@MENUS_CARTWHEEL", "@MENUS_CARTWHEEL_DESC", "BOTH_ARIAL_RIGHT", MDS_FORCE_JUMP },
+		{ "@MENUS_BOTH_ROLL_STAB", "@MENUS_BOTH_ROLL_STAB2_DESC", "BOTH_ROLL_STAB", MDS_SABER },
+		{ "@MENUS_FORCE_PULL_IMPALE", "@MENUS_FORCE_PULL_IMPALE_DESC", "BOTH_PULL_IMPALE_STAB", MDS_SABER },
 	},
-	{//Single Saber, Medium Style
-		{ "@MENUS_SLASH_BACK",				"@MENUS_SLASH_BACK_DESC",				"BOTH_ATTACK_BACK",				MDS_SABER },
-		{ "@MENUS_FLIP_ATTACK",				"@MENUS_FLIP_ATTACK_DESC",				"BOTH_JUMPFLIPSLASHDOWN1",		MDS_FORCE_JUMP },
-		{ "@MENUS_MEDIUM_ATTACK_KATA",		"@MENUS_MEDIUM_ATTACK_KATA_DESC",		"BOTH_A2_SPECIAL",				MDS_SABER },
-		{ "@MENUS_ATTACK_ENEMYONGROUND",	"@MENUS_ATTACK_ENEMYONGROUND_DESC",		"BOTH_STABDOWN",				MDS_FORCE_JUMP },
-		{ "@MENUS_CARTWHEEL",				"@MENUS_CARTWHEEL_DESC",				"BOTH_ARIAL_RIGHT",				MDS_FORCE_JUMP },
-		{ "@MENUS_BOTH_ROLL_STAB",			"@MENUS_BOTH_ROLL_STAB2_DESC",			"BOTH_ROLL_STAB",				MDS_SABER },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
+	{ // Single Saber, Medium Style
+		{ "@MENUS_SLASH_BACK", "@MENUS_SLASH_BACK_DESC", "BOTH_ATTACK_BACK", MDS_SABER },
+		{ "@MENUS_FLIP_ATTACK", "@MENUS_FLIP_ATTACK_DESC", "BOTH_JUMPFLIPSLASHDOWN1", MDS_FORCE_JUMP },
+		{ "@MENUS_MEDIUM_ATTACK_KATA", "@MENUS_MEDIUM_ATTACK_KATA_DESC", "BOTH_A2_SPECIAL", MDS_SABER },
+		{ "@MENUS_ATTACK_ENEMYONGROUND", "@MENUS_ATTACK_ENEMYONGROUND_DESC", "BOTH_STABDOWN", MDS_FORCE_JUMP },
+		{ "@MENUS_CARTWHEEL", "@MENUS_CARTWHEEL_DESC", "BOTH_ARIAL_RIGHT", MDS_FORCE_JUMP },
+		{ "@MENUS_BOTH_ROLL_STAB", "@MENUS_BOTH_ROLL_STAB2_DESC", "BOTH_ROLL_STAB", MDS_SABER },
+		{ "@MENUS_FORCE_PULL_SLASH", "@MENUS_FORCE_PULL_SLASH_DESC", "BOTH_PULL_IMPALE_SWING", MDS_SABER },
+		{ "Jump Grab Back Kick", "Forward + Jump + Alt attack when you are in front of you ennemy", "BOTH_JUMP_BACKFLIP_ATCK", MDS_FORCE_JUMP },
 	},
-	{//Single Saber, Strong Style
-		{ "@MENUS_SLASH_BACK",				"@MENUS_SLASH_BACK_DESC",				"BOTH_ATTACK_BACK",				MDS_SABER },
-		{ "@MENUS_JUMP_ATTACK",				"@MENUS_JUMP_ATTACK_DESC",				"BOTH_FORCELEAP2_T__B_",		MDS_FORCE_JUMP },
-		{ "@MENUS_STRONG_ATTACK_KATA",		"@MENUS_STRONG_ATTACK_KATA_DESC",		"BOTH_A3_SPECIAL",				MDS_SABER },
-		{ "@MENUS_ATTACK_ENEMYONGROUND",	"@MENUS_ATTACK_ENEMYONGROUND_DESC",		"BOTH_STABDOWN",				MDS_FORCE_JUMP },
-		{ "@MENUS_CARTWHEEL",				"@MENUS_CARTWHEEL_DESC",				"BOTH_ARIAL_RIGHT",				MDS_FORCE_JUMP },
-		{ "@MENUS_BOTH_ROLL_STAB",			"@MENUS_BOTH_ROLL_STAB2_DESC",			"BOTH_ROLL_STAB",				MDS_SABER },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
+	{ // Single Saber, Strong Style
+		{ "@MENUS_SLASH_BACK", "@MENUS_SLASH_BACK_DESC", "BOTH_ATTACK_BACK", MDS_SABER },
+		{ "@MENUS_JUMP_ATTACK", "@MENUS_JUMP_ATTACK_DESC", "BOTH_FORCELEAP2_T__B_", MDS_FORCE_JUMP },
+		{ "@MENUS_STRONG_ATTACK_KATA", "@MENUS_STRONG_ATTACK_KATA_DESC", "BOTH_A3_SPECIAL", MDS_SABER },
+		{ "@MENUS_ATTACK_ENEMYONGROUND", "@MENUS_ATTACK_ENEMYONGROUND_DESC", "BOTH_STABDOWN", MDS_FORCE_JUMP },
+		{ "@MENUS_CARTWHEEL", "@MENUS_CARTWHEEL_DESC", "BOTH_ARIAL_RIGHT", MDS_FORCE_JUMP },
+		{ "@MENUS_BOTH_ROLL_STAB", "@MENUS_BOTH_ROLL_STAB2_DESC", "BOTH_ROLL_STAB", MDS_SABER },
+		{ "@MENUS_FORCE_PULL_SLASH", "@MENUS_FORCE_PULL_SLASH_DESC", "BOTH_PULL_IMPALE_SWING", MDS_SABER },
+		{ "New Spin Attack", "JUMP + FORWARD + ATTACK\nWhen you are in front of your ennemy", "BOTH_BUTTERFLY_LEFT", MDS_FORCE_JUMP },
+		{ "New Saber Flip stab", "Forward + Jump + Alt attack", "BOTH_FLIP_STAB", MDS_SABER },
+		{ "New Pull Impale attack", "while Pulling in front of an enemy, press attack", "BOTH_NEW_STABER", MDS_SABER },
 	},
-	{//Dual Sabers
-		{ "@MENUS_SLASH_BACK",				"@MENUS_SLASH_BACK_DESC",				"BOTH_ATTACK_BACK",				MDS_SABER },
-		{ "@MENUS_FLIP_FORWARD_ATTACK",		"@MENUS_FLIP_FORWARD_ATTACK_DESC",		"BOTH_JUMPATTACK6",				MDS_FORCE_JUMP },
-		{ "@MENUS_DUAL_SABERS_TWIRL",		"@MENUS_DUAL_SABERS_TWIRL_DESC",		"BOTH_SPINATTACK6",				MDS_SABER },
-		{ "@MENUS_ATTACK_ENEMYONGROUND",	"@MENUS_ATTACK_ENEMYONGROUND_DESC",		"BOTH_STABDOWN_DUAL",			MDS_FORCE_JUMP },
-		{ "@MENUS_DUAL_SABER_BARRIER",		"@MENUS_DUAL_SABER_BARRIER_DESC",		"BOTH_A6_SABERPROTECT",			MDS_SABER },
-		{ "@MENUS_DUAL_STAB_FRONT_BACK",	"@MENUS_DUAL_STAB_FRONT_BACK_DESC",		"BOTH_A6_FB",					MDS_SABER },
-		{ "@MENUS_DUAL_STAB_LEFT_RIGHT",	"@MENUS_DUAL_STAB_LEFT_RIGHT_DESC",		"BOTH_A6_LR",					MDS_SABER },
-		{ "@MENUS_CARTWHEEL",				"@MENUS_CARTWHEEL_DESC",				"BOTH_ARIAL_RIGHT",				MDS_FORCE_JUMP },
-		{ "@MENUS_BOTH_ROLL_STAB",			"@MENUS_BOTH_ROLL_STAB_DESC",			"BOTH_ROLL_STAB",				MDS_SABER },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
+	{ // Dual Sabers
+		{ "@MENUS_SLASH_BACK", "@MENUS_SLASH_BACK_DESC", "BOTH_ATTACK_BACK", MDS_SABER },
+		{ "@MENUS_FLIP_FORWARD_ATTACK", "@MENUS_FLIP_FORWARD_ATTACK_DESC", "BOTH_JUMPATTACK6", MDS_FORCE_JUMP },
+		{ "@MENUS_DUAL_SABERS_TWIRL", "@MENUS_DUAL_SABERS_TWIRL_DESC", "BOTH_SPINATTACK6", MDS_SABER },
+		{ "@MENUS_ATTACK_ENEMYONGROUND", "@MENUS_ATTACK_ENEMYONGROUND_DESC", "BOTH_STABDOWN_DUAL", MDS_FORCE_JUMP },
+		{ "@MENUS_DUAL_SABER_BARRIER", "@MENUS_DUAL_SABER_BARRIER_DESC", "BOTH_A6_SABERPROTECT", MDS_SABER },
+		{ "@MENUS_DUAL_STAB_FRONT_BACK", "@MENUS_DUAL_STAB_FRONT_BACK_DESC", "BOTH_A6_FB", MDS_SABER },
+		{ "@MENUS_DUAL_STAB_LEFT_RIGHT", "@MENUS_DUAL_STAB_LEFT_RIGHT_DESC", "BOTH_A6_LR", MDS_SABER },
+		{ "@MENUS_CARTWHEEL", "@MENUS_CARTWHEEL_DESC", "BOTH_ARIAL_RIGHT", MDS_FORCE_JUMP },
+		{ "@MENUS_BOTH_ROLL_STAB", "@MENUS_BOTH_ROLL_STAB_DESC", "BOTH_ROLL_STAB", MDS_SABER },
+		{ "New Spin Attack", "JUMP + FORWARD + ATTACK\nWhen you are in front of your ennemy", "BOTH_ALORA_SPIN_SLASH", MDS_FORCE_JUMP },
+		{ "Jump Spin Back Kick", "Forward + Jump + Alt attack using single saber style", "BOTH_JUMP_BACKKICK_SPIN", MDS_FORCE_JUMP },
+		{ "Jump Grab Back Kick", "Forward + Jump + Alt attack using dual stance when you are in front of you ennemy", "BOTH_JUMP_BACKFLIP_ATCK", MDS_FORCE_JUMP },
+		{ "New Pull Impale attack", "while Pulling in front of an enemy, press attack", "BOTH_NEW_STABER", MDS_SABER },
 	},
-	{// Saber Staff
-		{ "@MENUS_STAB_BACK",				"@MENUS_STAB_BACK_DESC",				"BOTH_A2_STABBACK1",			MDS_SABER },
-		{ "@MENUS_BACK_FLIP_ATTACK",		"@MENUS_BACK_FLIP_ATTACK_DESC",			"BOTH_JUMPATTACK7",				MDS_FORCE_JUMP },
-		{ "@MENUS_SABER_STAFF_TWIRL",		"@MENUS_SABER_STAFF_TWIRL_DESC",		"BOTH_SPINATTACK7",				MDS_SABER },
-		{ "@MENUS_ATTACK_ENEMYONGROUND",	"@MENUS_ATTACK_ENEMYONGROUND_DESC",		"BOTH_STABDOWN_STAFF",			MDS_FORCE_JUMP },
-		{ "@MENUS_SPINNING_KATA",			"@MENUS_SPINNING_KATA_DESC",			"BOTH_A7_SOULCAL",				MDS_SABER },
-		{ "@MENUS_KICK1",					"@MENUS_KICK1_DESC",					"BOTH_A7_KICK_F",				MDS_FORCE_JUMP },
-		{ "@MENUS_JUMP_KICK",				"@MENUS_JUMP_KICK_DESC",				"BOTH_A7_KICK_F_AIR",			MDS_FORCE_JUMP },
-		{ "@MENUS_BUTTERFLY_ATTACK",		"@MENUS_BUTTERFLY_ATTACK_DESC",			"BOTH_BUTTERFLY_FR1",			MDS_SABER },
-		{ "@MENUS_BOTH_ROLL_STAB",			"@MENUS_BOTH_ROLL_STAB2_DESC",			"BOTH_ROLL_STAB",				MDS_SABER },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE },
-		{ NULL,								NULL,									NULL,							MDS_NONE }
-	}
+	{ // Saber Staff
+		{ "@MENUS_STAB_BACK", "@MENUS_STAB_BACK_DESC", "BOTH_A2_STABBACK1", MDS_SABER },
+		{ "@MENUS_BACK_FLIP_ATTACK", "@MENUS_BACK_FLIP_ATTACK_DESC", "BOTH_JUMPATTACK7", MDS_FORCE_JUMP },
+		{ "@MENUS_SABER_STAFF_TWIRL", "@MENUS_SABER_STAFF_TWIRL_DESC", "BOTH_SPINATTACK7", MDS_SABER },
+		{ "@MENUS_ATTACK_ENEMYONGROUND", "@MENUS_ATTACK_ENEMYONGROUND_DESC", "BOTH_STABDOWN_STAFF", MDS_FORCE_JUMP },
+		{ "@MENUS_SPINNING_KATA", "@MENUS_SPINNING_KATA_DESC", "BOTH_A7_SOULCAL", MDS_SABER },
+		{ "@MENUS_KICK1", "@MENUS_KICK1_DESC", "BOTH_A7_KICK_F", MDS_FORCE_JUMP },
+		{ "@MENUS_JUMP_KICK", "@MENUS_JUMP_KICK_DESC", "BOTH_A7_KICK_F_AIR", MDS_FORCE_JUMP },
+		{ "@MENUS_BUTTERFLY_ATTACK", "@MENUS_BUTTERFLY_ATTACK_DESC", "BOTH_BUTTERFLY_FR1", MDS_SABER },
+		{ "@MENUS_BOTH_ROLL_STAB", "@MENUS_BOTH_ROLL_STAB2_DESC", "BOTH_ROLL_STAB", MDS_SABER },
+		{ "@MENUS_SPLIT_KICK", "@MENUS_SPLIT_KICK_DESC", "BOTH_A7_KICK_RL", MDS_FORCE_JUMP },
+		{ "@MENUS_SPIN_KICK", "@MENUS_SPIN_KICK_DESC", "BOTH_A7_KICK_S", MDS_FORCE_JUMP },
+		{ "@MENUS_FLIP_KICK", "@MENUS_FLIP_KICK_DESC", "BOTH_A7_KICK_BF", MDS_FORCE_JUMP },
+		{ "New Spin Attack", "JUMP + FORWARD + ATTACK\nWhen you are in front of your ennemy", "BOTH_FJSS_TR_BL", MDS_FORCE_JUMP },
+		{ "New Kick Forward", "FORWARD + ALT ATTACK\nWhen you are in front of your ennemy", "BOTH_A7_HILT", MDS_SABER },
+		{ "Jump Spin Back Kick", "Forward + Jump + Alt attack", "BOTH_JUMP_BACKKICK_SPIN", MDS_FORCE_JUMP },
+		{ "New Pull Impale attack", "while Pulling in front of an enemy, press attack", "BOTH_NEW_STABER", MDS_SABER },
+	},
+	{ // Melee & other attacks
+		{ "Melee Punch", "Weapon melee + attack + alt attack + forward\nin front for your ennemy", "BOTH_KYLE_PA_1", MDS_NONE },
+		{ "Melee kick, knee", "Weapon melee + attack + alt attack + backward\nin front for your ennemy", "BOTH_KYLE_PA_2", MDS_NONE },
+		{ "Melee  throttling", "Weapon melee + attack + alt attack \nin front for your ennemy", "BOTH_KYLE_PA_3", MDS_NONE },
+		{ "Melee throw", "Weapon melee + attack + alt attack + right\nin front for your ennemy", "BOTH_A3_TL_BR", MDS_NONE },
+		{ "Sith Kiss", "Weapon Melee + DRAIN level 2 minimum\nin front of your ennemy", "BOTH_FORCE_DRAIN_GRAB_START", MDS_NONE },
+		{ "Jedi Tornado", "Weapon Melee + PUSH level 2 minimum\n in front of your ennemy\n only for jedi", "BOTH_ALORA_SPIN_THROW", MDS_NONE },
+		{ "Back Kick", "Weapon Melee or Staff + forward + right + alt attack", "BOTH_MELEE_BACKKICK", MDS_SABER },
+		{ "Spin kick", "Weapon Melee or Staff + forward + left + alt attack", "BOTH_MELEE_SPINKICK", MDS_SABER },
+	},
 };
 
 static siegeClassDesc_t g_UIClassDescriptions[MAX_SIEGE_CLASSES];
@@ -9032,16 +9016,11 @@ static void UI_RunMenuScript(char **args)
 					modelPtr = item->typeData.model;
 					if (modelPtr)
 					{
-						char modelPath[MAX_QPATH];
-
 						uiInfo.movesBaseAnim = datapadMoveTitleBaseAnims[uiInfo.movesTitleIndex];
 						ItemParse_model_g2anim_go( item,  uiInfo.movesBaseAnim );
 						uiInfo.moveAnimTime = 0 ;
 
-						Com_sprintf( modelPath, sizeof( modelPath ), "models/players/%s/model.glm", UI_Cvar_VariableString ( "ui_char_model" ) );
-						ItemParse_asset_model_go( item, modelPath, &animRunLength);
-
-						UI_UpdateCharacterSkin();
+						UI_UpdateWornCharacter( item, &animRunLength );
 						UI_SaberAttachToChar( item );
 					}
 				}
@@ -10820,9 +10799,9 @@ void UI_ClearCosmetics( void )
 
 /*
 =================
-UI_UpdateCosmeticsCharacter
+UI_UpdateWornCharacter
 
-Point the cosmetics preview at the model the player is actually wearing.
+Point a preview at the model the player is actually wearing, preserving its requested animation.
 
 The customise screen's ui_char_model is no good for this: getcharcvars only keeps it when the
 model is a multipart custom jedi or a known species, and silently resets it to the default
@@ -10830,23 +10809,12 @@ jedi for an ordinary model like "kyle/default". So read the "model" cvar - the r
 same string that goes out in userinfo - and drive the preview item from that.
 =================
 */
-void UI_UpdateCosmeticsCharacter( void )
+void UI_UpdateWornCharacter( itemDef_t *item, int *animRunLength )
 {
-	menuDef_t	*menu;
-	itemDef_t	*item;
 	char		model[MAX_QPATH], modelPath[MAX_QPATH], skinPath[MAX_QPATH];
 	char		*parts, *skin;
-	int			animRunLength;
 
-	//look the menu up by name rather than by focus - a silent miss here just leaves the
-	//preview empty, which is maddening to diagnose from the outside
-	menu = Menus_FindByName( "ingame_cosmetics" );
-	if ( !menu )
-	{
-		return;
-	}
-
-	item = (itemDef_t *)Menu_FindItemByName( menu, "character" );
+	*animRunLength = 0;
 	if ( !item )
 	{
 		return;
@@ -10891,7 +10859,7 @@ void UI_UpdateCosmeticsCharacter( void )
 	Com_sprintf( modelPath, sizeof( modelPath ), "models/players/%s/model.glm", model );
 
 	//asset_model_go re-applies the anim the .menu asked for, so no need to set it again here
-	ItemParse_asset_model_go( item, modelPath, &animRunLength );
+	ItemParse_asset_model_go( item, modelPath, animRunLength );
 	ItemParse_model_g2skin_go( item, skinPath );
 
 	//asset_model_go swallows a failed load (its Com_Error is commented out). Rendering an
@@ -10900,8 +10868,19 @@ void UI_UpdateCosmeticsCharacter( void )
 	{
 		Com_sprintf( modelPath, sizeof( modelPath ), "models/players/%s/model.glm", DEFAULT_MODEL );
 		Com_sprintf( skinPath, sizeof( skinPath ), "models/players/%s/model_default.skin", DEFAULT_MODEL );
-		ItemParse_asset_model_go( item, modelPath, &animRunLength );
+		ItemParse_asset_model_go( item, modelPath, animRunLength );
 		ItemParse_model_g2skin_go( item, skinPath );
+	}
+}
+
+void UI_UpdateCosmeticsCharacter( void )
+{
+	menuDef_t *menu = Menus_FindByName( "ingame_cosmetics" );
+	int animRunLength;
+
+	if ( menu )
+	{
+		UI_UpdateWornCharacter( Menu_FindItemByName( menu, "character" ), &animRunLength );
 	}
 }
 
@@ -12299,14 +12278,11 @@ qboolean UI_FeederSelection(float feederFloat, int index, itemDef_t *item)
 				modelPtr = item->typeData.model;
 				if (modelPtr)
 				{
-					char modelPath[MAX_QPATH];
 					int animRunLength;
 
 					ItemParse_model_g2anim_go( item,  datapadMoveData[uiInfo.movesTitleIndex][index].anim );
 
-					Com_sprintf( modelPath, sizeof( modelPath ), "models/players/%s/model.glm", UI_Cvar_VariableString ( "ui_char_model" ) );
-					ItemParse_asset_model_go( item, modelPath, &animRunLength );
-					UI_UpdateCharacterSkin();
+					UI_UpdateWornCharacter( item, &animRunLength );
 
 					uiInfo.moveAnimTime = uiInfo.uiDC.realTime + animRunLength;
 
@@ -12380,16 +12356,12 @@ qboolean UI_FeederSelection(float feederFloat, int index, itemDef_t *item)
 				modelPtr = item->typeData.model;
 				if (modelPtr)
 				{
-					char modelPath[MAX_QPATH];
 					int	animRunLength;
 
 					uiInfo.movesBaseAnim = datapadMoveTitleBaseAnims[uiInfo.movesTitleIndex];
 					ItemParse_model_g2anim_go( item,  uiInfo.movesBaseAnim );
 
-					Com_sprintf( modelPath, sizeof( modelPath ), "models/players/%s/model.glm", UI_Cvar_VariableString ( "ui_char_model" ) );
-					ItemParse_asset_model_go( item, modelPath, &animRunLength );
-
-					UI_UpdateCharacterSkin();
+					UI_UpdateWornCharacter( item, &animRunLength );
 
 				}
 			}

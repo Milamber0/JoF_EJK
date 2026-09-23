@@ -61,7 +61,8 @@ FX_RepeaterHitPlayer
 
 void FX_RepeaterHitPlayer( vec3_t origin, vec3_t normal, qboolean humanoid )
 {
-	trap->FX_PlayEffectID( cgs.effects.repeaterFleshImpactEffect, origin, normal, -1, -1, qfalse );
+	trap->FX_PlayEffectID( humanoid ? cgs.effects.repeaterFleshImpactEffect : cgs.effects.repeaterWallImpactEffect,
+		origin, normal, -1, -1, qfalse );
 }
 
 static void CG_DistortionOrb( centity_t *cent )

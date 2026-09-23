@@ -59,14 +59,14 @@ FX_FlechetteWeaponHitPlayer
 */
 void FX_FlechetteWeaponHitPlayer( vec3_t origin, vec3_t normal, qboolean humanoid )
 {
-//	if ( humanoid )
-//	{
+	if ( humanoid )
+	{
 		trap->FX_PlayEffectID( cgs.effects.flechetteFleshImpactEffect, origin, normal, -1, -1, qfalse );
-//	}
-//	else
-//	{
-//		trap->FX_PlayEffect( "blaster/droid_impact", origin, normal );
-//	}
+	}
+	else
+	{
+		trap->FX_PlayEffectID( cgs.effects.flechetteWallImpactEffect, origin, normal, -1, -1, qfalse );
+	}
 }
 
 

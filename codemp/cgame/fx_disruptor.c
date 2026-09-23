@@ -166,5 +166,6 @@ FX_DisruptorHitPlayer
 
 void FX_DisruptorHitPlayer( vec3_t origin, vec3_t normal, qboolean humanoid )
 {
-	trap->FX_PlayEffectID( cgs.effects.disruptorFleshImpactEffect, origin, normal, -1, -1, qfalse );
+	trap->FX_PlayEffectID( humanoid ? cgs.effects.disruptorFleshImpactEffect : cgs.effects.disruptorWallImpactEffect,
+		origin, normal, -1, -1, qfalse );
 }

@@ -1747,7 +1747,8 @@ stringID_table_t animTable [MAX_ANIMATIONS+1] =
 	//New anim as per Jarrod's request
 	ENUM2STRING(LEGS_TURN180),
 
-#ifdef _CGAME
+#if defined(_CGAME) || defined(UI_BUILD)
+	// Keep UI name lookup aligned with the JA+ enum block in game/anims.h.
 	ENUM2STRING(BOTH_KISSEE),
 	ENUM2STRING(BOTH_KISSER),
 	ENUM2STRING(BOTH_KISSER1STOP),

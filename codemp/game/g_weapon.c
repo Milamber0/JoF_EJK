@@ -720,6 +720,7 @@ static void WP_DisruptorMainFire( gentity_t *ent )
 
 			tent = G_TempEntity( tr.endpos, EV_DISRUPTOR_HIT );
 			tent->s.eventParm = DirToByte( tr.plane.normal );
+			tent->s.otherEntityNum = tr.entityNum;
 			if (traceEnt->client)
 			{
 				tent->s.weapon = 1;
@@ -995,6 +996,7 @@ void WP_DisruptorAltFire( gentity_t *ent )
 
 						tent = G_TempEntity( tr.endpos, EV_DISRUPTOR_HIT );
 						tent->s.eventParm = DirToByte( tr.plane.normal );
+						tent->s.otherEntityNum = tr.entityNum;
 					}
 				 }
 				 else
@@ -1045,6 +1047,7 @@ void WP_DisruptorAltFire( gentity_t *ent )
 
 				tent = G_TempEntity( tr.endpos, EV_DISRUPTOR_HIT );
 				tent->s.eventParm = DirToByte( tr.plane.normal );
+				tent->s.otherEntityNum = tr.entityNum;
 				if (traceEnt->client)
 				{
 					tent->s.weapon = 1;
@@ -5778,8 +5781,8 @@ void FireWeapon( gentity_t *ent, qboolean altFire ) {
 			}
 		}
 		else if (ent->s.number < MAX_CLIENTS &&
-			ent->client->ps.m_iVehicleNum && ent->s.weapon == WP_BLASTER)
-		{ //riding a vehicle...with blaster selected
+			ent->client->ps.m_iVehicleNum && BG_WeaponIsVehicleGun(ent->s.weapon))
+		{ //riding a vehicle with a gun selected
 			vec3_t vehTurnAngles;
 			gentity_t *vehEnt = &g_entities[ent->client->ps.m_iVehicleNum];
 

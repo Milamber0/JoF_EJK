@@ -1361,10 +1361,21 @@ CG_Bleed
 This is the spurt of blood when a character gets hit
 =================
 */
+qboolean CG_IsDroidEntity( int entityNum ) {
+	centity_t *cent;
+
+	if ( entityNum < 0 || entityNum >= ENTITYNUM_NONE ) {
+		return qfalse;
+	}
+
+	cent = &cg_entities[entityNum];
+	return cent->currentState.eType == ET_NPC && BG_IsDroidClass(cent->currentState.NPC_class);
+}
+
 void CG_Bleed( vec3_t origin, int entityNum ) {
 	localEntity_t	*ex;
 
-	if ( !cg_blood.integer ) {
+	if ( !cg_blood.integer || CG_IsDroidEntity(entityNum) ) {
 		return;
 	}
 

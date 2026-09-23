@@ -34,12 +34,35 @@ static void CG_LogStrafeTrail(void);
 #endif
 static void CG_LastWeapon(void);
 
+static void CG_UpdateFlamethrowerOverride(const playerState_t *ps, const playerState_t *ops) {
+	// Observe every snapshot, not just frames in which the force wheel is open.
+	if (!ops || ps->clientNum != ops->clientNum ||
+		ps->persistant[PERS_SPAWN_COUNT] != ops->persistant[PERS_SPAWN_COUNT] ||
+		cgs.serverMod != SVMOD_JAPLUS || !(ps->eFlags & 0x1000)) {
+		cg.forceSelectLightningOverride = qfalse;
+	}
+	if (cgs.serverMod != SVMOD_JAPLUS || !(ps->eFlags & 0x1000)) {
+		return;
+	}
+	if (ps->eFlags & EF_BOBAFIRE) {
+		// Positive evidence of flamethrower use also restores a later merc grant
+		// when the server never cleared the old merc bit between grants.
+		cg.forceSelectLightningOverride = qfalse;
+	} else if (!(ps->eFlags & EF_EMPOWERED) &&
+		ps->activeForcePass > 0 && ps->activeForcePass <= FORCE_LEVEL_3) {
+		// This is the lightning branch of CG_Player, without EF_BOBAFIRE.
+		// Higher activeForcePass values represent Drain, not Lightning.
+		// Empower temporarily replaces merc, so don't latch its lightning.
+		cg.forceSelectLightningOverride = qtrue;
+	}
+}
+
 /*
 ==================
 CG_ResetEntity
 ==================
 */
-static void CG_ResetEntity( centity_t *cent ) {
+static void CG_ResetEntity( centity_t *cent, qboolean preserveAnimations ) {
 	// if the previous snapshot this entity was updated in is at least
 	// an event window back in time then we can reset the previous event
 	if ( cent->snapShotTime < cg.time - EVENT_VALID_MSEC ) {
@@ -65,7 +88,7 @@ static void CG_ResetEntity( centity_t *cent ) {
 #endif
 
 	if ( cent->currentState.eType == ET_PLAYER || cent->currentState.eType == ET_NPC ) {
-		CG_ResetPlayerEntity( cent );
+		CG_ResetPlayerEntity( cent, preserveAnimations );
 	}
 }
 
@@ -77,12 +100,21 @@ cent->nextState is moved to cent->currentState and events are fired
 ===============
 */
 void CG_TransitionEntity( centity_t *cent ) {
+	// Returning to visibility should not replay an unchanged held animation.
+	// Teleports and entity/model replacements still require a full reset.
+	qboolean preserveAnimations = cent->ghoul2 != NULL &&
+		cent->currentState.eType == ET_PLAYER &&
+		cent->currentState.eType == cent->nextState.eType &&
+		cent->currentState.clientNum == cent->nextState.clientNum &&
+		cent->currentState.modelindex == cent->nextState.modelindex &&
+		!((cent->currentState.eFlags ^ cent->nextState.eFlags) & EF_TELEPORT_BIT);
+
 	cent->currentState = cent->nextState;
 	cent->currentValid = qtrue;
 
 	// reset if the entity wasn't in the last frame or was teleported
 	if ( !cent->interpolate ) {
-		CG_ResetEntity( cent );
+		CG_ResetEntity( cent, preserveAnimations );
 	}
 
 	// clear the next state.  if will be set by the next CG_SetNextSnap
@@ -110,6 +142,8 @@ void CG_SetInitialSnapshot( snapshot_t *snap ) {
 	entityState_t	*state;
 
 	cg.snap = snap;
+	CG_UpdateFlamethrowerOverride(&snap->ps, NULL);
+	CG_PrepareForceOwnSaberSounds(&snap->ps, NULL);
 
 	if ((cg_entities[snap->ps.clientNum].ghoul2 == NULL) && trap->G2_HaveWeGhoul2Models(cgs.clientinfo[snap->ps.clientNum].ghoul2Model))
 	{
@@ -141,7 +175,7 @@ void CG_SetInitialSnapshot( snapshot_t *snap ) {
 		cent->interpolate = qfalse;
 		cent->currentValid = qtrue;
 
-		CG_ResetEntity( cent );
+		CG_ResetEntity( cent, qfalse );
 
 		// check for events
 		CG_CheckEvents( cent );
@@ -208,6 +242,9 @@ static void CG_TransitionSnapshot( void ) {
 	// move nextSnap to snap and do the transitions
 	oldFrame = cg.snap;
 	cg.snap = cg.nextSnap;
+	CG_UpdateFlamethrowerOverride(&cg.snap->ps, &oldFrame->ps);
+	// Resolve paired dual-saber sounds before any snapshot events are dispatched.
+	CG_PrepareForceOwnSaberSounds(&cg.snap->ps, &oldFrame->ps);
 
 	//CG_CheckPlayerG2Weapons(&cg.snap->ps, &cg_entities[cg.snap->ps.clientNum]);
 	//CG_CheckPlayerG2Weapons(&cg.snap->ps, &cg.predictedPlayerEntity);
@@ -245,6 +282,7 @@ static void CG_TransitionSnapshot( void ) {
 			CG_TransitionPlayerState( ps, ops );
 		}
 		else {
+			CG_CheckLegacyPickupEvents( ps, ops );
 			// under prediction, server-injected events (ps.externalEvent) can
 			// be missed by the predicted-pair transition in
 			// CG_PredictPlayerState; dispatch them off the authoritative

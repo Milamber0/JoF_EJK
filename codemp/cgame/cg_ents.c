@@ -1093,6 +1093,8 @@ static void CG_General( centity_t *cent ) {
 		cent->currentState.weapon == G2_MODEL_PART)
 	{ //special case for client limbs
 		centity_t *clEnt;
+		int ownerNum = cent->currentState.modelindex >= 0 ?
+			cent->currentState.modelindex : cent->currentState.otherEntityNum2;
 		int dismember_settings = cg_dismember.integer;
 		float smoothFactor = 0.5f*timescale.value;
 		int k = 0;
@@ -1100,14 +1102,10 @@ static void CG_General( centity_t *cent ) {
 
 		doNotSetModel = qtrue;
 
-		if (cent->currentState.modelindex >= 0)
-		{
-			clEnt = &cg_entities[cent->currentState.modelindex];
+		if (ownerNum < 0 || ownerNum >= ENTITYNUM_NONE) {
+			return;
 		}
-		else
-		{
-			clEnt = &cg_entities[cent->currentState.otherEntityNum2];
-		}
+		clEnt = &cg_entities[ownerNum];
 
 		if (!dismember_settings)
 		{ //This client does not wish to see dismemberment.
@@ -1156,6 +1154,9 @@ static void CG_General( centity_t *cent ) {
 
 			cent->bolt4 = -1;
 			cent->trailTime = 0;
+			// Detached parts are ET_GENERAL, not ET_NPC. Keep the owner's type
+			// with the copied model so removal/reuse of the NPC cannot start blood.
+			cent->limbNoSmoke = CG_IsDroidEntity(ownerNum);
 
 			if (cent->currentState.modelGhoul2 == G2_MODELPART_HEAD)
 			{
@@ -1281,7 +1282,7 @@ static void CG_General( centity_t *cent ) {
 			}
 
 			newBolt = trap->G2API_AddBolt( cent->ghoul2, 0, limbTagName );
-			if ( newBolt != -1 )
+			if ( newBolt != -1 && !cent->limbNoSmoke )
 			{
 				vec3_t boltOrg, boltAng;
 
@@ -1308,7 +1309,7 @@ static void CG_General( centity_t *cent ) {
 			trap->G2API_SetSurfaceOnOff(clEnt->ghoul2, stubCapName, 0);
 
 			newBolt = trap->G2API_AddBolt( clEnt->ghoul2, 0, stubTagName );
-			if ( newBolt != -1 )
+			if ( newBolt != -1 && !cent->limbNoSmoke )
 			{
 				vec3_t boltOrg, boltAng;
 
@@ -1362,7 +1363,7 @@ static void CG_General( centity_t *cent ) {
 			cent->lerpOrigin[k]=cent->turAngles[k];
 		}
 
-		if (cent->ghoul2 && cent->bolt4 != -1 && cent->trailTime < cg.time)
+		if (!cent->limbNoSmoke && cent->ghoul2 && cent->bolt4 != -1 && cent->trailTime < cg.time)
 		{
 			if ( cent->bolt4 != -1 &&
 				(cent->currentState.pos.trDelta[0] || cent->currentState.pos.trDelta[1] || cent->currentState.pos.trDelta[2]) )
@@ -1459,12 +1460,22 @@ Ghoul2 Insert End
 		if (!cent->ghoul2 && !cent->currentState.bolt1)
 		{
 			char skinName[MAX_QPATH];
-			const char *modelName = CG_ConfigString( CS_MODELS+cent->currentState.modelindex );
+			qhandle_t hiltSkin;
+			//a saber entity is drawn with the hilt this client resolved for its owner,
+			//everything else with the model the server handed us
+			const char *modelName = CG_SaberEntityHiltModel( CG_SaberEntityOwnerSaber( cent ), cent, &hiltSkin );
 			int l;
 			int skin = 0;
 
-			trap->G2API_InitGhoul2Model(&cent->ghoul2, modelName, 0, 0, 0, 0, 0);
-			if (cent->ghoul2 && trap->G2API_SkinlessModel(cent->ghoul2, 0))
+			Q_strncpyz(cent->saberHiltModel, modelName, sizeof(cent->saberHiltModel));
+			cent->saberHiltSkin = hiltSkin;
+
+			trap->G2API_InitGhoul2Model(&cent->ghoul2, modelName, 0, hiltSkin, 0, 0, 0);
+			if (cent->ghoul2 && hiltSkin)
+			{
+				trap->G2API_SetSkin(cent->ghoul2, 0, hiltSkin, hiltSkin);
+			}
+			else if (cent->ghoul2 && trap->G2API_SkinlessModel(cent->ghoul2, 0))
 			{ //well, you'd never want a skinless model, so try to get his skin...
 				Q_strncpyz(skinName, modelName, MAX_QPATH);
 				l = strlen(skinName);
@@ -3003,23 +3014,24 @@ static void CG_Missile( centity_t *cent ) {
 	{
 		if ((cent->currentState.modelindex != cent->serverSaberHitIndex || !cent->ghoul2) && !(s1->eFlags & EF_NODRAW))
 		{ //no g2, or server changed the model we are using
-			const char *saberModel = CG_ConfigString( CS_MODELS+cent->currentState.modelindex );
+			qhandle_t saberSkin;
+			const char *saberModel = CG_SaberEntityHiltModel( CG_SaberEntityOwnerSaber( cent ), cent, &saberSkin );
 
 			cent->serverSaberHitIndex = cent->currentState.modelindex;
+			Q_strncpyz(cent->saberHiltModel, saberModel, sizeof(cent->saberHiltModel));
+			cent->saberHiltSkin = saberSkin;
 
 			if (cent->ghoul2)
-			{ //clean if we already have one (because server changed model string index)
+			{ //clean if we already have one (because the hilt changed)
 				trap->G2API_CleanGhoul2Models(&(cent->ghoul2));
 				cent->ghoul2 = 0;
 			}
 
-			if (saberModel && saberModel[0])
+			trap->G2API_InitGhoul2Model(&cent->ghoul2, saberModel, 0, saberSkin, 0, 0, 0);
+
+			if (cent->ghoul2 && saberSkin)
 			{
-				trap->G2API_InitGhoul2Model(&cent->ghoul2, saberModel, 0, 0, 0, 0, 0);
-			}
-			else
-			{
-				trap->G2API_InitGhoul2Model(&cent->ghoul2, DEFAULT_SABER_MODEL, 0, 0, 0, 0, 0);
+				trap->G2API_SetSkin(cent->ghoul2, 0, saberSkin, saberSkin);
 			}
 			return;
 		}

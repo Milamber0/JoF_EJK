@@ -27,6 +27,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 // be a valid snapshot this frame
 
 #include "cg_local.h"
+#include "cg_dialogue.h"
 #include "ui/menudef.h"
 #include "ghoul2/G2.h"
 #include "ui/ui_public.h"
@@ -1185,6 +1186,12 @@ require a reload of all the media
 static void CG_MapRestart( void ) {
 	int i;
 	clientInfo_t *ci;
+	cg.pickupQueueHead = cg.pickupQueueCount = 0;
+	CG_ResetPickupEventTracking();
+	if (CG_UsesPickupConfirmation()) {
+		cg.itemPickup = 0;
+	}
+	cg.pickupHandshakeActive = cg.pickupConfirmed = qfalse;
 	for (i = 0 ; i < MAX_CLIENTS ; i++)
 	{
 		ci = &cgs.clientinfo[i];
@@ -1216,6 +1223,7 @@ static void CG_MapRestart( void ) {
 	cg.timelimitWarnings = 0;
 
 	cg.intermissionStarted = qfalse;
+	cg.binocularTargetCount = 0;
 
 	cgs.voteTime = 0;
 
@@ -1800,6 +1808,73 @@ typedef struct serverCommand_s {
 	void		(*func)(void);
 } serverCommand_t;
 
+// Reject malformed/overflowing fields before using network data as entity indices.
+static int CG_BinocularIntArg(int arg) {
+	const char *text = CG_Argv(arg);
+	int value = 0;
+	if (!*text)
+		return -1;
+	for (; *text; text++) {
+		int digit = *text - '0';
+		if (digit < 0 || digit > 9 || value > (INT_MAX - digit) / 10)
+			return -1;
+		value = value * 10 + digit;
+	}
+	return value;
+}
+
+// binoStats <server time> <count> [<entity> <health> <max health> <armor>]...
+static void CG_BinocularStats_f( void ) {
+	int i, count, serverTime;
+	binocularTarget_t targets[MAX_BINOCULAR_TARGETS];
+	memset(targets, 0, sizeof(targets));
+	cg.binocularTargetCount = 0;
+	if (trap->Cmd_Argc() < 3)
+		return;
+	serverTime = CG_BinocularIntArg(1);
+	count = CG_BinocularIntArg(2);
+	if (serverTime < 0 || count < 0 || count > MAX_BINOCULAR_TARGETS || trap->Cmd_Argc() != 3 + count * 4)
+		return;
+	for (i = 0; i < count; i++) {
+		binocularTarget_t *target = &targets[i];
+		target->entityNum = CG_BinocularIntArg(3 + i * 4);
+		target->health = CG_BinocularIntArg(4 + i * 4);
+		target->maxHealth = CG_BinocularIntArg(5 + i * 4);
+		target->armor = CG_BinocularIntArg(6 + i * 4);
+		if (target->entityNum < 0 || target->entityNum >= ENTITYNUM_WORLD ||
+			target->health <= 0 || target->maxHealth <= 0 || target->armor < 0)
+			return;
+	}
+	memcpy(cg.binocularTargets, targets, count * sizeof(targets[0]));
+	cg.binocularUpdateTime = serverTime;
+	cg.binocularTargetCount = count;
+}
+
+// Optional names for the immediately preceding stats update. Multiple bounded
+// commands may carry one update; names never create contacts or extend expiry.
+static void CG_BinocularNames_f(void) {
+	int arg, i, argc = trap->Cmd_Argc();
+	if (argc < 4 || (argc - 2) % 2 ||
+		CG_BinocularIntArg(1) != cg.binocularUpdateTime)
+		return;
+	for (arg = 2; arg < argc; arg += 2) {
+		int entityNum = CG_BinocularIntArg(arg);
+		for (i = 0; i < cg.binocularTargetCount; i++) {
+			if (cg.binocularTargets[i].entityNum == entityNum) {
+				char *name = cg.binocularTargets[i].name;
+				int j;
+				Q_strncpyz(name, CG_Argv(arg + 1), sizeof(cg.binocularTargets[i].name));
+				Q_CleanStr(name);
+				for (j = 0; name[j]; j++) {
+					if ((unsigned char)name[j] < 32 || name[j] == 127)
+						name[j] = ' ';
+				}
+				break;
+			}
+		}
+	}
+}
+
 // Force Stasis (JoF JA+ V58): the server sends a reliable "stasis" command when the
 // power fires (only to clients that advertised the "jofejk" userinfo key). Play the
 // local feedback sound, with a client-side cooldown so bursts / replayed snapshots
@@ -1826,12 +1901,15 @@ int svcmdcmp( const void *a, const void *b ) {
 }
 
 static serverCommand_t	commands[] = {
+	{ "binoStats", CG_BinocularStats_f },
+	{ "binoNames", CG_BinocularNames_f },
 	{ "chat",				CG_Chat_f },
 	{ "clientLevelShot",	CG_ClientLevelShot_f },
 	{ "cp",					CG_CenterPrint_f },
 	{ "cps",				CG_CenterPrintSE_f },
 	{ "cs",					CG_ConfigStringModified },
 	{ "ircg",				CG_RestoreClientGhoul_f },
+	{ "jof_dialogue",		CG_DialogueServerCommand },
 	{ "kg2",				CG_KillGhoul2_f },
 	{ "kls",				CG_KillLoopSounds_f },
 	{ "lchat",				CG_Chat_f },
@@ -1868,6 +1946,14 @@ Cmd_Argc() / Cmd_Argv()
 static void CG_ServerCommand( void ) {
 	const char		*cmd = CG_Argv( 0 );
 	serverCommand_t	*command = NULL;
+	if (!Q_stricmp(cmd, "jof_pickupReady")) {
+		CG_PickupReady_f();
+		return;
+	}
+	if (!Q_stricmp(cmd, "jof_pickup")) {
+		CG_ConfirmedPickup_f();
+		return;
+	}
 
 	if ( !cmd[0] ) {
 		// server claimed the command

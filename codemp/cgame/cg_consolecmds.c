@@ -1565,7 +1565,7 @@ static bitInfo_T pluginDisables[] = { // MAX_WEAPON_TWEAKS tweaks (24)
 	{"No auto replier"},//5
 	{"Disable new force effects"},//6
 	{"No new deathmsg"},//7
-	{"New sight effect"},//8
+	{"Force Sense camera effect"},//8 - /plugin 7 on JA+
 	{"No alt dim effect"},//9
 	{"Holster staff on back"},//10
 	{"Disable Ledge grab"},//11
@@ -1594,13 +1594,8 @@ static bitInfo_T pluginDisables[] = { // MAX_WEAPON_TWEAKS tweaks (24)
 static const int MAX_PLUGINDISABLES = ARRAY_LEN( pluginDisables );
 
 static qboolean CG_PluginOptionEnabled(int index)
-{
-	if (index == 9)
-	{ // Plugin 9 is inverted: bit set means option disabled
-		return (cp_pluginDisable.integer & (1 << index));
-	}
-
-	return !(cp_pluginDisable.integer & (1 << index)) != 0;
+{ //these are JA+ disable bits, so the feature behind one is on while its bit is clear
+	return (qboolean)(!(cp_pluginDisable.integer & (1 << index)) != 0);
 }
 
 void CG_PluginDisable_f( void ) {
@@ -1619,11 +1614,13 @@ void CG_PluginDisable_f( void ) {
 			if (cgs.serverMod == SVMOD_JAPRO && !japroPluginDisables[i])
 				continue;
 
-			if ( CG_PluginOptionEnabled(i) ) {
-				Com_Printf( "%2d [ ] %s\n", display, pluginDisables[i].string );
+			//nearly every entry is named as a disable, so its box tracks the bit. Plugin 9 is named
+			//as the feature itself ("Holster staff on back"), so its box ticks when the bit is clear
+			if ( (i == 9) ? CG_PluginOptionEnabled(i) : (cp_pluginDisable.integer & (1 << i)) != 0 ) {
+				Com_Printf( "%2d [X] %s\n", display, pluginDisables[i].string );
 			}
 			else {
-				Com_Printf( "%2d [X] %s\n", display, pluginDisables[i].string );
+				Com_Printf( "%2d [ ] %s\n", display, pluginDisables[i].string );
 			}
 			display++;
 		}
@@ -1662,7 +1659,7 @@ void CG_PluginDisable_f( void ) {
 		trap->Cvar_Set( "cp_pluginDisable", va( "%i", (1 << index2) ^ (cp_pluginDisable.integer & mask ) ) );
 		trap->Cvar_Update( &cp_pluginDisable );
 
-		if (index2 == 10 || index2 == 5) {
+		if (index2 == 10 || index2 == 5 || index2 == 7) {
 			Com_Printf("%s %s^7\n", pluginDisables[index2].string, (CG_PluginOptionEnabled(index2)
 				? "^1Disabled" : "^2Enabled") );
 		}

@@ -3502,7 +3502,8 @@ void G_GetDismemberBolt(gentity_t *self, vec3_t boltPoint, int limbType)
 			te->s.angles[1] = 1;
 		}
 
-		te->s.eventParm = 16; //lots of sparks
+		// Droids use the metal impact path; organic characters use the flesh-spark path.
+		te->s.eventParm = BG_IsDroidClass(self->client->NPC_class) ? 0 : 16;
 	}
 }
 

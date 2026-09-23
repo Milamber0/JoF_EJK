@@ -61,7 +61,8 @@ FX_DEMP2_HitPlayer
 
 void FX_DEMP2_HitPlayer( vec3_t origin, vec3_t normal, qboolean humanoid )
 {
-	trap->FX_PlayEffectID( cgs.effects.demp2FleshImpactEffect, origin, normal, -1, -1, qfalse );
+	trap->FX_PlayEffectID( humanoid ? cgs.effects.demp2FleshImpactEffect : cgs.effects.demp2WallImpactEffect,
+		origin, normal, -1, -1, qfalse );
 }
 
 /*

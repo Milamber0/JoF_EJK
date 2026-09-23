@@ -27,6 +27,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 // It also handles local physics interaction, like fragments bouncing off walls
 
 #include "cg_local.h"
+#include "game/bg_pickup.h"
 
 static	pmove_t		cg_pmove;
 
@@ -69,12 +70,27 @@ static QINLINE qboolean CG_IsPredictedWeaponAttackAnim(int weapon, int torsoAnim
 	return torsoAnim == WeaponAttackAnim[weapon];
 }
 
-static QINLINE void CG_RestorePredictedWeaponAttackAnim(playerState_t *ps, int savedWeapon, int savedWeaponTime, int savedTorsoAnim)
+static QINLINE qboolean CG_IsVehicleGunAttackAnim(int torsoAnim)
 {
-	if (savedWeaponTime <= 0)
-		return;
-	
+	return torsoAnim == BOTH_VS_ATF_G || torsoAnim == BOTH_VS_ATL_G || torsoAnim == BOTH_VS_ATR_G ||
+		torsoAnim == BOTH_VT_ATF_G || torsoAnim == BOTH_VT_ATL_G || torsoAnim == BOTH_VT_ATR_G;
+}
+
+static QINLINE void CG_RestorePredictedWeaponAttackAnim(playerState_t *ps, int savedWeapon,
+	int savedWeaponState, int savedWeaponTime, int savedVehicleNum, int savedTorsoAnim, qboolean savedTorsoFlip)
+{
 	if (ps->weapon != savedWeapon)
+		return;
+
+	if (savedWeapon == WP_BOWCASTER && savedWeaponState == WEAPON_CHARGING &&
+		savedVehicleNum && CG_IsVehicleGunAttackAnim(savedTorsoAnim))
+	{
+		ps->torsoAnim = savedTorsoAnim;
+		ps->torsoFlip = savedTorsoFlip;
+		return;
+	}
+
+	if (savedWeaponTime <= 0)
 		return;
 
 	if (!CG_IsPredictedWeaponAttackAnim(savedWeapon, savedTorsoAnim))
@@ -682,6 +698,9 @@ static void CG_TouchItem( centity_t *cent ) {
 	}
 
 	item = &bg_itemlist[ cent->currentState.modelindex ];
+	if (CG_UsesPickupConfirmation() && BG_ConfirmedPickupType(item->giType)) {
+		return; // Only this server's accepted pickups produce local feedback.
+	}
 
 	//Currently there is no reliable way of knowing if the client has touched a certain item before another if they are next to each other, or rather
 	//if the server has touched them in the same order. This results often in grabbing an item in the prediction and the server giving you the other
@@ -1119,6 +1138,7 @@ static qboolean CG_InJAPlusSpecialKickState( playerState_t *ps )
 
 	return qfalse;
 }
+
 void CG_PredictPlayerState( void ) {
 	int			cmdNum, current, i;
 	playerState_t	oldPlayerState;
@@ -1220,6 +1240,27 @@ void CG_PredictPlayerState( void ) {
 	if ( cg.snap->ps.persistant[PERS_TEAM] == TEAM_SPECTATOR || cg.snap->ps.pm_type == PM_SPECTATOR ) {
 		cg_pmove.tracemask &= ~CONTENTS_BODY;	// spectators can fly through bodies
 	}
+	// JA+ makes a player non-solid in several places - "amghost", the grace after unghosting
+	// inside someone, the walk-apart at the end of a duel - and in all of them the server's
+	// clipmask loses CONTENTS_BODY and CONTENTS_PLAYERCLIP and it walks us straight through other
+	// players while an unaware client still collides with them. Every overlap ends with the client
+	// blocked and the server several units further along, and cg_errorDecay smears the corrections
+	// that follow into the view - the stuttering, clonky movement people reported while ghosted.
+	//
+	// The server tells us outright: it sets GHOST_KNOWN_FLAG in the playerState every ClientThink
+	// from that same clipmask decision, so this is not an amghost flag and must not be narrowed
+	// into one - it covers every reason the server passes us through, self-heals across respawns,
+	// and picks up new ones with no client change. Read it off the snapshot rather than
+	// predictedPlayerState, which is ours to scribble on. An unpatched client ignores the bit.
+	//
+	// Duels are the layer below this: CG_ClipMoveToEntities skips duelists per entity, which only
+	// ever removes collisions too, so the two compose and neither can re-solidify the other.
+	if ( (cg.snap->ps.fd.forcePowersKnown & GHOST_KNOWN_FLAG)
+		&& cg.snap->ps.persistant[PERS_TEAM] != TEAM_SPECTATOR
+		&& cg_pmove.ps->pm_type != PM_DEAD )
+	{
+		cg_pmove.tracemask &= ~(CONTENTS_BODY | CONTENTS_PLAYERCLIP);
+	}
 	cg_pmove.noFootsteps = ( cgs.dmflags & DF_NO_FOOTSTEPS ) > 0;
 
 	// save the state before the pmove so we can detect transitions
@@ -1256,8 +1297,11 @@ void CG_PredictPlayerState( void ) {
 
 		// Save client-predicted torso animation before server overwrites it
 		int savedTorsoAnim = cg.predictedPlayerState.torsoAnim;
+		qboolean savedTorsoFlip = cg.predictedPlayerState.torsoFlip;
 		int savedWeapon = cg.predictedPlayerState.weapon;
+		int savedWeaponState = cg.predictedPlayerState.weaponstate;
 		int savedWeaponTime = cg.predictedPlayerState.weaponTime;
+		int savedVehicleNum = cg.predictedPlayerState.m_iVehicleNum;
 
 		cg.predictedPlayerState = cg.nextSnap->ps;
 		if (CG_Piloting(cg.nextSnap->ps.m_iVehicleNum))
@@ -1268,14 +1312,18 @@ void CG_PredictPlayerState( void ) {
 
 		// Restore client-predicted weapon attack animation if still firing
 		// This prevents non-JaPRO servers from overwriting our correct prediction
-		CG_RestorePredictedWeaponAttackAnim(&cg.predictedPlayerState, savedWeapon, savedWeaponTime, savedTorsoAnim);
+		CG_RestorePredictedWeaponAttackAnim(&cg.predictedPlayerState, savedWeapon, savedWeaponState,
+			savedWeaponTime, savedVehicleNum, savedTorsoAnim, savedTorsoFlip);
 	} else {
 		cg.snap->ps.slopeRecalcTime = cg.predictedPlayerState.slopeRecalcTime; //this is the only value we want to maintain seperately on server/client
 
 		// Save client-predicted torso animation before server overwrites it
 		int savedTorsoAnim = cg.predictedPlayerState.torsoAnim;
+		qboolean savedTorsoFlip = cg.predictedPlayerState.torsoFlip;
 		int savedWeapon = cg.predictedPlayerState.weapon;
+		int savedWeaponState = cg.predictedPlayerState.weaponstate;
 		int savedWeaponTime = cg.predictedPlayerState.weaponTime;
+		int savedVehicleNum = cg.predictedPlayerState.m_iVehicleNum;
 
 		cg.predictedPlayerState = cg.snap->ps;
 		if (CG_Piloting(cg.snap->ps.m_iVehicleNum))
@@ -1286,7 +1334,8 @@ void CG_PredictPlayerState( void ) {
 
 		// Restore client-predicted weapon attack animation if still firing
 		// This prevents non-JaPRO servers from overwriting our correct prediction
-		CG_RestorePredictedWeaponAttackAnim(&cg.predictedPlayerState, savedWeapon, savedWeaponTime, savedTorsoAnim);
+		CG_RestorePredictedWeaponAttackAnim(&cg.predictedPlayerState, savedWeapon, savedWeaponState,
+			savedWeaponTime, savedVehicleNum, savedTorsoAnim, savedTorsoFlip);
 	}
 
 	//JAPRO - Clientside - Unlock Pmove bounds - Start

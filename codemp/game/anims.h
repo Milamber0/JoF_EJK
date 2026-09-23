@@ -1752,7 +1752,8 @@ typedef enum //# animNumber_e
 	//New anim as per Jarrod's request
 	LEGS_TURN180,
 
-#ifdef _CGAME
+#if defined(_CGAME) || defined(UI_BUILD)
+	// The Moves preview uses the same JA+ animation IDs as the client.
 	//JA+ animations
 	BOTH_KISSEE,
 	BOTH_KISSER,

@@ -3643,15 +3643,7 @@ void WP_SaberDoHit( gentity_t *self, int saberNum, int bladeNum )
 
 		if ( victim->client )
 		{
-			class_t npc_class = victim->client->NPC_class;
-
-			if ( npc_class == CLASS_SEEKER || npc_class == CLASS_PROBE || npc_class == CLASS_MOUSE || npc_class == CLASS_REMOTE ||
-					npc_class == CLASS_GONK || npc_class == CLASS_R2D2 || npc_class == CLASS_R5D2 ||
-					npc_class == CLASS_PROTOCOL || npc_class == CLASS_MARK1 || npc_class == CLASS_MARK2 ||
-					npc_class == CLASS_INTERROGATOR || npc_class == CLASS_ATST || npc_class == CLASS_SENTRY )
-			{ //don't make "blood" sparks for droids.
-				isDroid = qtrue;
-			}
+			isDroid = BG_IsDroidClass(victim->client->NPC_class);
 		}
 
 		te = G_TempEntity( dmgSpot[i], EV_SABER_HIT );

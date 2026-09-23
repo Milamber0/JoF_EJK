@@ -112,18 +112,6 @@
 
 		itemDef 
 		{
-			name				speciesbut_glow
-			group				none
-			style				WINDOW_STYLE_SHADER
-			rect				161 52 126 16
-			background			"gfx/menus/menu_buttonback"
-			forecolor			1 1 1 1
-			visible			0
-			decoration
-		}
-
-		itemDef 
-		{
 			name				speciesbut
 			group				none
 			text				" "
@@ -145,32 +133,12 @@
 
 			visible			1
 			 
-			mouseEnter 
-			{ 
-				show			speciesbut_glow 
-			}
-			mouseExit 
-			{ 
-				hide			speciesbut_glow 
-			}	  	  
 			action 
 			{
 				play			"sound/interface/button1.wav"
 				uiScript 		"characterchanged"
 				uiScript 		"resetcharacterlistboxes"
 			}
-		}
-
-		itemDef
-		{
-			name				speciesbrowse_glow
-			group				none
-			style				WINDOW_STYLE_SHADER
-			rect				287 48 24 24
-			background			"gfx/menus/menu_buttonback"
-			forecolor			1 1 1 1
-			visible				0
-			decoration
 		}
 
 		itemDef
@@ -186,12 +154,10 @@
 			visible				1
 			mouseEnter
 			{
-				show			speciesbrowse_glow
 				setitemcolor speciesbrowse forecolor 1 1 1 1
 			}
 			mouseExit
 			{
-				hide			speciesbrowse_glow
 				setitemcolor speciesbrowse forecolor 1 .682 0 1
 			}
 			action
@@ -223,14 +189,6 @@
 			textscale 			1
 			visible 			1
 			//decoration
-			mouseEnter
-			{ 
-				show			color_glow
-			}
-			mouseExit 
-			{ 
-				hide			color_glow
-			}	  	  
 			action 
 			{
 				play			"sound/interface/button1.wav"
@@ -281,14 +239,6 @@
 			forecolor			1 .682 0 1
 			visible			1
 
-			mouseEnter 
-			{ 
-				show			rgb_glow
-			}
-			mouseExit 
-			{ 
-				hide			rgb_glow
-			}	  	  
 			action 
 			{
 				play			"sound/interface/button1.wav"
@@ -306,7 +256,7 @@
 			type				ITEM_TYPE_INTSLIDER
 			text				"Red: "
 			cvarint				"ui_char_color_red" 50 0 255
-			rect				0 104 175 18
+			rect				0 112 175 18
 			textalign			ITEM_ALIGN_RIGHT
 			textalignx			70
 			textaligny			0
@@ -338,7 +288,7 @@
 			type				ITEM_TYPE_INTSLIDER
 			text				"Green: "
 			cvarint				"ui_char_color_green" 50 0 255
-			rect				0 124 175 18
+			rect				0 132 175 18
 			textalign			ITEM_ALIGN_RIGHT
 			textalignx			70
 			textaligny			0
@@ -370,7 +320,7 @@
 			type				ITEM_TYPE_INTSLIDER
 			text				"Blue: "
 			cvarint				"ui_char_color_blue" 50 0 255
-			rect				0 144 175 18
+			rect				0 152 175 18
 			textalign			ITEM_ALIGN_RIGHT
 			textalignx			70
 			textaligny			0
@@ -405,7 +355,7 @@
 			cvar 				"ui_char_color_red"
 			maxchars			3
 			maxPaintChars 		3
-			rect 				197 104 100 18
+			rect 				197 112 100 18
 			textalign			ITEM_ALIGN_RIGHT		
 			textalignx 			15
 			textaligny 			-2
@@ -442,7 +392,7 @@
 			cvar 				"ui_char_color_green"
 			maxchars 			3
 			maxPaintChars 		3
-			rect 				197 124 100 18
+			rect 				197 132 100 18
 			textalign			ITEM_ALIGN_RIGHT		
 			textalignx 			15
 			textaligny 			-2
@@ -479,7 +429,7 @@
 			cvar 				"ui_char_color_blue"
 			maxchars 			3
 			maxPaintChars 		3 
-			rect 				197 144 100 18
+			rect 				197 152 100 18
 			textalign			ITEM_ALIGN_RIGHT		
 			textalignx 			15
 			textaligny 			-2
@@ -506,36 +456,12 @@
 			}
 		}
 
-		itemDef 
-		{
-			name				color_glow
-			group				none
-			style				WINDOW_STYLE_SHADER
-			rect				10 80 90 24
-			background			"gfx/menus/menu_buttonback"
-			forecolor			1 1 1 1
-			visible			0
-			decoration
-		}
-
-		itemDef 
-		{
-			name				rgb_glow
-			group				none
-			style				WINDOW_STYLE_SHADER
-			rect				145 82 65 24
-			background			"gfx/menus/menu_buttonback"
-			forecolor			1 1 1 1
-			visible			0
-			decoration
-		}
-
 		itemDef
 		{
 			name				rgbred_glow
 			group				highlights
 			style				WINDOW_STYLE_SHADER
-			rect				0 104 300 18
+			rect				0 112 300 18
 			background			"gfx/menus/menu_blendbox"
 			forecolor			1 1 1 1
 			visible			0
@@ -547,7 +473,7 @@
 			name				rgbgreen_glow
 			group				highlights
 			style				WINDOW_STYLE_SHADER
-			rect				0 124 300 18
+			rect				0 132 300 18
 			background			"gfx/menus/menu_blendbox"
 			forecolor			1 1 1 1
 			visible			0
@@ -559,7 +485,7 @@
 			name				rgbblue_glow
 			group				highlights
 			style				WINDOW_STYLE_SHADER
-			rect				0 144 300 18
+			rect				0 152 300 18
 			background			"gfx/menus/menu_blendbox"
 			forecolor			1 1 1 1
 			visible			0
@@ -576,7 +502,7 @@
 			group				none
 			type				ITEM_TYPE_BUTTON
 			style				WINDOW_STYLE_EMPTY
-			rect				15 160 180 24
+			rect				15 168 180 24
 			forecolor			.549 .854 1 1
 			text				@MENUS_APPEARANCE
 			textalign			ITEM_ALIGN_LEFT
@@ -591,25 +517,13 @@
 		// HEAD BUTTON
 		itemDef 
 		{
-			name				headbut_glow
-			group				none
-			style				WINDOW_STYLE_SHADER
-			rect				15 184 90 16
-			background			"gfx/menus/menu_buttonback"
-			forecolor			1 1 1 1
-			visible			0
-			decoration
-		}
-
-		itemDef 
-		{
 			name				headbut
 			group				none
 			text				@MENUS_HEAD
 			descText			@MENUS_SELECT_HEAD
 			type				ITEM_TYPE_BUTTON
 			style				WINDOW_STYLE_EMPTY
-			rect				15 184 90 16
+			rect				15 192 90 16
 			font				2
 			textscale			.9
 			textaligny			-5
@@ -620,14 +534,6 @@
 			forecolor			1 .682 0 1
 			visible			1
 			 
-			mouseEnter 
-			{ 
-				show			headbut_glow 
-			}
-			mouseExit 
-			{ 
-				hide			headbut_glow 
-			}	  	  
 			action 
 			{
 				play			"sound/interface/button1.wav"
@@ -641,25 +547,13 @@
 		// TORSO BUTTON
 		itemDef 
 		{
-			name				torsobut_glow
-			group				none
-			style				WINDOW_STYLE_SHADER
-			rect				111 184 90 16
-			background			"gfx/menus/menu_buttonback"
-			forecolor			1 1 1 1
-			visible				0
-			decoration
-		}
-
-		itemDef 
-		{
 			name				torsobut
 			group				none
 			text				@MENUS_TORSO
 			descText			@MENUS_SELECT_TORSO
 			type				ITEM_TYPE_BUTTON
 			style				WINDOW_STYLE_EMPTY
-			rect				111 184 90 16
+			rect				111 192 90 16
 			font				2
 			textscale			.9
 			textaligny			-5
@@ -670,14 +564,6 @@
 			forecolor			1 .682 0 1
 			visible			1
 
-			mouseEnter 
-			{ 
-				show			torsobut_glow 
-			}
-			mouseExit 
-			{ 
-				hide			torsobut_glow 
-			}	  	  
 			action 
 			{
 				play			"sound/interface/button1.wav" 
@@ -690,25 +576,13 @@
 		// LEGS BUTTON
 		itemDef 
 		{
-			name				legsbut_glow
-			group				none
-			style				WINDOW_STYLE_SHADER
-			rect				209 184 90 16
-			background			"gfx/menus/menu_buttonback"
-			forecolor			1 1 1 1
-			visible				0
-			decoration
-		}
-
-		itemDef 
-		{
 			name				legsbut
 			group				none
 			text				@MENUS_LEGS
 			descText			@MENUS_SELECT_LEGS
 			type				ITEM_TYPE_BUTTON
 			style				WINDOW_STYLE_EMPTY
-			rect				209 184 90 16
+			rect				209 192 90 16
 			font				2
 			textscale			.9
 			textaligny			-5
@@ -719,14 +593,6 @@
 			forecolor			1 .682 0 1
 			visible				1
 			 
-			mouseEnter 
-			{ 
-				show			legsbut_glow 
-			}
-			mouseExit 
-			{ 
-				hide			legsbut_glow 
-			}	  	  
 			action 
 			{
 				play			"sound/interface/button1.wav"
@@ -756,7 +622,7 @@
 			backcolor			.66 .66 1 .25
 			bordercolor			.66 .66 1 1
 			forecolor			-1			//use playercolor
-			rect				15 206 292 93
+			rect				15 214 292 93
 			visible			1
 			action
 			{
@@ -781,7 +647,7 @@
 			backcolor			.66 .66 1 .25
 			bordercolor			.66 .66 1 1
 			forecolor			-1			//use playercolor
-			rect				15 206 292 93
+			rect				15 214 292 93
 			visible			0
 			action
 			{
@@ -806,7 +672,7 @@
 			backcolor			.66 .66 1 .25
 			bordercolor			.66 .66 1 1
 			forecolor			-1			//use playercolor
-			rect				15 206 292 93
+			rect				15 214 292 93
 			visible			0
 			action
 			{

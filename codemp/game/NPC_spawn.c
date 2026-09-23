@@ -1474,6 +1474,10 @@ gentity_t *NPC_Spawn_Do( gentity_t *ent )
 		newent->message = ent->message;//transfer the key name
 		newent->flags |= FL_NO_KNOCKBACK;//don't fall off ledges
 	}
+	newent->dialogue = ent->dialogue;
+	if ( newent->dialogue && newent->dialogue[0] ) {
+		newent->r.svFlags |= SVF_PLAYER_USABLE;
+	}
 
 	// If this is a vehicle we need to see what kind it is so we properlly allocate it.
 	if ( Q_stricmp( ent->classname, "NPC_Vehicle" ) == 0 )

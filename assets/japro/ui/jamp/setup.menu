@@ -29,6 +29,7 @@
 			hide			vidrestart
 			hide			sound
 			hide			options
+			hide			modeloptions
 			hide			mods
 			hide			defaults
 			hide			highlights
@@ -496,6 +497,7 @@
 				hide			vidrestart	;
 				hide			sound	;
 				hide			options ;
+				hide			modeloptions	;
 				hide			mods	;
 				hide			defaults ;
 
@@ -557,6 +559,7 @@
 				hide			vidrestart	;
 				hide			sound	;
 				hide			options ;
+				hide			modeloptions	;
 				hide			mods	;
 				hide			defaults ;
 
@@ -617,6 +620,7 @@
 				hide			vidrestart	;
 				show			sound	;
 				hide			options ;
+				hide			modeloptions	;
 				hide			mods	;
 				hide			defaults ;
 
@@ -677,11 +681,73 @@
 				hide			sound
 				show			options
 				hide			langapply
+				hide			modeloptions
 				hide			mods
 				hide			defaults
 
 				setitemcolor	setup_submenu		forecolor	1 .682 0 1 ;
 				setitemcolor	gameoptionmenubutton	forecolor	1 1 1 1 ;
+			}
+		}
+
+		// model options  button
+		itemDef 
+		{
+			name				modeloptionsbutton_glow
+			group				highlights
+			style				WINDOW_STYLE_SHADER
+			rect				80 281 180 24
+			background			"gfx/menus/menu_blendbox2"			// Frame around button
+			forecolor			1 1 1 1
+			visible			0
+			decoration
+		}
+
+		itemDef 
+		{
+			name				modeloptionsmenubutton
+			group				setup_submenu
+			text				"Model Options"
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_EMPTY
+			rect				80 281 170 24
+			font				3
+			textscale			0.9
+			textalignx			160
+			textaligny			2
+			textalign			ITEM_ALIGN_RIGHT
+			textstyle			0
+			forecolor			1 .682 0 1
+			visible			1
+			descText			"Configure default and forced player models."
+
+			mouseEnter 
+			{ 
+				show			modeloptionsbutton_glow
+			}
+			mouseExit 
+			{ 
+				hide			modeloptionsbutton_glow
+			}	  	  
+			action 
+			{ 
+				play			"sound/interface/button1.wav"
+
+				defer			VideoSetup	videowarningMenu
+				show			setup_background
+				hide 			video
+				hide			applyChanges
+				hide			video2
+				hide			vidrestart
+				hide			sound
+				hide			options
+				hide			langapply
+				show			modeloptions
+				hide			mods
+				hide			defaults
+
+				setitemcolor	setup_submenu			forecolor	1 .682 0 1 ;
+				setitemcolor	modeloptionsmenubutton	forecolor	1 1 1 1 ;
 			}
 		}
 
@@ -691,7 +757,7 @@
 			name				modsbutton_glow
 			group				highlights
 			style				WINDOW_STYLE_SHADER
-			rect				80 281 180 24
+			rect				80 305 180 24
 			background			"gfx/menus/menu_blendbox2"			// Frame around button
 			forecolor			1 1 1 1
 			visible			0
@@ -705,7 +771,7 @@
 			text				@MENUS_MODS
 			type				ITEM_TYPE_BUTTON
 			style				WINDOW_STYLE_EMPTY
-			rect				80 281 170 24
+			rect				80 305 170 24
 			font				3
 			textscale			0.9
 			textalignx			160
@@ -738,6 +804,7 @@
 				hide			vidrestart	;
 				hide			sound	;
 				hide			options ;
+				hide			modeloptions	;
 				show			mods	;
 				hide			defaults ;
 
@@ -752,7 +819,7 @@
 			name				gamedefaultsbutton_glow
 			group				highlights
 			style				WINDOW_STYLE_SHADER
-			rect				80 305 180 24
+			rect				80 329 180 24
 			background			"gfx/menus/menu_blendbox2"			// Frame around button
 			forecolor			1 1 1 1
 			visible			0
@@ -767,7 +834,7 @@
 			text				@MENUS_DEFAULTS
 			type				ITEM_TYPE_BUTTON
 			style				WINDOW_STYLE_EMPTY
-			rect				80 305 170 24
+			rect				80 329 170 24
 			font				3
 			textscale			0.9
 			textalignx			160
@@ -799,6 +866,7 @@
 				hide			vidrestart	;
 				hide			sound	;
 				hide			options ;
+				hide			modeloptions	;
 				hide			mods	;
 				show			defaults ;
 
@@ -2111,12 +2179,48 @@
 			} 
 		}
 
+		itemDef 
+		{
+			name				tauntantispam
+			group				sound
+	  			type				ITEM_TYPE_MULTI
+			text				"Taunt Anti-Spam:"
+			cvar				"cg_tauntAntiSpam"
+			cvarFloatList		
+			{  
+				@MENUS_OFF 	0 
+				@MENUS_ON 	1 
+			}
+			rect				260 328 340 14
+				textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font 				4
+			textscale 			1
+			forecolor			0.65 0.65 1 1
+			visible				0
+			descText			"Stop players repeating taunts and other model voice lines."
+			action 
+			{ 
+				play			"sound/interface/button1.wav"
+			}
+
+			mouseenter 
+			{ 
+				show			highlight11
+			}
+			mouseexit 
+			{ 
+				hide			highlight11
+			} 
+		}
+
 		itemDef
 		{
 			name				eax_icon
 			group				sound
 			style				WINDOW_STYLE_SHADER
-			rect				380 320 128 64
+			rect				380 348 128 64
 			background			"gfx/menus/eax"
 			forecolor			1 1 1 1
 			visible				1
@@ -2193,14 +2297,20 @@
 			} 
 		}
 
+
+
 		itemDef 
 		{	
-			name				forcemodels
+			name				teamchatsonly
 			group				options
 	  			type				ITEM_TYPE_MULTI
-			text				@MENUS_FORCE_PLAYER_MODELS
-			cvar				"cg_forceModel"
-			cvarFloatList			{  @MENUS_OFF 0 @MENUS_ON 1 }
+			text				@MENUS_TEAM_CHATS_ONLY
+			cvar				"cg_teamChatsOnly"
+			cvarFloatList		
+			{ 
+				@MENUS_NO	0
+				@MENUS_YES	1
+			}
 			rect				260 216 340 14
 				textalign			ITEM_ALIGN_RIGHT
 			textalignx			174
@@ -2209,7 +2319,7 @@
 			textscale 			1
 			forecolor			0.65 0.65 1 1
 			visible				0
-			descText			@MENUS_FORCE_ALL_PLAYER_MODELS
+			descText			@MENUS_IGNORE_NON_TEAM_CHATS
 			action
 			{
 				play			"sound/interface/button1.wav" ; 
@@ -2226,80 +2336,13 @@
 
 		itemDef 
 		{	
-			name				defermodels
-			group				options
-	  			type				ITEM_TYPE_MULTI
-			text				@MENUS_DEFER_PLAYER_MODELS
-			cvar				"cg_deferPlayers"
-			cvarFloatList			{  @MENUS_OFF 0 @MENUS_ON 1 }
-			rect				260 230 340 14
-				textalign			ITEM_ALIGN_RIGHT
-			textalignx			174
-			textaligny			0
-			font 				4
-			textscale 			1
-			forecolor			0.65 0.65 1 1
-			visible				0
-			descText			@MENUS_DEFERS_LOADING_OF_NEW
-			action
-			{
-				play			"sound/interface/button1.wav" ; 
-			}
-
-			mouseenter 
-			{ 
-				show			highlight4
-			}
-			mouseexit 
-			{ 
-				hide			highlight4
-			} 
-		}
-
-		itemDef 
-		{	
-			name				teamchatsonly
-			group				options
-	  			type				ITEM_TYPE_MULTI
-			text				@MENUS_TEAM_CHATS_ONLY
-			cvar				"cg_teamChatsOnly"
-			cvarFloatList		
-			{ 
-				@MENUS_NO	0
-				@MENUS_YES	1
-			}
-			rect				260 244 340 14
-				textalign			ITEM_ALIGN_RIGHT
-			textalignx			174
-			textaligny			0
-			font 				4
-			textscale 			1
-			forecolor			0.65 0.65 1 1
-			visible				0
-			descText			@MENUS_IGNORE_NON_TEAM_CHATS
-			action
-			{
-				play			"sound/interface/button1.wav" ; 
-			}
-			mouseenter 
-			{ 
-				show			highlight5
-			}
-			mouseexit 
-			{ 
-				hide			highlight5
-			} 
-		}
-
-		itemDef 
-		{	
 			name				simpleitems
 			group				options
 	  			type				ITEM_TYPE_MULTI
 			text				@MENUS_SIMPLE_ITEMS
 			cvar				"cg_simpleItems"
 			cvarFloatList			{  @MENUS_OFF 0 @MENUS_ON 1 }
-			rect				260 258 340 14
+			rect				260 230 340 14
 				textalign			ITEM_ALIGN_RIGHT
 			textalignx			174
 			textaligny			0
@@ -2314,11 +2357,11 @@
 			}
 			mouseenter 
 			{ 
-				show			highlight6
+				show			highlight4
 			}
 			mouseexit 
 			{ 
-				hide			highlight6
+				hide			highlight4
 			} 
 		}
 
@@ -2330,7 +2373,7 @@
 			text				@MENUS_TEAM_OVERLAY
 			cvar				"cg_drawTeamOverlay"
 			cvarFloatList			{  @MENUS_OFF 0 @MENUS_ON 1 }
-			rect				260 272 340 14
+			rect				260 244 340 14
 				textalign			ITEM_ALIGN_RIGHT
 			textalignx			174
 			textaligny			0
@@ -2345,11 +2388,11 @@
 			}
 			mouseenter 
 			{ 
-				show			highlight7
+				show			highlight5
 			}
 			mouseexit 
 			{ 
-				hide			highlight7
+				hide			highlight5
 			} 
 		}
 
@@ -2372,7 +2415,7 @@
 			{
 				"0"
 			}
-			rect				260 286 340 14
+			rect				260 258 340 14
 				textalign			ITEM_ALIGN_RIGHT
 			textalignx			174
 			textaligny			0
@@ -2390,11 +2433,11 @@
 			}
 			mouseenter 
 			{ 
-				show			highlight8
+				show			highlight6
 			}
 			mouseexit 
 			{ 
-				hide			highlight8
+				hide			highlight6
 			} 
 		}
 
@@ -2416,7 +2459,7 @@
 			{
 				"0"
 			}
-			rect				260 286 340 14
+			rect				260 258 340 14
 				textalign			ITEM_ALIGN_RIGHT
 			textalignx			174
 			textaligny			0
@@ -2434,11 +2477,11 @@
 			}
 			mouseenter 
 			{ 
-				show			highlight8
+				show			highlight6
 			}
 			mouseexit 
 			{ 
-				hide			highlight8
+				hide			highlight6
 			} 
 		}
 
@@ -2455,7 +2498,7 @@
 				@MENUS_OFF	 	0
 				@MENUS_ON 		1
 			}
-			rect				260 300 340 14
+			rect				260 272 340 14
 				textalign			ITEM_ALIGN_RIGHT
 			textalignx			174
 			textaligny			0
@@ -2469,11 +2512,11 @@
 			}
 			mouseenter 
 			{ 
-				show			highlight9
+				show			highlight7
 			}
 			mouseexit 
 			{ 
-				hide			highlight9
+				hide			highlight7
 			} 
 		}
 
@@ -2492,7 +2535,7 @@
 				@MENUS_SOUNDS_AND_EFFECTS	2
 				@MENUS_SOUNDS_EFFECTS_GRAPHICS	3
 			}
-			rect				260 314 340 14
+			rect				260 286 340 14
 				textalign			ITEM_ALIGN_RIGHT
 			textalignx			174
 			textaligny			0
@@ -2506,11 +2549,11 @@
 			}
 			mouseenter 
 			{ 
-				show			highlight10
+				show			highlight8
 			}
 			mouseexit 
 			{ 
-				hide			highlight10
+				hide			highlight8
 			} 
 		}
 
@@ -2523,7 +2566,7 @@
 			cvar				"se_language"
 			feeder				40
 			cvarStrList			feeder
-			rect				260 328 340 14
+			rect				260 300 340 14
 				textalign			ITEM_ALIGN_RIGHT
 			textalignx			174
 			textaligny			0
@@ -2539,11 +2582,11 @@
 			}
 			mouseenter 
 			{ 
-				show			highlight11
+				show			highlight9
 			}
 			mouseexit 
 			{ 
-				hide			highlight11
+				hide			highlight9
 			} 
 		}
 		itemDef 
@@ -2560,7 +2603,7 @@
 				Deutsch	deutsch
 				"Espa�ol"	espanol
 			}
-			rect				260 342 340 14
+			rect				260 314 340 14
 				textalign			ITEM_ALIGN_RIGHT
 			textalignx			174
 			textaligny			0
@@ -2576,11 +2619,11 @@
 			}
 			mouseenter 
 			{ 
-				show			highlight12
+				show			highlight10
 			}
 			mouseexit 
 			{ 
-				hide			highlight12
+				hide			highlight10
 			} 
 		}
 
@@ -2592,7 +2635,7 @@
 			text				@MENUS_SET_LANGUAGE
 			type				ITEM_TYPE_BUTTON
 			style				WINDOW_STYLE_EMPTY
-			rect				260 356 340 14 
+			rect				260 328 340 14 
 			textaligny			0
 			font 				4
 			textscale 			1		
@@ -2610,13 +2653,200 @@
 			}
 			mouseEnter 
 			{ 
-				show			highlight13
+				show			highlight11
 			}
 			mouseExit 
 			{ 
-				hide			highlight13
+				hide			highlight11
 			}	  	  
 
+		}
+
+//----------------------------------------------------------------------------------------------
+//
+//	MODEL OPTIONS
+//
+//----------------------------------------------------------------------------------------------
+		itemDef 
+		{	
+			name				defaultmalemodel
+			group				modeloptions
+	  			type				ITEM_TYPE_EDITFIELD
+			text				"Default Male Model:"
+			cvar				"cg_defaultModel"
+			rect				260 188 340 14
+				textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font 				4
+			textscale 			1
+			forecolor			0.65 0.65 1 1
+			visible				0
+			descText			"Lets you specify the default male playermodel."
+			action
+			{
+				play			"sound/interface/button1.wav" ; 
+			}
+			mouseenter 
+			{ 
+				show			highlight1
+			}
+			mouseexit 
+			{ 
+				hide			highlight1
+			} 
+		}
+
+		itemDef 
+		{	
+			name				defaultfemalemodel
+			group				modeloptions
+	  			type				ITEM_TYPE_EDITFIELD
+			text				"Default Female Model:"
+			cvar				"cg_defaultFemaleModel"
+			rect				260 202 340 14
+				textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font 				4
+			textscale 			1
+			forecolor			0.65 0.65 1 1
+			visible				0
+			descText			"Lets you specify the default female playermodel."
+			action
+			{
+				play			"sound/interface/button1.wav" ; 
+			}
+			mouseenter 
+			{ 
+				show			highlight2
+			}
+			mouseexit 
+			{ 
+				hide			highlight2
+			} 
+		}
+
+		itemDef 
+		{	
+			name				defermodels
+			group				modeloptions
+	  			type				ITEM_TYPE_MULTI
+			text				@MENUS_DEFER_PLAYER_MODELS
+			cvar				"cg_deferPlayers"
+			cvarFloatList			{  @MENUS_OFF 0 @MENUS_ON 1 }
+			rect				260 216 340 14
+				textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font 				4
+			textscale 			1
+			forecolor			0.65 0.65 1 1
+			visible				0
+			descText			@MENUS_DEFERS_LOADING_OF_NEW
+			action
+			{
+				play			"sound/interface/button1.wav" ; 
+			}
+			mouseenter 
+			{ 
+				show			highlight3
+			}
+			mouseexit 
+			{ 
+				hide			highlight3
+			} 
+		}
+
+		itemDef 
+		{	
+			name				forcemodels
+			group				modeloptions
+	  			type				ITEM_TYPE_MULTI
+			text				@MENUS_FORCE_PLAYER_MODELS
+			cvar				"cg_forceModel"
+			cvarFloatList			{  @MENUS_OFF 0 @MENUS_ON 1 }
+			rect				260 230 340 14
+				textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font 				4
+			textscale 			1
+			forecolor			0.65 0.65 1 1
+			visible				0
+			descText			@MENUS_FORCE_ALL_PLAYER_MODELS
+			action
+			{
+				play			"sound/interface/button1.wav" ; 
+			}
+			mouseenter 
+			{ 
+				show			highlight4
+			}
+			mouseexit 
+			{ 
+				hide			highlight4
+			} 
+		}
+
+		itemDef 
+		{	
+			name				forceallymodel
+			group				modeloptions
+	  			type				ITEM_TYPE_EDITFIELD
+			text				"Force Ally Model:"
+			cvar				"cg_forceAllyModel"
+			rect				260 244 340 14
+				textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font 				4
+			textscale 			1
+			forecolor			0.65 0.65 1 1
+			visible				0
+			descText			"Lets you force playermodel for allies."
+			action
+			{
+				play			"sound/interface/button1.wav" ; 
+			}
+			mouseenter 
+			{ 
+				show			highlight5
+			}
+			mouseexit 
+			{ 
+				hide			highlight5
+			} 
+		}
+
+		itemDef 
+		{	
+			name				forceenemymodel
+			group				modeloptions
+	  			type				ITEM_TYPE_EDITFIELD
+			text				"Force Enemy Model:"
+			cvar				"cg_forceEnemyModel"
+			rect				260 258 340 14
+				textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font 				4
+			textscale 			1
+			forecolor			0.65 0.65 1 1
+			visible				0
+			descText			"Lets you force playermodel for enemies."
+			action
+			{
+				play			"sound/interface/button1.wav" ; 
+			}
+			mouseenter 
+			{ 
+				show			highlight6
+			}
+			mouseexit 
+			{ 
+				hide			highlight6
+			} 
 		}
 
 //----------------------------------------------------------------------------------------------

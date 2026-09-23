@@ -23,6 +23,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "g_local.h"
+#include "g_dialogue.h"
 #include "bg_saga.h"
 
 #include "ui/menudef.h"			// for the voice chats
@@ -8835,6 +8836,20 @@ void Cmd_AdminTeam_f( gentity_t *ent );
 void Cmd_ListMasters_f(gentity_t *ent);
 void Cmd_AddMaster_f(gentity_t *ent);
 
+static void Cmd_PickupReady_f(gentity_t *ent) {
+	char version[16];
+	char userinfo[MAX_INFO_STRING];
+	trap->Argv(1, version, sizeof(version));
+	trap->GetUserinfo(ent->s.number, userinfo, sizeof(userinfo));
+	ent->client->pers.pickupConfirmed = qfalse;
+	if (g_pickupConfirm.integer == 3 && trap->Argc() == 2 && !strcmp(version, "3") &&
+		!strcmp(Info_ValueForKey(userinfo, "cg_pickupReady"), "3") &&
+		!strcmp(Info_ValueForKey(userinfo, "cg_pickupConfirm"), "1")) {
+		ent->client->pers.pickupConfirmed = qtrue;
+		trap->SendServerCommand(ent->s.number, "jof_pickupReady 3");
+	}
+}
+
 /* This array MUST be sorted correctly by alphabetical name field */
 command_t commands[] = {
 	{ "addbot",				Cmd_AddBot_f,				0 },
@@ -8924,6 +8939,8 @@ command_t commands[] = {
 	{ "debugBMove_Left",	Cmd_BotMoveLeft_f,			CMD_CHEAT|CMD_ALIVE },
 	{ "debugBMove_Right",	Cmd_BotMoveRight_f,			CMD_CHEAT|CMD_ALIVE },
 	{ "debugBMove_Up",		Cmd_BotMoveUp_f,			CMD_CHEAT|CMD_ALIVE },
+	{ "dialogueresponse",	Cmd_DialogueResponse_f,		0 },
+	{ "dialoguetest",		Cmd_DialogueTest_f,			CMD_CHEAT|CMD_ALIVE|CMD_NOINTERMISSION },
 
 	//{ "debugsetbodyanim",	Cmd_DebugSetBodyAnim_f,		CMD_CHEAT|CMD_ALIVE },
 	//{ "debugSetSaberMove",	Cmd_DebugSetSaberMove_f,	CMD_ALIVE },
@@ -8957,6 +8974,7 @@ command_t commands[] = {
 	{ "hide",				Cmd_Hide_f,					CMD_NOINTERMISSION|CMD_ALIVE},
 	{ "ignore",				Cmd_Ignore_f,				0 },//[JAPRO - Serverside - All - Ignore]
 	{ "jetpack",			Cmd_Jetpack_f,				CMD_NOINTERMISSION|CMD_ALIVE },
+	{ "jof_pickupReady", Cmd_PickupReady_f, 0 },
 
 	{ "jump",				Cmd_JumpChange_f,			CMD_NOINTERMISSION|CMD_ALIVE}, //cmd_alive not needed but i think it resets on joingame cuz forcepoints?
 

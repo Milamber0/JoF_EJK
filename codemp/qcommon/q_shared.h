@@ -424,6 +424,17 @@ typedef enum
 #define DASH_KNOWN_BIT		(NUM_FORCE_POWERS + 2)	// spare forcePowersKnown bit (20) the server sets while dash is granted
 #define DASH_WHEEL_SLOT		(NUM_FORCE_POWERS + 2)	// client-only pseudo-slot (20) for the force wheel; display only, never networked
 
+// Client movement prediction: the server is not clipping us against other players.
+// Not just /amghost - the server derives this bit from its own clipmask every ClientThink, so it
+// covers every reason it makes us non-solid (the ghost, the unghost overlap grace, the walk-apart
+// after a duel) and anything added later comes out predicted correctly without a client change.
+// Drop the same contents from the pmove tracemask and the client stops fighting the corrections.
+// It is not a power and nothing draws it - the force wheel only reads bits 0-17. The top of
+// forcePowersKnown is reserved for client-side flags like this one; powers the server grants keep
+// allocating upward from the pseudo-slots above.
+#define GHOST_KNOWN_BIT		31						// spare forcePowersKnown bit the server sets while it is walking us through players
+#define GHOST_KNOWN_FLAG	(1u << GHOST_KNOWN_BIT)	// bit 31 is the sign bit, so keep the shift unsigned
+
 typedef enum forcePowerLevels_e {
 	FORCE_LEVEL_0,
 	FORCE_LEVEL_1,
@@ -795,6 +806,8 @@ typedef struct cvar_s {
 	struct cvar_s	*next, *prev;
 	struct cvar_s	*hashNext, *hashPrev;
 	int				hashIndex;
+	qboolean		rendererOwned;		// registered through the renderer import table
+	qboolean		rendererActive;		// available through the currently loaded renderer
 } cvar_t;
 
 #define	MAX_CVAR_VALUE_STRING	256

@@ -511,7 +511,7 @@ static void AnimateRiders( Vehicle_t *pVeh )
 	else
 	{
 		qboolean		HasWeapon	= ((pilotPS->weapon != WP_NONE) && (pilotPS->weapon != WP_MELEE));
-		qboolean		Attacking	= (HasWeapon && !!(pVeh->m_ucmd.buttons&BUTTON_ATTACK));
+		qboolean		Attacking	= (HasWeapon && !!(pVeh->m_ucmd.buttons&(BUTTON_ATTACK|BUTTON_ALT_ATTACK)));
 		qboolean		Right		= (pVeh->m_ucmd.rightmove>0);
 		qboolean		Left		= (pVeh->m_ucmd.rightmove<0);
 		qboolean		Turbo		= (fSpeedPercToMax>0.0f && level.time<pVeh->m_iTurboTime);
@@ -537,7 +537,7 @@ static void AnimateRiders( Vehicle_t *pVeh )
 
 		// Compute The Weapon Pose
 		//--------------------------
-		if (pilotPS->weapon==WP_BLASTER)
+		if (BG_WeaponIsVehicleGun(pilotPS->weapon))
 		{
 			WeaponPose = WPOSE_BLASTER;
 		}
