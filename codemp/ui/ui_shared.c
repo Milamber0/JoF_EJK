@@ -8505,6 +8505,7 @@ qboolean ItemParse_cvarStrList( itemDef_t *item, int handle ) {
 		{
 #ifdef UI_BUILD
 			int languageIndex;
+			int existingIndex;
 			char language[128];
 
 			// English is the default language and must always be selectable.
@@ -8514,7 +8515,17 @@ qboolean ItemParse_cvarStrList( itemDef_t *item, int handle ) {
 			for (languageIndex = 0; languageIndex < uiInfo.languageCount && multiPtr->count < MAX_MULTI_CVARS; languageIndex++)
 			{
 				trap->SE_GetLanguageName(languageIndex, language);
-				if (!language[0] || !Q_stricmp(language, "english"))
+				if (!language[0])
+					continue;
+
+				// Selection matches cvars without regard to case. Duplicate values
+				// would send cycling back to the first match before it wraps to English.
+				for (existingIndex = 0; existingIndex < multiPtr->count; existingIndex++)
+				{
+					if (!Q_stricmp(language, multiPtr->cvarStr[existingIndex]))
+						break;
+				}
+				if (existingIndex < multiPtr->count)
 					continue;
 
 				multiPtr->cvarList[multiPtr->count] = String_Alloc(UI_LanguageDisplayName(language));
