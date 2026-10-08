@@ -762,9 +762,10 @@ static void CG_ItemPickup( int itemNum ) {
 //
 // Lines fall into two classes:
 //   VOICE_LINE_TAUNT    every taunt family line shares one timer, so cycling between taunt,
-//                       bow, flourish and gloat does not get around the limit
-//   the rest            one timer per line, so a gasp spammed at a water surface does not
-//                       also silence that player's jump or roll grunts
+//                       bow, flourish and gloat does not get around the limit; it holds for
+//                       as long as the line that got through takes to play
+//   the rest            one fixed timer per line, so a gasp spammed at a water surface does
+//                       not also silence that player's jump or roll grunts
 //
 // Only the audio is suppressed; the animation still plays.
 typedef enum {
@@ -776,23 +777,47 @@ typedef enum {
 	NUM_VOICE_LINES
 } voiceLine_t;
 
-// The taunt limit is a deliberate one, long enough that a taunt bind is not worth holding.
+// A taunt holds the next one back until it has finished playing, so a long line is never cut
+// off and a short one never makes the player wait - the taunt entry here is only the fallback
+// for when the length can't be read (an engine without cl_soundLength, or no sound system).
 // The rest are roughly the length of the stock line, so a line never layers over itself
 // while ordinary play - a bunny hop, a hard landing - still gets its grunt.
 static const int cg_voiceLineDebounce[NUM_VOICE_LINES] = {
-	2500,	// VOICE_LINE_TAUNT
+	2500,	// VOICE_LINE_TAUNT (fallback)
 	2000,	// VOICE_LINE_GASP
 	1000,	// VOICE_LINE_JUMP
 	1000,	// VOICE_LINE_ROLL
 	1000	// VOICE_LINE_LAND
 };
 
-static int cg_voiceLineDebounceTime[MAX_CLIENTS][NUM_VOICE_LINES];
+typedef struct {
+	int		startTime;	// when the last line got through
+	int		holdTime;	// how long that line holds the next one back
+} voiceLineTimer_t;
 
-// Returns qtrue (suppress the voice line) if this player played this line too recently.
-// Updates the debounce timer when the line is allowed through.
-static qboolean CG_VoiceLineThrottled( int clientNum, voiceLine_t line ) {
-	int last;
+static voiceLineTimer_t cg_voiceLineTimer[MAX_CLIENTS][NUM_VOICE_LINES];
+
+// Engines older than the sound length extension end the import table before
+// trap->ext.S_GetSampleLengthMs, so the cvar they never registered is the only safe way to tell.
+static int CG_SoundLengthMs( sfxHandle_t sfx ) {
+	char value[8];
+
+	if ( sfx <= 0 )
+		return 0;
+
+	trap->Cvar_VariableStringBuffer( "cl_soundLength", value, sizeof( value ) );
+	if ( atoi( value ) <= 0 || !trap->ext.S_GetSampleLengthMs )
+		return 0;
+
+	return trap->ext.S_GetSampleLengthMs( sfx );
+}
+
+// Returns qtrue (suppress the voice line) if this player's last line of this class is still
+// holding.  When the line is allowed through it starts a new hold: for the taunt family that is
+// the length of sfx, the sample about to play; the other lines ignore sfx and use their debounce.
+static qboolean CG_VoiceLineThrottled( int clientNum, voiceLine_t line, sfxHandle_t sfx ) {
+	voiceLineTimer_t *timer;
+	int length;
 
 	if ( !cg_tauntAntiSpam.integer )
 		return qfalse;
@@ -800,11 +825,17 @@ static qboolean CG_VoiceLineThrottled( int clientNum, voiceLine_t line ) {
 	if ( clientNum < 0 || clientNum >= MAX_CLIENTS )
 		return qfalse; // NPCs and world entities have their own cooldowns
 
-	last = cg_voiceLineDebounceTime[clientNum][line];
-	if ( last && cg.time >= last && cg.time - last < cg_voiceLineDebounce[line] )
+	timer = &cg_voiceLineTimer[clientNum][line];
+	if ( timer->startTime && cg.time >= timer->startTime && cg.time - timer->startTime < timer->holdTime )
 		return qtrue; // suppress
 
-	cg_voiceLineDebounceTime[clientNum][line] = cg.time;
+	timer->startTime = cg.time;
+	timer->holdTime = cg_voiceLineDebounce[line];
+	if ( line == VOICE_LINE_TAUNT ) {
+		length = CG_SoundLengthMs( sfx );
+		if ( length > 0 )
+			timer->holdTime = length;
+	}
 	return qfalse;
 }
 
@@ -1157,7 +1188,7 @@ void DoFall(centity_t *cent, entityState_t *es, int clientNum)
 	else if (delta > 50)
 	{
 		trap->S_StartSound (NULL, es->number, CHAN_AUTO, cgs.media.fallSound );
-		if ( !CG_VoiceLineThrottled( cent->currentState.number, VOICE_LINE_LAND ) )
+		if ( !CG_VoiceLineThrottled( cent->currentState.number, VOICE_LINE_LAND, 0 ) )
 			trap->S_StartSound( NULL, cent->currentState.number, CHAN_VOICE,
 				CG_CustomSound( cent->currentState.number, "*land1.wav" ) );
 		cent->pe.painTime = cg.time;	// don't play a pain sound right after this
@@ -1165,7 +1196,7 @@ void DoFall(centity_t *cent, entityState_t *es, int clientNum)
 	else if (delta > 44)
 	{
 		trap->S_StartSound (NULL, es->number, CHAN_AUTO, cgs.media.fallSound );
-		if ( !CG_VoiceLineThrottled( cent->currentState.number, VOICE_LINE_LAND ) )
+		if ( !CG_VoiceLineThrottled( cent->currentState.number, VOICE_LINE_LAND, 0 ) )
 			trap->S_StartSound( NULL, cent->currentState.number, CHAN_VOICE,
 				CG_CustomSound( cent->currentState.number, "*land1.wav" ) );
 		cent->pe.painTime = cg.time;	// don't play a pain sound right after this
@@ -2066,7 +2097,7 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 		if ((cg.time - cent->pe.painTime) < 500) //don't play immediately after pain/fall sound?
 			break;
 
-		if (CG_VoiceLineThrottled(es->number, VOICE_LINE_JUMP))
+		if (CG_VoiceLineThrottled(es->number, VOICE_LINE_JUMP, 0))
 			break;
 
 		//JAPRO - Clientside - Add jumpsounds options - Start
@@ -2117,7 +2148,7 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 		if (es->eventParm) //fall-roll-in-one event
 			DoFall(cent, es, clientNum);
 
-		if (cg_rollSounds.integer && !CG_VoiceLineThrottled(es->number, VOICE_LINE_ROLL))
+		if (cg_rollSounds.integer && !CG_VoiceLineThrottled(es->number, VOICE_LINE_ROLL, 0))
 		{
 			switch (cg_rollSounds.integer)
 			{
@@ -2228,7 +2259,7 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 			{
 				soundIndex = CG_CustomSound( es->number, "*taunt.wav" );
 			}
-			if ( soundIndex && !CG_VoiceLineThrottled( es->number, VOICE_LINE_TAUNT ) )
+			if ( soundIndex && !CG_VoiceLineThrottled( es->number, VOICE_LINE_TAUNT, soundIndex ) )
 			{
 				trap->S_StartSound (NULL, es->number, CHAN_VOICE, soundIndex );
 			}
@@ -2368,8 +2399,12 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 	case EV_TAUNT2:
 	case EV_TAUNT3:
 		DEBUGNAME("EV_TAUNTx");
-		if ( !CG_VoiceLineThrottled( es->number, VOICE_LINE_TAUNT ) )
-			CG_TryPlayCustomSound( NULL, es->number, CHAN_VOICE, va("*taunt%i.wav", event - EV_TAUNT1 + 1) );
+		{
+			sfxHandle_t sfx = CG_CustomSound( es->number, va("*taunt%i.wav", event - EV_TAUNT1 + 1) );
+
+			if ( sfx > 0 && !CG_VoiceLineThrottled( es->number, VOICE_LINE_TAUNT, sfx ) )
+				trap->S_StartSound( NULL, es->number, CHAN_VOICE, sfx );
+		}
 		break;
 	case EV_JCHASE1:
 	case EV_JCHASE2:
@@ -2424,7 +2459,7 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 		break;
 	case EV_WATER_CLEAR:
 		DEBUGNAME("EV_WATER_CLEAR");
-		if ( !CG_VoiceLineThrottled( es->number, VOICE_LINE_GASP ) )
+		if ( !CG_VoiceLineThrottled( es->number, VOICE_LINE_GASP, 0 ) )
 			trap->S_StartSound (NULL, es->number, CHAN_AUTO, CG_CustomSound( es->number, "*gasp.wav" ) );
 		break;
 
@@ -4021,10 +4056,13 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 						break;
 					trap->S_StartSound (NULL, es->number, es->saberEntityNum, sound );
 				} else {
+					sfxHandle_t sfx;
+
 					s = CG_ConfigString( CS_SOUNDS + es->eventParm );
-					if ( CG_ClassifyVoiceLine( s, &voiceLine ) && CG_VoiceLineThrottled( es->number, voiceLine ) )
+					sfx = CG_CustomSound( es->number, s );
+					if ( CG_ClassifyVoiceLine( s, &voiceLine ) && CG_VoiceLineThrottled( es->number, voiceLine, sfx ) )
 						break;
-					trap->S_StartSound (NULL, es->number, es->saberEntityNum, CG_CustomSound( es->number, s ) );
+					trap->S_StartSound (NULL, es->number, es->saberEntityNum, sfx );
 				}
 			}
 
@@ -4121,10 +4159,13 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 			trap->S_StartSound (NULL, es->clientNum, es->trickedentindex,
 				CG_ForceOwnSaberSound(es, es->clientNum, cgs.gameSounds[ es->eventParm ]) );
 		} else {
+			sfxHandle_t sfx;
+
 			s = CG_ConfigString( CS_SOUNDS + es->eventParm );
-			if ( CG_ClassifyVoiceLine( s, &voiceLine ) && CG_VoiceLineThrottled( es->clientNum, voiceLine ) )
+			sfx = CG_CustomSound( es->clientNum, s );
+			if ( CG_ClassifyVoiceLine( s, &voiceLine ) && CG_VoiceLineThrottled( es->clientNum, voiceLine, sfx ) )
 				break;
-			trap->S_StartSound (NULL, es->clientNum, es->trickedentindex, CG_CustomSound( es->clientNum, s ) );
+			trap->S_StartSound (NULL, es->clientNum, es->trickedentindex, sfx );
 		}
 		break;
 

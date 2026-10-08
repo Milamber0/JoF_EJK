@@ -722,6 +722,8 @@ typedef struct cgameImport_s {
 	void			(*GetRadialMenuState)					( qboolean *active, float *x, float *y );
 	struct {
 		float		(*R_Font_StrLenPixels)					( const char *text, const int iFontIndex, const float scale );
+		// Only valid when the "cl_soundLength" cvar is non-zero: older engines end the table before this.
+		int			(*S_GetSampleLengthMs)					( sfxHandle_t sfx );
 	} ext;
 	int				(*GetRadialMenuPage)					( void );
 
