@@ -9687,7 +9687,7 @@ void CG_DrawEnhancedFlagStatus(void)
 	int secs, mins;
 	int armor;
 	vec4_t hcolor;
-	int startDrawPos = 365;
+	int startDrawPos = 140;
 	int ico_size = 32;
 
 	if (!cg.snap)
