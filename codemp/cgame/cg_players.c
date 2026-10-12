@@ -10631,7 +10631,8 @@ static QINLINE void CG_VehicleEffects(centity_t *cent)
 	if ( !cent->currentState.speed//was stopped
 		&& cent->nextState.speed > 0//now moving forward
 		&& cent->m_pVehicle->m_pVehicleInfo->soundEngineStart
-		&& lastEngineStartSound[cent->currentState.clientNum]+ENGINESTARTSOUNDTIME < cg.time )//not spammed by tapping forward
+		&& ( lastEngineStartSound[cent->currentState.clientNum]+ENGINESTARTSOUNDTIME < cg.time
+			|| lastEngineStartSound[cent->currentState.clientNum] > cg.time ) )//not spammed by tapping forward; stamp from a previous map/server (cg.time restarted) is stale
 	{//engines rev up for the first time
 		trap->S_StartSound(NULL, cent->currentState.clientNum, CHAN_LESS_ATTEN, cent->m_pVehicle->m_pVehicleInfo->soundEngineStart );
 		lastEngineStartSound[cent->currentState.clientNum] = cg.time;
