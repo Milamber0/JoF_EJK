@@ -502,8 +502,10 @@ void ItemUse_Binoculars(gentity_t *ent)
 		return;
 	}
 
-	if (ent->client->ps.weaponstate != WEAPON_READY)
-	{ //So we can't fool it and reactivate while switching to the saber or something.
+	if (ent->client->ps.weaponTime > 0 ||
+		ent->client->ps.weaponstate == WEAPON_CHARGING ||
+		ent->client->ps.weaponstate == WEAPON_CHARGING_ALT)
+	{ //Block genuine weapon activity without getting stuck on a stale state after an emote or knockdown.
 		return;
 	}
 

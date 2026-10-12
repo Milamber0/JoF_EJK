@@ -2886,6 +2886,12 @@ qboolean PM_SaberMoveOkayForKata( void )
 
 qboolean PM_CanDoKata( void )
 {
+	if ( BG_InGrappleMove( pm->ps->legsAnim )
+		|| BG_InGrappleMove( pm->ps->torsoAnim ) )
+	{
+		return qfalse;
+	}
+
 	if ( PM_InSecondaryStyle() )
 	{
 		return qfalse;
@@ -3121,8 +3127,9 @@ void PM_WeaponLightsaber(void)
 		pm->ps->weaponTime = 0;
 	}
 
-	if ( BG_SuperBreakLoseAnim( pm->ps->torsoAnim )
-		|| BG_SuperBreakWinAnim( pm->ps->torsoAnim ) )
+	if ( (BG_SuperBreakLoseAnim( pm->ps->torsoAnim )
+		|| BG_SuperBreakWinAnim( pm->ps->torsoAnim )) &&
+		!BG_LightningDeflectBreakPose( pm->ps, pm->cmd.serverTime ) )
 	{
 		if ( pm->ps->torsoTimer > 0 )
 		{//never interrupt these
@@ -3167,6 +3174,11 @@ void PM_WeaponLightsaber(void)
 		if ( pm->ps->weaponTime > 0 )
 		{
 			pm->ps->weaponTime -= pml.msec;
+		}
+		if ( pm->ps->weaponTime <= 0 )
+		{
+			pm->ps->weaponTime = 0;
+			pm->ps->weaponstate = WEAPON_READY;
 		}
 
 		checkOnlyWeap = qtrue;

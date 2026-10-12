@@ -79,6 +79,7 @@ XCVAR_DEF( cg_chatBoxX,				"30",	NULL,					CVAR_ARCHIVE )
 XCVAR_DEF( cg_chatBoxCutOffLength,	"350",	NULL,					CVAR_ARCHIVE )
 XCVAR_DEF( cg_chatBoxEmojis,		"0",	NULL,					CVAR_ARCHIVE_ND )
 XCVAR_DEF( cg_chatBoxShowCutoff,	"0",	NULL,					CVAR_ARCHIVE_ND )
+XCVAR_DEF( cg_chatBoxShowCutoffColor,"7",	NULL,				CVAR_ARCHIVE_ND ) //color index 0-9, default 7 = white
 XCVAR_DEF( cg_hudColors,			"0",	NULL,					CVAR_ARCHIVE )
 XCVAR_DEF( cg_tintHud,				"1",	NULL,					CVAR_ARCHIVE )
 XCVAR_DEF( cg_drawScore,			"2",	NULL,					CVAR_ARCHIVE ) //score counter on HUD
@@ -114,7 +115,7 @@ XCVAR_DEF( cg_raceSounds,						"1",	NULL,								CVAR_ARCHIVE ) //Bitvalue, but 
 XCVAR_DEF( cg_tauntAntiSpam,					"1",	NULL,								CVAR_ARCHIVE ) //Throttle repeated model voice lines per player
 XCVAR_DEF( cg_duelSounds,						"1",	NULL,								CVAR_ARCHIVE )
 XCVAR_DEF( cg_duelMusic,						"1",	NULL,								CVAR_ARCHIVE )
-XCVAR_DEF( cg_saberHum,							"0",	NULL,								CVAR_ARCHIVE )
+XCVAR_DEF( cg_saberHum,							"0",	NULL,								CVAR_ARCHIVE ) // 0 per-player, 1-5 fixed, 6 hilt; non-stock hilt loops always win
 
 //Visuals
 XCVAR_DEF( cg_remaps,							"2",	NULL,								CVAR_ARCHIVE|CVAR_LATCH )
@@ -225,6 +226,7 @@ XCVAR_DEF( binoScan, "1", NULL, CVAR_USERINFO|CVAR_ROM )
 XCVAR_DEF( binoNames, "1", NULL, CVAR_USERINFO|CVAR_ROM )
 XCVAR_DEF( cg_binocularScanScale, "100", NULL, CVAR_ARCHIVE ) // percentage, 25-200
 XCVAR_DEF( cg_binocularScanStyle, "0", NULL, CVAR_ARCHIVE ) // 0: detailed, 1: compact HUD digits
+XCVAR_DEF( cg_drawMissionParty, "1", NULL, CVAR_ARCHIVE )
 XCVAR_DEF( cp_clanPwd,							"none",	NULL,					CVAR_USERINFO )
 XCVAR_DEF( cp_sbRGB1,							"0",	NULL,					CVAR_ARCHIVE | CVAR_USERINFO )
 XCVAR_DEF( cp_sbRGB2,							"0",	NULL,					CVAR_ARCHIVE | CVAR_USERINFO )
@@ -251,6 +253,10 @@ XCVAR_DEF( cg_strafeTrailFPS,					"40",	NULL,					0 )
 XCVAR_DEF( cg_strafeTrailGhost,					"1",	NULL,					CVAR_ARCHIVE )
 
 XCVAR_DEF( cg_drainFX,							"1",	NULL,					CVAR_ARCHIVE )
+
+XCVAR_DEF( cg_lightningEnvironment,				"2",	NULL,					CVAR_ARCHIVE ) // 0: vanilla, 1: environmental nests, 2: reference lightning arcs
+XCVAR_DEF( cg_lightningEnvironmentAngle,		"220", NULL,					CVAR_ARCHIVE ) // Mode 2 total forward arc in degrees, clamped 0-360; 360 restores unrestricted directions
+
 //Make maxpackets userinfo maybe idk
 
 #if 1
@@ -358,6 +364,7 @@ XCVAR_DEF( cg_runRoll,							"0",					NULL,					CVAR_ARCHIVE )
 XCVAR_DEF( cg_radialDeadzone,					"48",					NULL,					CVAR_ARCHIVE )
 XCVAR_DEF( cg_radialRadius,						"140",					NULL,					CVAR_ARCHIVE )
 XCVAR_DEF( cg_radialOffset,						"0 0",					NULL,					CVAR_ARCHIVE )
+// Eight binds per page: 1-8 are page one, 9-16 page two, through 33-40 on page five.
 XCVAR_DEF( cg_radialBind1,						"amHug",				NULL,					CVAR_ARCHIVE )
 XCVAR_DEF( cg_radialBind2,						"amComeOn",				NULL,					CVAR_ARCHIVE )
 XCVAR_DEF( cg_radialBind3,						"amFlip",				NULL,					CVAR_ARCHIVE )
@@ -366,6 +373,38 @@ XCVAR_DEF( cg_radialBind5,						"amSit4",				NULL,					CVAR_ARCHIVE )
 XCVAR_DEF( cg_radialBind6,						"amVictory",			NULL,					CVAR_ARCHIVE )
 XCVAR_DEF( cg_radialBind7,						"amWon",				NULL,					CVAR_ARCHIVE )
 XCVAR_DEF( cg_radialBind8,						"Bow",					NULL,					CVAR_ARCHIVE )
+XCVAR_DEF( cg_radialBind9,						"",					NULL,					CVAR_ARCHIVE )
+XCVAR_DEF( cg_radialBind10,						"",					NULL,					CVAR_ARCHIVE )
+XCVAR_DEF( cg_radialBind11,						"",					NULL,					CVAR_ARCHIVE )
+XCVAR_DEF( cg_radialBind12,						"",					NULL,					CVAR_ARCHIVE )
+XCVAR_DEF( cg_radialBind13,						"",					NULL,					CVAR_ARCHIVE )
+XCVAR_DEF( cg_radialBind14,						"",					NULL,					CVAR_ARCHIVE )
+XCVAR_DEF( cg_radialBind15,						"",					NULL,					CVAR_ARCHIVE )
+XCVAR_DEF( cg_radialBind16,						"",					NULL,					CVAR_ARCHIVE )
+XCVAR_DEF( cg_radialBind17,						"",					NULL,					CVAR_ARCHIVE )
+XCVAR_DEF( cg_radialBind18,						"",					NULL,					CVAR_ARCHIVE )
+XCVAR_DEF( cg_radialBind19,						"",					NULL,					CVAR_ARCHIVE )
+XCVAR_DEF( cg_radialBind20,						"",					NULL,					CVAR_ARCHIVE )
+XCVAR_DEF( cg_radialBind21,						"",					NULL,					CVAR_ARCHIVE )
+XCVAR_DEF( cg_radialBind22,						"",					NULL,					CVAR_ARCHIVE )
+XCVAR_DEF( cg_radialBind23,						"",					NULL,					CVAR_ARCHIVE )
+XCVAR_DEF( cg_radialBind24,						"",					NULL,					CVAR_ARCHIVE )
+XCVAR_DEF( cg_radialBind25,						"",					NULL,					CVAR_ARCHIVE )
+XCVAR_DEF( cg_radialBind26,						"",					NULL,					CVAR_ARCHIVE )
+XCVAR_DEF( cg_radialBind27,						"",					NULL,					CVAR_ARCHIVE )
+XCVAR_DEF( cg_radialBind28,						"",					NULL,					CVAR_ARCHIVE )
+XCVAR_DEF( cg_radialBind29,						"",					NULL,					CVAR_ARCHIVE )
+XCVAR_DEF( cg_radialBind30,						"",					NULL,					CVAR_ARCHIVE )
+XCVAR_DEF( cg_radialBind31,						"",					NULL,					CVAR_ARCHIVE )
+XCVAR_DEF( cg_radialBind32,						"",					NULL,					CVAR_ARCHIVE )
+XCVAR_DEF( cg_radialBind33,						"",					NULL,					CVAR_ARCHIVE )
+XCVAR_DEF( cg_radialBind34,						"",					NULL,					CVAR_ARCHIVE )
+XCVAR_DEF( cg_radialBind35,						"",					NULL,					CVAR_ARCHIVE )
+XCVAR_DEF( cg_radialBind36,						"",					NULL,					CVAR_ARCHIVE )
+XCVAR_DEF( cg_radialBind37,						"",					NULL,					CVAR_ARCHIVE )
+XCVAR_DEF( cg_radialBind38,						"",					NULL,					CVAR_ARCHIVE )
+XCVAR_DEF( cg_radialBind39,						"",					NULL,					CVAR_ARCHIVE )
+XCVAR_DEF( cg_radialBind40,						"",					NULL,					CVAR_ARCHIVE )
 //allows us to trace between server frames on the client to see if we're visually
 //hitting the last entity we detected a hit on from the server.
 XCVAR_DEF( cg_saberClientVisualCompensation,	"1",					NULL,					CVAR_NONE )
@@ -390,6 +429,7 @@ XCVAR_DEF( cg_simpleItems,						"0",					NULL,					CVAR_ARCHIVE )
 XCVAR_DEF( cg_showMiss,							"0",					NULL,					CVAR_NONE )
 XCVAR_DEF( cg_showVehBounds,					"0",					NULL,					CVAR_NONE )
 XCVAR_DEF( cg_showVehMiss,						"0",					NULL,					CVAR_NONE )
+XCVAR_DEF( cg_smoothClients,					"0",					NULL,					CVAR_ARCHIVE )
 //XCVAR_DEF( cg_snapshotTimeout,					"10",					NULL,					CVAR_ARCHIVE ) //unused
 XCVAR_DEF( cg_speedTrail,						"1",					NULL,					CVAR_ARCHIVE )
 XCVAR_DEF( cg_stats,							"0",					NULL,					CVAR_NONE )

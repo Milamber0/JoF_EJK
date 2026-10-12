@@ -1772,6 +1772,143 @@ void ForceLightning( gentity_t *self )
 	WP_ForcePowerStart( self, FP_LIGHTNING, 500 );
 }
 
+#define LIGHTNING_DEFLECT_MIN_DOT 0.6427876f // +/- 50 degrees, including pitch.
+#define LIGHTNING_DEFLECT_HOLD_TIME 150
+// Prediction replays unacknowledged commands before drawing the local player.
+// Keep its ordinary torso timer alive through that replay; the server releases
+// it using the shorter hit timeout above, or as soon as input cancels the guard.
+#define LIGHTNING_DEFLECT_ANIM_TIME 1000
+
+static qboolean WP_CanDeflectLightning(const playerState_t *ps, const usercmd_t *cmd, int time)
+{
+	float walkSpeed = ps->basespeed > 0 ? ps->basespeed * 0.6f : ps->speed * 0.6f;
+	if (ps->stats[STAT_HEALTH] <= 0 || ps->pm_type != PM_NORMAL ||
+		ps->fd.forcePowerLevel[FP_SABER_DEFENSE] < FORCE_LEVEL_3 ||
+		ps->weapon != WP_SABER ||
+		ps->saberHolstered == 2 || ps->saberInFlight || !ps->saberEntityNum ||
+		// Combat owns wind-up, swings, returns, parries and special attacks.
+		(ps->saberMove != LS_NONE && ps->saberMove != LS_READY) ||
+		ps->weaponTime > 0 || ps->saberLockTime > time ||
+		ps->forceHandExtend != HANDEXTEND_NONE ||
+		// Hand state can clear while the down/get-up animation still owns the body.
+		BG_InKnockDown(ps->legsAnim) || BG_InKnockDown(ps->torsoAnim) ||
+		ps->groundEntityNum == ENTITYNUM_NONE || ps->m_iVehicleNum ||
+		ps->emplacedIndex || (ps->brokenLimbs & (1 << BROKENLIMB_RARM)) ||
+		BG_InRoll((playerState_t *)ps, ps->legsAnim) || BG_InSpecialJump(ps->legsAnim))
+		return qfalse;
+	if (cmd->upmove > 0 ||
+		abs(cmd->forwardmove) > 64 || abs(cmd->rightmove) > 64 ||
+		(cmd->buttons & (BUTTON_ATTACK | BUTTON_ALT_ATTACK | BUTTON_USE_HOLDABLE | BUTTON_GESTURE)) ||
+		((cmd->forwardmove || cmd->rightmove) && !(cmd->buttons & BUTTON_WALKING)))
+		return qfalse;
+	// Switching to walk must actually slow the player before the first hit.
+	return ps->velocity[0] * ps->velocity[0] + ps->velocity[1] * ps->velocity[1] <= walkSpeed * walkSpeed;
+}
+
+static qboolean WP_LightningDeflectDirection(const playerState_t *ps, const vec3_t source, int *anim)
+{
+	vec3_t incoming, forward;
+	VectorSubtract(source, ps->origin, incoming);
+	incoming[2] -= ps->viewheight;
+	if (VectorNormalize(incoming) < 1.0f)
+		return qfalse;
+	AngleVectors(ps->viewangles, forward, NULL, NULL);
+	if (DotProduct(incoming, forward) < LIGHTNING_DEFLECT_MIN_DOT)
+		return qfalse;
+	if (anim)
+	{
+		switch (ps->fd.saberAnimLevel)
+		{
+		case SS_FAST:
+		case SS_MEDIUM:
+			*anim = BOTH_LK_S_DL_T_SB_1_L;
+			break;
+		case SS_DUAL:
+			*anim = ps->saberHolstered == 1 ? BOTH_LK_S_DL_T_SB_1_L : BOTH_LK_DL_S_T_L_1;
+			break;
+		case SS_STAFF:
+			*anim = ps->saberHolstered == 1 ? BOTH_LK_S_DL_T_SB_1_L : BOTH_LK_ST_ST_T_L_1;
+			break;
+		default:
+			*anim = BOTH_BF1LOCK;
+			break;
+		}
+	}
+	return qtrue;
+}
+
+static void WP_EndLightningDeflect(gentity_t *self)
+{
+	gclient_t *client = self->client;
+	playerState_t *ps = &client->ps;
+	if (!client->lightningDeflectTime)
+		return;
+	// Release only the timer we own. Combat may already own the animation,
+	// and Force powers or knockdowns may already have replaced the pose.
+	if (ps->forceHandExtend == HANDEXTEND_NONE &&
+		(ps->saberMove == LS_NONE || ps->saberMove == LS_READY) &&
+		ps->torsoAnim == client->lightningDeflectAnim)
+		ps->torsoTimer = 0;
+	client->lightningDeflectTime = 0;
+	client->lightningDeflectAttacker = ENTITYNUM_NONE;
+	client->lightningDeflectAnim = 0;
+}
+
+static qboolean WP_TryLightningDeflect(gentity_t *attacker, gentity_t *defender)
+{
+	playerState_t *ps = &defender->client->ps;
+	vec3_t source;
+	int anim;
+	if (!WP_CanDeflectLightning(ps, &defender->client->pers.cmd, level.time))
+		return qfalse;
+	VectorCopy(attacker->client->ps.origin, source);
+	source[2] += attacker->client->ps.viewheight;
+	if (!WP_LightningDeflectDirection(ps, source, &anim))
+		return qfalse;
+	// A successful guard never leaves the normal full-body shock shell behind.
+	// This can still be active from an immediately preceding lightning tick.
+	ps->electrifyTime = 0;
+	G_SetAnim(defender, &defender->client->pers.cmd, SETANIM_TORSO, anim,
+		SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD, 100);
+	// Stock prediction preserves a held torso animation during idle/walk and
+	// overrides it for saber attacks. No hand extension blocks weapon input.
+	ps->torsoTimer = LIGHTNING_DEFLECT_ANIM_TIME;
+	defender->client->dangerTime = level.time;
+	defender->client->lightningDeflectAttacker = attacker->s.number;
+	defender->client->lightningDeflectTime = level.time + LIGHTNING_DEFLECT_HOLD_TIME;
+	defender->client->lightningDeflectAnim = anim;
+	return qtrue;
+}
+
+void WP_UpdateLightningDeflect(gentity_t *self, const usercmd_t *cmd)
+{
+	playerState_t *ps = &self->client->ps;
+	int sourceNum = self->client->lightningDeflectAttacker;
+	gentity_t *attacker;
+	vec3_t source;
+	if (!self->client->lightningDeflectTime)
+		return;
+	if (self->client->lightningDeflectTime <= level.time ||
+		!WP_CanDeflectLightning(ps, cmd, level.time) ||
+		ps->torsoAnim != self->client->lightningDeflectAnim ||
+		sourceNum < 0 || sourceNum >= ENTITYNUM_WORLD)
+	{
+		WP_EndLightningDeflect(self);
+		return;
+	}
+	attacker = &g_entities[sourceNum];
+	if (!attacker->inuse || !attacker->client || attacker->health <= 0 ||
+		!(attacker->client->ps.fd.forcePowersActive & (1 << FP_LIGHTNING)))
+	{
+		WP_EndLightningDeflect(self);
+		return;
+	}
+	VectorCopy(attacker->client->ps.origin, source);
+	source[2] += attacker->client->ps.viewheight;
+	if (!WP_LightningDeflectDirection(ps, source, NULL))
+		WP_EndLightningDeflect(self);
+}
+
 void ForceLightningDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec3_t impactPoint )
 {
 	self->client->dangerTime = level.time;
@@ -1800,6 +1937,9 @@ void ForceLightningDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec
 			}
 			if (ForcePowerUsableOn(self, traceEnt, FP_LIGHTNING))
 			{
+				if (WP_TryLightningDeflect(self, traceEnt))
+					return;
+				WP_EndLightningDeflect(traceEnt);
 //[JAPRO - Serverside - Saber - Tweak force lightning - Start]
 				int	dmg;
 				int modPowerLevel = -1;
@@ -5320,6 +5460,8 @@ void WP_ForcePowersUpdate( gentity_t *self, usercmd_t *ucmd )
 		return;
 	}
 
+	WP_UpdateLightningDeflect(self, ucmd);
+
 	if (self->client->ps.pm_flags & PMF_FOLLOW)
 	{ //not a "real" game client, it's a spectator following someone
 		return;
@@ -5382,6 +5524,29 @@ void WP_ForcePowersUpdate( gentity_t *self, usercmd_t *ucmd )
 	if (!g_LastFrameTime)
 	{
 		g_LastFrameTime = level.time;
+	}
+
+	if ( self->client->NPC_class == CLASS_MARTIALARTIST &&
+		self->client->ps.forceHandExtend == HANDEXTEND_KNOCKDOWN &&
+		!self->client->ps.forceDodgeAnim )
+	{
+		// Martial artists recover on the first update. A forward getup uses the
+		// existing attacking roll and kick trace; jump uses the normal force getup.
+		self->client->ps.forceHandExtendTime = level.time - 1;
+		self->client->ps.quickerGetup = qfalse;
+		ucmd->rightmove = 0;
+		if ( self->enemy && self->enemy->inuse && self->enemy->health > 0 &&
+			DistanceHorizontalSquared( self->client->ps.origin,
+				self->enemy->r.currentOrigin ) <= 16384 && !Q_irand( 0, 1 ) )
+		{
+			ucmd->forwardmove = 127;
+			ucmd->upmove = 0;
+		}
+		else
+		{
+			ucmd->forwardmove = 0;
+			ucmd->upmove = 127;
+		}
 	}
 
 	if (self->client->ps.forceHandExtend == HANDEXTEND_KNOCKDOWN)

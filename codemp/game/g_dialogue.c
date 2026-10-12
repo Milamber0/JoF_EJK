@@ -60,6 +60,7 @@ typedef struct {
 	char id[DLG_ID_SIZE];
 	char speaker[DLG_SPEAKER_SIZE];
 	char text[DLG_TEXT_SIZE];
+	char sound[MAX_QPATH];
 	char next[DLG_ID_SIZE];
 	qboolean end;
 	int numChoices;
@@ -176,6 +177,14 @@ static qboolean DLG_ParseNode( const char **cursor, dialogue_t *dialogue, const 
 			if ( !DLG_ReadToken( cursor, node->speaker, sizeof( node->speaker ) ) ) return qfalse;
 		} else if ( !Q_stricmp( token, "text" ) ) {
 			if ( !DLG_ReadToken( cursor, node->text, sizeof( node->text ) ) ) return qfalse;
+		} else if ( !Q_stricmp( token, "sound" ) ) {
+			if ( !DLG_ReadToken( cursor, value, sizeof( value ) ) ||
+				 !strcmp( value, "{" ) || !strcmp( value, "}" ) || strlen( value ) >= sizeof( node->sound ) ) {
+				trap->Print( "Dialogue %s: node '%s' requires a sound path shorter than %d characters\n",
+					fileName, node->id, MAX_QPATH );
+				return qfalse;
+			}
+			Q_strncpyz( node->sound, value, sizeof( node->sound ) );
 		} else if ( !Q_stricmp( token, "next" ) ) {
 			if ( !DLG_ReadToken( cursor, node->next, sizeof( node->next ) ) ) return qfalse;
 		} else if ( !Q_stricmp( token, "end" ) ) {
@@ -405,6 +414,7 @@ static void DLG_ShowNode( gentity_t *player, int nodeIndex ) {
 	unsigned int nodeSerial;
 	char speaker[DLG_SPEAKER_SIZE];
 	char text[DLG_TEXT_SIZE];
+	char sound[MAX_QPATH];
 	int i;
 
 	if ( !session->active || nodeIndex < 0 || nodeIndex >= session->dialogue->numNodes ) {
@@ -452,7 +462,12 @@ static void DLG_ShowNode( gentity_t *player, int nodeIndex ) {
 		session->visibleChoices[0] = -1;
 		trap->SendServerCommand( clientNum, va( "jof_dialogue choice %u 0 \"%s\"", session->serial, label ) );
 	}
-	trap->SendServerCommand( clientNum, va( "jof_dialogue show %u", session->serial ) );
+	if ( node->sound[0] ) {
+		DLG_EscapeCommandText( node->sound, sound, sizeof( sound ) );
+		trap->SendServerCommand( clientNum, va( "jof_dialogue show %u \"%s\"", session->serial, sound ) );
+	} else {
+		trap->SendServerCommand( clientNum, va( "jof_dialogue show %u", session->serial ) );
+	}
 }
 
 void G_DialogueInit( void ) {

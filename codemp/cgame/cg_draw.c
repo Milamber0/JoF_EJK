@@ -36,22 +36,22 @@ extern float CG_RadiusForCent( centity_t *cent );
 qboolean CG_WorldCoordToScreenCoord(vec3_t worldCoord, float *x, float *y);
 qboolean CG_CalcMuzzlePoint( int entityNum, vec3_t muzzle );
 
-static vmCvar_t *CG_RadialBindCvar( int index ) {
-	switch ( index ) {
-	case 0: return &cg_radialBind1;
-	case 1: return &cg_radialBind2;
-	case 2: return &cg_radialBind3;
-	case 3: return &cg_radialBind4;
-	case 4: return &cg_radialBind5;
-	case 5: return &cg_radialBind6;
-	case 6: return &cg_radialBind7;
-	case 7: return &cg_radialBind8;
-	default: return NULL;
-	}
-}
-
 #define RADIAL_MENU_BIND_COUNT 8
 #define RADIAL_MENU_ABORT_SLOT 8
+static vmCvar_t *CG_RadialBindCvar( int page, int index ) {
+	static vmCvar_t *const binds[RADIAL_MENU_PAGE_COUNT * RADIAL_MENU_BIND_COUNT] = {
+		&cg_radialBind1, &cg_radialBind2, &cg_radialBind3, &cg_radialBind4, &cg_radialBind5, &cg_radialBind6, &cg_radialBind7, &cg_radialBind8,
+		&cg_radialBind9, &cg_radialBind10, &cg_radialBind11, &cg_radialBind12, &cg_radialBind13, &cg_radialBind14, &cg_radialBind15, &cg_radialBind16,
+		&cg_radialBind17, &cg_radialBind18, &cg_radialBind19, &cg_radialBind20, &cg_radialBind21, &cg_radialBind22, &cg_radialBind23, &cg_radialBind24,
+		&cg_radialBind25, &cg_radialBind26, &cg_radialBind27, &cg_radialBind28, &cg_radialBind29, &cg_radialBind30, &cg_radialBind31, &cg_radialBind32,
+		&cg_radialBind33, &cg_radialBind34, &cg_radialBind35, &cg_radialBind36, &cg_radialBind37, &cg_radialBind38, &cg_radialBind39, &cg_radialBind40
+	};
+
+	if ( page < 0 || page >= RADIAL_MENU_PAGE_COUNT || index < 0 || index >= RADIAL_MENU_BIND_COUNT ) {
+		return NULL;
+	}
+	return binds[page * RADIAL_MENU_BIND_COUNT + index];
+}
 
 static qboolean CG_RadialMenuIsAbortSlot( int index ) {
 	return (qboolean)( index == RADIAL_MENU_ABORT_SLOT );
@@ -73,8 +73,8 @@ static float CG_RadialMenuEaseOut( float t ) {
 }
 
 
-static void CG_RadialMenuCopyLabel( int index, char *label, int labelSize ) {
-	vmCvar_t *bind = CG_RadialBindCvar( index );
+static void CG_RadialMenuCopyLabel( int page, int index, char *label, int labelSize ) {
+	vmCvar_t *bind = CG_RadialBindCvar( page, index );
 
 	if ( CG_RadialMenuIsAbortSlot( index ) ) {
 		Q_strncpyz( label, "Abort", labelSize );
@@ -128,25 +128,33 @@ void CG_RadialMenuSync( void ) {
 	qboolean active = qfalse;
 	float x = 0.0f;
 	float y = 0.0f;
+	int page = 0;
 
 	if ( !trap->GetRadialMenuState ) {
 		return;
 	}
 
 	trap->GetRadialMenuState( &active, &x, &y );
+	if ( trap->GetRadialMenuPage ) {
+		page = trap->GetRadialMenuPage();
+	}
+	if ( page < 0 || page >= RADIAL_MENU_PAGE_COUNT ) {
+		page = 0;
+	}
 
 	if ( active && !cgs.radialMenuActive ) {
 		cgs.radialMenuOpenTime = cg.time;
 	}
 
 	if ( cgs.radialMenuActive && !active && cgs.radialMenuSelection >= 0 && !CG_RadialMenuIsAbortSlot( cgs.radialMenuSelection ) ) {
-		vmCvar_t *bind = CG_RadialBindCvar( cgs.radialMenuSelection );
+		vmCvar_t *bind = CG_RadialBindCvar( page, cgs.radialMenuSelection );
 		if ( bind && bind->string[0] ) {
 			trap->SendConsoleCommand( va( "%s\n", bind->string ) );
 		}
 	}
 
 	cgs.radialMenuActive = active;
+	cgs.radialMenuPage = page;
 	cgs.radialMenuX = x;
 	cgs.radialMenuY = y;
 	cgs.radialMenuSelection = active ? CG_RadialMenuSelection( x, y ) : -1;
@@ -159,8 +167,6 @@ void CG_RadialMenuSync( void ) {
 }
 
 void CG_RadialMenuDraw( void ) {
-	static const vec4_t ringShadow = { 0.03f, 0.05f, 0.08f, 0.36f };
-	static const vec4_t idleColor = { 0.10f, 0.14f, 0.20f, 0.84f };
 	static const vec4_t activeColor = { 0.82f, 0.68f, 0.24f, 0.94f };
 	static const vec4_t abortColor = { 0.42f, 0.12f, 0.10f, 0.90f };
 	static const vec4_t abortActiveColor = { 0.80f, 0.24f, 0.18f, 0.96f };
@@ -234,7 +240,7 @@ void CG_RadialMenuDraw( void ) {
 		char label[64];
 		float textWidth;
 
-		CG_RadialMenuCopyLabel( i, label, sizeof( label ) );
+		CG_RadialMenuCopyLabel( cgs.radialMenuPage, i, label, sizeof( label ) );
 		textColor[0] = ( i == cgs.radialMenuSelection ) ? activeColor[0] : colorWhite[0]; textColor[1] = ( i == cgs.radialMenuSelection ) ? activeColor[1] : colorWhite[1]; textColor[2] = ( i == cgs.radialMenuSelection ) ? activeColor[2] : colorWhite[2]; textColor[3] = ( i == cgs.radialMenuSelection ) ? activeColor[3] : colorWhite[3];
 		textColor[3] = ( i == cgs.radialMenuSelection ? 1.0f : 0.82f ) * alphaScale;
 		textWidth = CG_Text_Width( label, textScale, FONT_SMALL2 );
@@ -248,7 +254,7 @@ void CG_RadialMenuDraw( void ) {
 		float textWidth;
 		const float py = centerY + outerRadius * 0.86f;
 
-		CG_RadialMenuCopyLabel( RADIAL_MENU_ABORT_SLOT, label, sizeof( label ) );
+		CG_RadialMenuCopyLabel( cgs.radialMenuPage, RADIAL_MENU_ABORT_SLOT, label, sizeof( label ) );
 		textColor[0] = ( cgs.radialMenuSelection == RADIAL_MENU_ABORT_SLOT ) ? abortActiveColor[0] : colorWhite[0]; textColor[1] = ( cgs.radialMenuSelection == RADIAL_MENU_ABORT_SLOT ) ? abortActiveColor[1] : colorWhite[1]; textColor[2] = ( cgs.radialMenuSelection == RADIAL_MENU_ABORT_SLOT ) ? abortActiveColor[2] : colorWhite[2]; textColor[3] = ( cgs.radialMenuSelection == RADIAL_MENU_ABORT_SLOT ) ? abortActiveColor[3] : colorWhite[3];
 		textColor[3] = ( cgs.radialMenuSelection == RADIAL_MENU_ABORT_SLOT ? 1.0f : 0.85f ) * alphaScale;
 		textWidth = CG_Text_Width( label, textScale, FONT_SMALL2 );
@@ -256,8 +262,25 @@ void CG_RadialMenuDraw( void ) {
 		CG_Text_Paint( centerX - textWidth * 0.5f, py, textScale, textColor, label, 0.0f, 0, ITEM_TEXTSTYLE_OUTLINED, FONT_SMALL2 );
 	}
 
-	CG_FillRect( centerX - deadzone, centerY - deadzone, deadzone * 2.0f, deadzone * 2.0f, ringShadow );
-	CG_FillRect( centerX - 3.0f, centerY - 3.0f, 6.0f, 6.0f, dotColor );
+	// Five diamonds mirror the page selector shown in issue #306. The larger,
+	// brighter diamond marks the current page without covering the bind labels.
+	for ( i = 0; i < RADIAL_MENU_PAGE_COUNT; i++ ) {
+		const float px = centerX + ( i - RADIAL_MENU_PAGE_COUNT / 2 ) * 13.0f * animScale;
+		const qboolean selected = (qboolean)( i == cgs.radialMenuPage );
+		const float size = ( selected ? 13.0f : 8.0f ) * animScale;
+		vec4_t pageColor;
+
+		VectorCopy( selected ? activeColor : dotColor, pageColor );
+		pageColor[3] = ( selected ? activeColor[3] : dotColor[3] ) * alphaScale;
+		trap->R_SetColor( pageColor );
+		CG_DrawRotatePic2( px, centerY, size, size, 45.0f, cgs.media.whiteShader );
+		if ( selected ) {
+			trap->R_SetColor( colorWhite );
+			CG_DrawRotatePic2( px, centerY, 3.5f * animScale, 3.5f * animScale,
+				45.0f, cgs.media.whiteShader );
+		}
+	}
+	trap->R_SetColor( NULL );
 }
 static void CG_DrawSiegeTimer(int timeRemaining, qboolean isMyTeam);
 static void CG_DrawSiegeDeathTimer( int timeRemaining );
@@ -402,10 +425,14 @@ int UI_ParseAnimationFile(const char *filename, animation_t *animset, qboolean i
 	return BG_ParseAnimationFile(filename, animset, isHumanoid);
 }
 
+#define FONT_BINOCULAR_HUD (-1)
+
 int MenuFontToHandle(int iMenuFont)
 {
 	switch (iMenuFont)
 	{
+		case FONT_BINOCULAR_HUD:
+			return cgs.media.binocularHudFont ? cgs.media.binocularHudFont : cgDC.Assets.qhSmallFont;
 		case FONT_SMALL:	return cgDC.Assets.qhSmallFont;
 		case FONT_SMALL2:	return cgDC.Assets.qhSmall2Font;
 		case FONT_MEDIUM:	return cgDC.Assets.qhMediumFont;
@@ -495,11 +522,26 @@ static void CG_DrawBinocularDigits(float x, float y, const char *digits, float s
 	}
 }
 
+static qboolean CG_BinocularTargetLinked(int entityNum) {
+	int i;
+
+	if (cg.time < cg.missionPartyUpdateTime ||
+		cg.time - cg.missionPartyUpdateTime > MISSION_PARTY_EXPIRE_MSEC)
+		return qfalse;
+	for (i = 0; i < cg.missionPartyCount; i++) {
+		if (cg.missionParty[i].entityNum == entityNum)
+			return qtrue;
+	}
+	return qfalse;
+}
+
 static void CG_DrawBinocularTargets(void) {
 	vec4_t amber = { 1.0f, 0.74f, 0.30f, 0.95f };
+	vec4_t linkedColor = { 0.20f, 1.0f, 0.72f, 1.0f };
 	vec4_t healthColor = { 1.0f, 0.25f, 0.22f, 0.95f };
 	vec4_t shieldColor = { 0.30f, 1.0f, 0.40f, 0.95f };
 	vec4_t background = { 0.015f, 0.045f, 0.055f, 0.78f };
+	vec4_t linkedBackground = { 0.015f, 0.10f, 0.085f, 0.88f };
 	float placedX[MAX_BINOCULAR_TARGETS], placedY[MAX_BINOCULAR_TARGETS];
 	float scale = Q_max(25, Q_min(200, cg_binocularScanScale.integer)) * 0.01f;
 	qboolean compact = cg_binocularScanStyle.integer == 1;
@@ -525,6 +567,8 @@ static void CG_DrawBinocularTargets(void) {
 		trace_t trace;
 		float sx, sy, x, y, healthFraction, shieldCapacity;
 		float nameScale, nameWidth, nameAvailableWidth, nameAvailableHeight, nameY;
+		float *accent;
+		qboolean linked;
 		int j;
 		char label[MAX_NETNAME];
 		char healthDigits[16], shieldDigits[16];
@@ -542,6 +586,8 @@ static void CG_DrawBinocularTargets(void) {
 		CG_Trace(&trace, cg.refdef.vieworg, NULL, NULL, point, cg.snap->ps.clientNum, MASK_SHOT);
 		if (trace.startsolid || trace.allsolid || (trace.fraction < 1.0f && trace.entityNum != target->entityNum))
 			continue;
+		linked = CG_BinocularTargetLinked(target->entityNum);
+		accent = linked ? linkedColor : amber;
 		if (compact) {
 			Com_sprintf(healthDigits, sizeof(healthDigits), "%i", target->health);
 			Com_sprintf(shieldDigits, sizeof(shieldDigits), "%i", target->armor);
@@ -562,25 +608,32 @@ static void CG_DrawBinocularTargets(void) {
 		placedX[placed] = x;
 		placedWidth[placed] = width;
 		placedY[placed++] = y;
-		CG_FillRect(x, y, width, height, background);
+		CG_FillRect(x, y, width, height, linked ? linkedBackground : background);
 		// Open corner brackets and a short leader evoke the existing macrobinocular optics.
-		CG_FillRect(sx - 3 * ratio, sy - 5 * scale, ratio, 10 * scale, amber);
-		CG_FillRect(sx - 3 * ratio, sy - 5 * scale, 6 * ratio, scale, amber);
-		CG_FillRect(sx - 3 * ratio, sy + 5 * scale, 6 * ratio, scale, amber);
+		CG_FillRect(sx - 3 * ratio, sy - 5 * scale, ratio, 10 * scale, accent);
+		CG_FillRect(sx - 3 * ratio, sy - 5 * scale, 6 * ratio, scale, accent);
+		CG_FillRect(sx - 3 * ratio, sy + 5 * scale, 6 * ratio, scale, accent);
+		if (linked) {
+			// Complete the reticle around linked contacts so the state remains
+			// recognizable even when the compact scanner is selected.
+			CG_FillRect(sx + 5 * ratio, sy - 8 * scale, ratio, 16 * scale, accent);
+			CG_FillRect(sx, sy - 8 * scale, 6 * ratio, scale, accent);
+			CG_FillRect(sx, sy + 8 * scale, 6 * ratio, scale, accent);
+		}
 		if (x > sx)
-			CG_FillRect(sx + 3 * ratio, sy, x - sx - 3 * ratio, scale, amber);
+			CG_FillRect(sx + 3 * ratio, sy, x - sx - 3 * ratio, scale, accent);
 		else if (x + width < sx - 3 * ratio)
-			CG_FillRect(x + width, sy, sx - 3 * ratio - x - width, scale, amber);
-		CG_FillRect(x, y, 14 * ratio, scale, amber);
-		CG_FillRect(x, y, ratio, 8 * scale, amber);
-		CG_FillRect(x + width - 14 * ratio, y + height - scale, 14 * ratio, scale, amber);
-		CG_FillRect(x + width - ratio, y + height - 8 * scale, ratio, 8 * scale, amber);
+			CG_FillRect(x + width, sy, sx - 3 * ratio - x - width, scale, accent);
+		CG_FillRect(x, y, 14 * ratio, scale, accent);
+		CG_FillRect(x, y, ratio, 8 * scale, accent);
+		CG_FillRect(x + width - 14 * ratio, y + height - scale, 14 * ratio, scale, accent);
+		CG_FillRect(x + width - ratio, y + height - 8 * scale, ratio, 8 * scale, accent);
 		if (compact) {
 			float separatorX = x + (6 + 7 * strlen(healthDigits)) * ratio;
 			CG_DrawBinocularDigits(x + 6 * ratio, y + 5 * scale, healthDigits, scale, healthColor);
 			// Font drawing rounds x/y to integers; keep the separator on the
 			// same floating-point image path as the digits to avoid relative jitter.
-			trap->R_SetColor(amber);
+			trap->R_SetColor(accent);
 			CG_DrawRotatePic2(separatorX + 6 * ratio, y + 11 * scale,
 				1.2f * ratio, 10 * scale, 20.0f, cgs.media.whiteShader);
 			CG_DrawBinocularDigits(separatorX + 12 * ratio, y + 5 * scale, shieldDigits, scale, shieldColor);
@@ -596,20 +649,20 @@ static void CG_DrawBinocularTargets(void) {
 		// Fill the title area when the name is short; shrink long names by their
 		// rendered width. The height limit leaves room for the health row/shadow.
 		nameAvailableHeight = 12 * scale;
-		nameScale = nameAvailableHeight / Q_max(1, CG_Text_Height(label, 1.0f, FONT_SMALL));
+		nameScale = nameAvailableHeight / Q_max(1, CG_Text_Height(label, 1.0f, FONT_BINOCULAR_HUD));
 		nameAvailableWidth = width - 14 * ratio;
-		nameWidth = CG_Text_Width(label, nameScale, FONT_SMALL);
+		nameWidth = CG_Text_Width(label, nameScale, FONT_BINOCULAR_HUD);
 		if (nameWidth > nameAvailableWidth)
 			nameScale *= nameAvailableWidth / nameWidth;
-		nameY = y + 3 * scale + Q_max(0.0f, nameAvailableHeight - CG_Text_Height(label, nameScale, FONT_SMALL)) * 0.5f;
-		CG_Text_Paint(x + 6 * ratio, nameY, nameScale, amber, label, 0, 0, ITEM_TEXTSTYLE_SHADOWED, FONT_SMALL);
+		nameY = y + 3 * scale + Q_max(0.0f, nameAvailableHeight - CG_Text_Height(label, nameScale, FONT_BINOCULAR_HUD)) * 0.5f;
+		CG_Text_Paint(x + 6 * ratio, nameY, nameScale, accent, label, 0, 0, ITEM_TEXTSTYLE_SHADOWED, FONT_BINOCULAR_HUD);
 		healthFraction = (float)target->health / target->maxHealth;
 		CG_Text_Paint(x + 6 * ratio, y + 17 * scale, 0.5f * scale, healthColor,
-			va("HEALTH  %i", target->health), 0, 0, ITEM_TEXTSTYLE_SHADOWED, FONT_SMALL);
+			va("HEALTH  %i", target->health), 0, 0, ITEM_TEXTSTYLE_SHADOWED, FONT_BINOCULAR_HUD);
 		CG_DrawBinocularMeter(x + 6 * ratio, y + 28 * scale, width - 12 * ratio, healthFraction, scale,
 			healthColor);
 		CG_Text_Paint(x + 6 * ratio, y + 32 * scale, 0.5f * scale, shieldColor,
-			va("SHIELD  %i", target->armor), 0, 0, ITEM_TEXTSTYLE_SHADOWED, FONT_SMALL);
+			va("SHIELD  %i", target->armor), 0, 0, ITEM_TEXTSTYLE_SHADOWED, FONT_BINOCULAR_HUD);
 		// Vehicles have a separate shield capacity; ordinary actors use JA's
 		// maximum-health-based armor capacity. Numeric values preserve overcharge.
 		shieldCapacity = target->maxHealth;
@@ -618,6 +671,157 @@ static void CG_DrawBinocularTargets(void) {
 			shieldCapacity = cent->m_pVehicle->m_pVehicleInfo->shields;
 		CG_DrawBinocularMeter(x + 6 * ratio, y + 43 * scale, width - 12 * ratio,
 			(float)target->armor / shieldCapacity, scale, shieldColor);
+	}
+	trap->R_SetColor(NULL);
+}
+
+static qhandle_t CG_MissionPartyPortrait(int entityNum) {
+	centity_t *cent;
+	qhandle_t icon;
+	if (entityNum < 0 || entityNum >= ENTITYNUM_WORLD)
+		return 0;
+	if (entityNum < MAX_CLIENTS && cgs.clientinfo[entityNum].infoValid &&
+		cgs.clientinfo[entityNum].modelIcon)
+		return cgs.clientinfo[entityNum].modelIcon;
+	cent = &cg_entities[entityNum];
+	if (cent->npcClient && cent->npcClient->modelIcon)
+		return cent->npcClient->modelIcon;
+
+	// NPC clientInfo does not normally register a portrait. Recover the icon
+	// from its model configstring so the party roster still shows its skin.
+	if (cent->currentState.modelindex > 0) {
+		char modelPath[MAX_QPATH], skinName[MAX_QPATH];
+		char *skin, *slash, *part;
+		const char *configured = CG_ConfigString(CS_MODELS + cent->currentState.modelindex);
+		Q_strncpyz(modelPath, configured, sizeof(modelPath));
+		Q_strncpyz(skinName, "default", sizeof(skinName));
+		skin = Q_strrchr(modelPath, '*');
+		if (skin) {
+			*skin++ = '\0';
+			if (skin[0])
+				Q_strncpyz(skinName, skin, sizeof(skinName));
+		}
+		part = strchr(skinName, '|');
+		if (part)
+			*part = '\0';
+		slash = Q_strrchr(modelPath, '/');
+		if (slash) {
+			*slash = '\0';
+			icon = trap->R_RegisterShaderNoMip(va("%s/icon_%s", modelPath, skinName));
+			if (!icon && Q_stricmp(skinName, "default"))
+				icon = trap->R_RegisterShaderNoMip(va("%s/icon_default", modelPath));
+			if (icon && cent->npcClient)
+				cent->npcClient->modelIcon = icon;
+			return icon;
+		}
+	}
+	return cgs.media.missionPartyUnknownIcon;
+}
+
+static qboolean CG_MissionPartyVisible(void) {
+	return cg_drawMissionParty.integer && cg.snap && !cg.intermissionStarted &&
+		cg.snap->ps.persistant[PERS_TEAM] != TEAM_SPECTATOR &&
+		cg.missionPartyCount > 0 && cg.time >= cg.missionPartyUpdateTime &&
+		cg.time - cg.missionPartyUpdateTime <= MISSION_PARTY_EXPIRE_MSEC;
+}
+
+static void CG_DrawMissionParty(void) {
+	vec4_t row = { 0.018f, 0.048f, 0.063f, 0.82f };
+	vec4_t rowDead = { 0.09f, 0.018f, 0.018f, 0.82f };
+	vec4_t portraitBack = { 0.006f, 0.014f, 0.018f, 0.95f };
+	vec4_t amber = { 1.0f, 0.67f, 0.20f, 0.78f };
+	vec4_t pale = { 0.74f, 0.90f, 0.94f, 0.96f };
+	vec4_t health = { 1.0f, 0.18f, 0.14f, 0.96f };
+	vec4_t shield = { 0.20f, 1.0f, 0.36f, 0.96f };
+	vec4_t force = { 0.18f, 0.55f, 1.0f, 0.96f };
+	vec4_t empty = { 0.08f, 0.14f, 0.17f, 0.92f };
+	float ratio = cgs.widthRatioCoef;
+	float scale = 0.85f;
+	float width = 164.0f * scale * ratio;
+	float rowHeight = 42.0f * scale, gap = 3.0f * scale;
+	float x, y = 66.0f;
+	int i;
+
+	if (!CG_MissionPartyVisible())
+		return;
+
+	x = SCREEN_WIDTH - width - 8.0f * ratio;
+
+	for (i = 0; i < cg.missionPartyCount; i++) {
+		binocularTarget_t *member = &cg.missionParty[i];
+		float rowY = y + i * (rowHeight + gap);
+		float portraitX = x + 4.0f * scale * ratio;
+		float textX = x + 41.0f * scale * ratio;
+		float barX = x + 57.0f * scale * ratio;
+		float valueX = x + width - 25.0f * scale * ratio;
+		float barWidth = valueX - barX - 3.0f * scale * ratio;
+		float nameAvailableWidth = width - 47.0f * scale * ratio;
+		float hpFraction = Q_max(0.0f, Q_min(1.0f, (float)member->health / member->maxHealth));
+		float shieldFraction = Q_max(0.0f, Q_min(1.0f, (float)member->armor / member->maxHealth));
+		float forceFraction = Q_max(0.0f, Q_min(1.0f, (float)member->force / member->maxForce));
+		char label[64];
+		qhandle_t portrait = CG_MissionPartyPortrait(member->entityNum);
+		float nameScale, nameWidth;
+
+		if (member->entityNum < MAX_CLIENTS && cgs.clientinfo[member->entityNum].infoValid) {
+			Q_strncpyz(label, cgs.clientinfo[member->entityNum].name, sizeof(label));
+			Q_CleanStr(label);
+		} else if (member->name[0]) {
+			Q_strncpyz(label, member->name, sizeof(label));
+		} else {
+			Q_strncpyz(label, "UNKNOWN CONTACT", sizeof(label));
+		}
+
+		CG_FillRect(x, rowY, width, rowHeight, member->health > 0 ? row : rowDead);
+		CG_FillRect(x, rowY, 1.25f * scale * ratio, rowHeight, amber);
+		CG_FillRect(x, rowY, 14.0f * scale * ratio, scale, amber);
+		CG_FillRect(portraitX - scale * ratio, rowY + 3.0f * scale,
+			34.0f * scale * ratio, 36.0f * scale, portraitBack);
+		if (portrait) {
+			CG_DrawPic(portraitX, rowY + 4.0f * scale,
+				32.0f * scale * ratio, 34.0f * scale, portrait);
+		} else {
+			CG_Text_Paint(portraitX + 11.0f * scale * ratio, rowY + 10.0f * scale,
+				0.50f * scale, amber,
+				"?", 0, 0, ITEM_TEXTSTYLE_SHADOWED, FONT_BINOCULAR_HUD);
+		}
+
+		nameScale = 0.42f * scale;
+		nameWidth = CG_Text_Width(label, nameScale, FONT_BINOCULAR_HUD);
+		if (nameWidth > nameAvailableWidth)
+			nameScale *= nameAvailableWidth / nameWidth;
+		CG_Text_Paint(textX, rowY + 1.0f * scale, nameScale, member->health > 0 ? pale : health,
+			label, 0, 0, ITEM_TEXTSTYLE_SHADOWED, FONT_BINOCULAR_HUD);
+		if (member->health <= 0) {
+			float deadScale = 0.68f * scale;
+			float deadWidth = CG_Text_Width("DEAD", deadScale, FONT_BINOCULAR_HUD);
+			float deadAreaWidth = width - (textX - x) - 4.0f * scale * ratio;
+			CG_Text_Paint(textX + (deadAreaWidth - deadWidth) * 0.5f,
+				rowY + 18.0f * scale, deadScale, health, "DEAD", 0, 0,
+				ITEM_TEXTSTYLE_SHADOWEDMORE, FONT_BINOCULAR_HUD);
+			continue;
+		}
+		CG_Text_Paint(textX, rowY + 13.0f * scale, 0.28f * scale, health, "HP", 0, 0,
+			ITEM_TEXTSTYLE_SHADOWED, FONT_BINOCULAR_HUD);
+		CG_FillRect(barX, rowY + 16.0f * scale, barWidth, 2.0f * scale, empty);
+		CG_FillRect(barX, rowY + 16.0f * scale, barWidth * hpFraction, 2.0f * scale, health);
+		CG_Text_Paint(valueX, rowY + 13.0f * scale, 0.28f * scale, health,
+			member->health > 0 ? va("%i", member->health) : "--", 0, 0,
+			ITEM_TEXTSTYLE_SHADOWED, FONT_BINOCULAR_HUD);
+
+		CG_Text_Paint(textX, rowY + 22.0f * scale, 0.28f * scale, shield, "SH", 0, 0,
+			ITEM_TEXTSTYLE_SHADOWED, FONT_BINOCULAR_HUD);
+		CG_FillRect(barX, rowY + 25.0f * scale, barWidth, 2.0f * scale, empty);
+		CG_FillRect(barX, rowY + 25.0f * scale, barWidth * shieldFraction, 2.0f * scale, shield);
+		CG_Text_Paint(valueX, rowY + 22.0f * scale, 0.28f * scale, shield,
+			va("%i", member->armor), 0, 0, ITEM_TEXTSTYLE_SHADOWED, FONT_BINOCULAR_HUD);
+
+		CG_Text_Paint(textX, rowY + 31.0f * scale, 0.28f * scale, force, "FP", 0, 0,
+			ITEM_TEXTSTYLE_SHADOWED, FONT_BINOCULAR_HUD);
+		CG_FillRect(barX, rowY + 34.0f * scale, barWidth, 2.0f * scale, empty);
+		CG_FillRect(barX, rowY + 34.0f * scale, barWidth * forceFraction, 2.0f * scale, force);
+		CG_Text_Paint(valueX, rowY + 31.0f * scale, 0.28f * scale, force,
+			va("%i", member->force), 0, 0, ITEM_TEXTSTYLE_SHADOWED, FONT_BINOCULAR_HUD);
 	}
 	trap->R_SetColor(NULL);
 }
@@ -2590,12 +2794,18 @@ void CG_DrawHUD(centity_t	*cent)
 
 qboolean ForcePower_Valid(int i)
 {
+	if (!cg.snap)
+		return qfalse;
 	if (i == STASIS_WHEEL_SLOT)		// display-only pseudo-slot (18)
 		return CG_HasStasis();
 	if (i == REPULSE_WHEEL_SLOT)	// display-only pseudo-slot (19)
 		return CG_HasRepulse();
 	if (i == DASH_WHEEL_SLOT)		// display-only pseudo-slot (20)
 		return CG_HasDash();
+	if (i == DESTRUCTION_WHEEL_SLOT)
+		return CG_HasDestruction();
+	if (i < 0 || i >= NUM_FORCE_POWERS)
+		return qfalse;
 
 	if (i == FP_LEVITATION ||
 		i == FP_SABER_OFFENSE ||
@@ -2630,6 +2840,8 @@ static qboolean CG_ForceSelectUsesFlamethrower( int power )
 
 static qhandle_t CG_ForceSelectIcon( int power )
 {
+	if (power == DESTRUCTION_WHEEL_SLOT)
+		return cgs.media.destructionIcon;
 	if ( power == REPULSE_WHEEL_SLOT )
 	{
 		return cgs.media.repulseIcon;
@@ -2656,7 +2868,7 @@ void CG_DrawForceSelect( void )
 	int		sideLeftIconCnt,sideRightIconCnt;
 	int		sideMax,holdCount;
 	int		yOffset = 0;
-	int		wheel[NUM_FORCE_POWERS + 3];
+	int		wheel[FORCE_WHEEL_CAPACITY];
 	int		wheelCount, cur = -1, idx, drawn, power;
 	qhandle_t icon;
 
@@ -2672,7 +2884,8 @@ void CG_DrawForceSelect( void )
 		// networked home, so keep them selected after the wheel fades unless revoked.
 		if ( !((cg.forceSelect == STASIS_WHEEL_SLOT && CG_HasStasis()) ||
 		        (cg.forceSelect == REPULSE_WHEEL_SLOT && CG_HasRepulse()) ||
-		        (cg.forceSelect == DASH_WHEEL_SLOT && CG_HasDash())) )
+		        (cg.forceSelect == DASH_WHEEL_SLOT && CG_HasDash()) ||
+		        (cg.forceSelect == DESTRUCTION_WHEEL_SLOT && CG_HasDestruction())) )
 			cg.forceSelect = cg.snap->ps.fd.forcePowerSelected;
 		return;
 	}
@@ -2792,6 +3005,10 @@ void CG_DrawForceSelect( void )
 	{
 		CG_DrawProportionalString(SCREEN_WIDTH / 2, y + 30 + yOffset, "Dash", UI_CENTER | UI_SMALLFONT, colorTable[CT_ICON_BLUE]);
 	}
+	else if (cg.forceSelect == DESTRUCTION_WHEEL_SLOT)
+	{
+		CG_DrawProportionalString(SCREEN_WIDTH / 2, y + 30 + yOffset, "Destruction", UI_CENTER | UI_SMALLFONT, colorTable[CT_ICON_BLUE]);
+	}
 	else if ( CG_ForceSelectUsesFlamethrower( cg.forceSelect ) )
 	{
 		CG_DrawProportionalString(SCREEN_WIDTH / 2, y + 30 + yOffset, "Flamethrower", UI_CENTER | UI_SMALLFONT, colorTable[CT_ICON_BLUE]);
@@ -2802,6 +3019,31 @@ void CG_DrawForceSelect( void )
 	}
 }
 
+static int CG_BuildInvenWheel( int wheel[] )
+{
+	int i;
+	int wheelCount = 0;
+
+	for ( i = 0; i < HI_NUM_HOLDABLE; i++ )
+	{
+		if ( !(cg.snap->ps.stats[STAT_HOLDABLE_ITEMS] & (1 << i)) )
+		{
+			continue;
+		}
+		if ( !BG_IsItemSelectable( &cg.predictedPlayerState, i ) )
+		{
+			continue;
+		}
+		if ( !cgs.media.invenIcons[i] )
+		{
+			continue;
+		}
+		wheel[wheelCount++] = i;
+	}
+
+	return wheelCount;
+}
+
 /*
 ===================
 CG_DrawInventorySelect
@@ -2809,13 +3051,14 @@ CG_DrawInventorySelect
 */
 void CG_DrawInvenSelect( void )
 {
-	int				i;
-	int				sideMax,holdCount,iconCnt;
-	int				smallIconSize,bigIconSize;
-	int				sideLeftIconCnt,sideRightIconCnt;
-	int				count;
-	int				holdX, x, y, y2, pad;
-//	float			addX;
+	int		i;
+	int		count;
+	int		smallIconSize,bigIconSize;
+	int		holdX, x, y, pad;
+	int		sideLeftIconCnt,sideRightIconCnt;
+	int		sideMax,holdCount;
+	int		wheel[HI_NUM_HOLDABLE];
+	int		wheelCount, cur = -1, idx, drawn, item;
 
 	// don't display if dead
 	if ( cg.snap->ps.stats[STAT_HEALTH] <= 0 )
@@ -2838,50 +3081,48 @@ void CG_DrawInvenSelect( void )
 		cg.itemSelect = bg_itemlist[cg.snap->ps.stats[STAT_HOLDABLE_ITEM]].giTag;
 	}
 
-//const int bits = cg.snap->ps.stats[ STAT_ITEMS ];
-
-	// count the number of items owned
-	count = 0;
-	for ( i = 0 ; i < HI_NUM_HOLDABLE ; i++ )
+	// Build the wheel order (only owned AND currently selectable items), mirroring
+	// CG_BuildForceWheel, so the side counts always match what's actually drawable
+	// and wrap-around never lands on an empty/undrawable slot.
+	wheelCount = CG_BuildInvenWheel( wheel );
+	if (wheelCount == 0)
 	{
-		if (/*CG_InventorySelectable(i) && inv_icons[i]*/
-			(cg.snap->ps.stats[STAT_HOLDABLE_ITEMS] & (1 << i)) )
-		{
-			count++;
-		}
-	}
-
-	if (!count)
-	{
-		y2 = 0; //err?
-		CG_DrawProportionalString(SCREEN_WIDTH / 2, y2 + 22, "EMPTY INVENTORY", UI_CENTER | UI_SMALLFONT, colorTable[CT_ICON_BLUE]);
+		CG_DrawProportionalString(SCREEN_WIDTH / 2, 22, "EMPTY INVENTORY", UI_CENTER | UI_SMALLFONT, colorTable[CT_ICON_BLUE]);
 		return;
 	}
 
-	sideMax = 3;	// Max number of icons on the side
+	for (i = 0; i < wheelCount; i++)
+	{
+		if (wheel[i] == cg.itemSelect)
+		{
+			cur = i;
+			break;
+		}
+	}
+	if (cur < 0)	// selection no longer valid (e.g. dropped/used) - fall back to first entry
+	{
+		cur = 0;
+		cg.itemSelect = wheel[0];
+	}
 
-	// Calculate how many icons will appear to either side of the center one
-	holdCount = count - 1;	// -1 for the center icon
-	if (holdCount == 0)			// No icons to either side
+	count = wheelCount;
+	sideMax = 3;
+
+	holdCount = count - 1;
+	if (holdCount == 0)
 	{
 		sideLeftIconCnt = 0;
 		sideRightIconCnt = 0;
 	}
-	else if (count > (2*sideMax))	// Go to the max on each side
+	else if (count > (2*sideMax))
 	{
 		sideLeftIconCnt = sideMax;
 		sideRightIconCnt = sideMax;
 	}
-	else							// Less than max, so do the calc
+	else
 	{
 		sideLeftIconCnt = holdCount/2;
 		sideRightIconCnt = holdCount - sideLeftIconCnt;
-	}
-
-	i = cg.itemSelect - 1;
-	if (i<0)
-	{
-		i = HI_NUM_HOLDABLE-1;
 	}
 
 	smallIconSize = 40;
@@ -2891,56 +3132,38 @@ void CG_DrawInvenSelect( void )
 	x = SCREEN_WIDTH / 2;
 	y = 410;
 
-	// Left side ICONS
-	// Work backwards from current icon
+	trap->R_SetColor(NULL);
+
+	// Left side - walk backwards from the centered icon through the wheel
 	holdX = x - ((bigIconSize/2) + pad + smallIconSize) * cgs.widthRatioCoef;
-//	addX = (float) smallIconSize * .75;
-
-	for (iconCnt=0;iconCnt<sideLeftIconCnt;i--)
+	idx = cur;
+	for (drawn = 0; drawn < sideLeftIconCnt; drawn++)
 	{
-		if (i<0)
+		idx--;
+		if (idx < 0)
 		{
-			i = HI_NUM_HOLDABLE-1;
+			idx = wheelCount - 1;
 		}
 
-		if ( !(cg.snap->ps.stats[STAT_HOLDABLE_ITEMS] & (1 << i)) || i == cg.itemSelect )
-		{
-			continue;
-		}
-
-		++iconCnt;					// Good icon
-
-		if (!BG_IsItemSelectable(&cg.predictedPlayerState, i))
-		{
-			continue;
-		}
-
-		if (cgs.media.invenIcons[i])
+		item = wheel[idx];
+		if (cgs.media.invenIcons[item])
 		{
 			trap->R_SetColor(NULL);
-			CG_DrawPic( holdX, y+10, smallIconSize * cgs.widthRatioCoef, smallIconSize, cgs.media.invenIcons[i] );
-
-			trap->R_SetColor(colorTable[CT_ICON_BLUE]);
-			/*CG_DrawNumField (holdX + addX, y + smallIconSize, 2, cg.snap->ps.inventory[i], 6, 12,
-				NUM_FONT_SMALL,qfalse);
-				*/
-
+			CG_DrawPic( holdX, y+10, smallIconSize * cgs.widthRatioCoef, smallIconSize, cgs.media.invenIcons[item] );
 			holdX -= (smallIconSize+pad) * cgs.widthRatioCoef;
 		}
 	}
 
-	// Current Center Icon
-	if (cgs.media.invenIcons[cg.itemSelect] && BG_IsItemSelectable(&cg.predictedPlayerState, cg.itemSelect))
+	// Current center icon
+	item = wheel[cur];
+	if (cgs.media.invenIcons[item])
 	{
 		int itemNdex;
 		trap->R_SetColor(NULL);
-		CG_DrawPic( x-(bigIconSize/2) * cgs.widthRatioCoef, (y-((bigIconSize-smallIconSize)/2))+10, bigIconSize * cgs.widthRatioCoef, bigIconSize, cgs.media.invenIcons[cg.itemSelect] );
-	//	addX = (float) bigIconSize * .75;
+		CG_DrawPic( x-(bigIconSize/2) * cgs.widthRatioCoef, (y-((bigIconSize-smallIconSize)/2))+10, bigIconSize * cgs.widthRatioCoef, bigIconSize, cgs.media.invenIcons[item] );
 		trap->R_SetColor(colorTable[CT_ICON_BLUE]);
-		/*CG_DrawNumField ((x-(bigIconSize/2)) + addX, y, 2, cg.snap->ps.inventory[cg.inventorySelect], 6, 12,
-			NUM_FONT_SMALL,qfalse);*/
 
-		itemNdex = BG_GetItemIndexByTag(cg.itemSelect, IT_HOLDABLE);
+		itemNdex = BG_GetItemIndexByTag(item, IT_HOLDABLE);
 		if (bg_itemlist[itemNdex].classname)
 		{
 			vec4_t	textColor = { .312f, .75f, .621f, 1.0f };
@@ -2960,44 +3183,22 @@ void CG_DrawInvenSelect( void )
 		}
 	}
 
-	i = cg.itemSelect + 1;
-	if (i> HI_NUM_HOLDABLE-1)
-	{
-		i = 0;
-	}
-
-	// Right side ICONS
-	// Work forwards from current icon
+	// Right side - walk forwards from the centered icon through the wheel
 	holdX = x + ((bigIconSize/2) + pad) * cgs.widthRatioCoef;
-//	addX = (float) smallIconSize * .75;
-	for (iconCnt=0;iconCnt<sideRightIconCnt;i++)
+	idx = cur;
+	for (drawn = 0; drawn < sideRightIconCnt; drawn++)
 	{
-		if (i> HI_NUM_HOLDABLE-1)
+		idx++;
+		if (idx >= wheelCount)
 		{
-			i = 0;
+			idx = 0;
 		}
 
-		if ( !(cg.snap->ps.stats[STAT_HOLDABLE_ITEMS] & (1 << i)) || i == cg.itemSelect )
-		{
-			continue;
-		}
-
-		++iconCnt;					// Good icon
-
-		if (!BG_IsItemSelectable(&cg.predictedPlayerState, i))
-		{
-			continue;
-		}
-
-		if (cgs.media.invenIcons[i])
+		item = wheel[idx];
+		if (cgs.media.invenIcons[item])
 		{
 			trap->R_SetColor(NULL);
-			CG_DrawPic( holdX, y+10, smallIconSize * cgs.widthRatioCoef, smallIconSize, cgs.media.invenIcons[i] );
-
-			trap->R_SetColor(colorTable[CT_ICON_BLUE]);
-			/*CG_DrawNumField (holdX + addX, y + smallIconSize, 2, cg.snap->ps.inventory[i], 6, 12,
-				NUM_FONT_SMALL,qfalse);*/
-
+			CG_DrawPic( holdX, y+10, smallIconSize * cgs.widthRatioCoef, smallIconSize, cgs.media.invenIcons[item] );
 			holdX += (smallIconSize+pad) * cgs.widthRatioCoef;
 		}
 	}
@@ -4247,6 +4448,13 @@ static float CG_DrawEnemyInfo ( float y )
 	}
 	else
 	{
+		// The mission roster owns the upper-right contact area while it has
+		// tagged members. Restore the normal leader card as soon as it clears.
+		if (CG_MissionPartyVisible())
+		{
+			return y;
+		}
+
 		/*
 		title = "Attacker";
 		clientNum = cg.predictedPlayerState.persistant[PERS_ATTACKER];
@@ -8829,6 +9037,10 @@ static void CG_DrawCrosshairNames( void ) {
 	CG_ScanForCrosshairEntity();
 
 	//rww - still do the trace, our dynamic crosshair depends on it
+	// Binocular optics replace both reticle and overhead identity labels. Keep
+	// the trace above live so tell_target (the U whisper bind) still works.
+	if (cg.predictedPlayerState.zoomMode == 2)
+		return;
 
 	if (cg.crosshairClientNum < ENTITYNUM_WORLD)
 	{
@@ -9475,7 +9687,7 @@ void CG_DrawEnhancedFlagStatus(void)
 	int secs, mins;
 	int armor;
 	vec4_t hcolor;
-	int startDrawPos = 365;
+	int startDrawPos = 140;
 	int ico_size = 32;
 
 	if (!cg.snap)
@@ -10095,11 +10307,23 @@ char *Q_strtokm(char *str, const char *delim)
 }
 
 //add chatbox string
-void CG_ChatBox_AddString(char *chatStr)
+void CG_ChatBox_AddString(char *chatStr, qboolean isPrivate)
 {
 	chatBoxItem_t *chat = &cg.chatItems[cg.chatItemActive];
 	char tempChatStr[MAX_SAY_TEXT+MAX_NETNAME] = { 0 }, *r = chatStr, *w = tempChatStr;
 	float chatLen;
+	char cutoffColorChar = COLOR_WHITE; //default/fallback if the cvar isn't a single digit 0-9
+	char cutoffColorStr[3];
+
+	if (cg_chatBoxShowCutoffColor.string[0] >= '0' && cg_chatBoxShowCutoffColor.string[0] <= '9' && cg_chatBoxShowCutoffColor.string[1] == '\0') {
+		cutoffColorChar = cg_chatBoxShowCutoffColor.string[0];
+	}
+	cutoffColorStr[0] = Q_COLOR_ESCAPE;
+	cutoffColorStr[1] = cutoffColorChar;
+	cutoffColorStr[2] = '\0';
+
+	if (cg.pmOnlyChat && !isPrivate)
+		return;
 
 	if (cg_logChat.integer & JAPRO_CHATLOG_ENABLE) {
 		CG_LogPrintf(cg.log.file, "%s\n", chatStr);
@@ -10143,6 +10367,7 @@ void CG_ChatBox_AddString(char *chatStr)
 	}
 
 	Com_Memset(chat, 0, sizeof(chatBoxItem_t));
+	chat->isPrivate = isPrivate;
 
 	if (strlen(chatStr) > sizeof(chat->string))
 	{ //too long, terminate at proper len.
@@ -10249,11 +10474,11 @@ void CG_ChatBox_AddString(char *chatStr)
 			while (chat->string[i])
 			{
 				if (cg_chatBoxShowCutoff.integer) {
-					if (i == MAX_SAY_TEXT) { //at the max length of the original JAMP chatbox, insert white color code
-						CG_ChatBox_StrInsert(chat->string, i, S_COLOR_WHITE);
+					if (i == MAX_SAY_TEXT) { //at the max length of the original JAMP chatbox, insert cutoff color code
+						CG_ChatBox_StrInsert(chat->string, i, cutoffColorStr);
 					}
-					else if (i > MAX_SAY_TEXT && Q_IsColorString(&chat->string[i])) { //already past max length but we have a color code, skip it so it stays white
-						chat->string[i+1] = COLOR_WHITE;
+					else if (i > MAX_SAY_TEXT && Q_IsColorString(&chat->string[i])) { //already past max length but we have a color code, skip it so it stays the cutoff color
+						chat->string[i+1] = cutoffColorChar;
 					}
 				}
 
@@ -10318,9 +10543,9 @@ void CG_ChatBox_AddString(char *chatStr)
 			qboolean draw = qfalse;
 
 			if (cg_chatBoxShowCutoff.integer) { //no idea why this needs to be offset by 2 here
-				if (r == (MAX_SAY_TEXT - 2)) { //at the max length of the original JAMP chatbox, insert white color code
+				if (r == (MAX_SAY_TEXT - 2)) { //at the max length of the original JAMP chatbox, insert cutoff color code
 					emojiStr[w++] = Q_COLOR_ESCAPE;
-					emojiStr[w++] = COLOR_WHITE;
+					emojiStr[w++] = cutoffColorChar;
 					if (Q_IsColorString(&chat->string[r]))
 						r += 2;
 				}
@@ -10467,7 +10692,8 @@ static QINLINE void CG_ChatBox_DrawStrings(void)
 
 	while (i < cg_chatBoxLines.integer)
 	{
-		if (cg.chatItems[i].time >= cg.time || drawAnyway)
+		if ((!cg.pmOnlyChat || cg.chatItems[i].isPrivate) &&
+			(cg.chatItems[i].time >= cg.time || drawAnyway))
 		{
 			int check = numToDraw;
 			int insertionPoint = numToDraw;
@@ -11091,6 +11317,7 @@ static void CG_Draw2D( void ) {
 	// Draw this before the text so that any text won't get clipped off
 	CG_DrawZoomMask();
 	CG_DrawBinocularTargets();
+	CG_DrawMissionParty();
 
 /*
 	if (cg.cameraMode) {
@@ -12203,11 +12430,64 @@ static void CG_LeadIndicator(void)
 		}
 }
 
+extern void BG_VehicleAdjustBBoxForOrientation(Vehicle_t *veh, vec3_t origin, vec3_t mins, vec3_t maxs,
+    int clientNum, int tracemask, void (*localTrace)(trace_t *, const vec3_t, const vec3_t, const vec3_t, int, int));
+
+// Draw a pilot whose player entity was omitted because the vehicle hides riders.
+static void CG_HiddenVehiclePilotLabel(int clientNum, centity_t *veh, int localVehicleNum)
+{
+	vec3_t pos, diff;
+	trace_t trace;
+	float x, y, top = 64.0f;
+	int vehicleNum = veh->currentState.number;
+
+	VectorSubtract(veh->lerpOrigin, cg.refdef.vieworg, diff);
+	if (VectorLength(diff) >= 3000)
+		return;
+	CG_TraceSkipEntity(&trace, cg.refdef.vieworg, NULL, NULL, veh->lerpOrigin,
+		cg.snap->ps.clientNum, localVehicleNum, CONTENTS_SOLID | CONTENTS_BODY);
+	if (trace.startsolid || trace.allsolid ||
+		(trace.fraction < 1.0f && trace.entityNum != vehicleNum))
+		return;
+
+	if (veh->currentState.solid && veh->currentState.solid != SOLID_BMODEL)
+		top = ((veh->currentState.solid >> 16) & 255) - 32;
+	if (veh->m_pVehicle && veh->m_pVehicle->m_pVehicleInfo) {
+		vec3_t mins, maxs;
+		float *oldOrientation = veh->m_pVehicle->m_vOrientation;
+		VectorSet(mins, -16, -16, -24);
+		VectorSet(maxs, 16, 16, top);
+		veh->m_pVehicle->m_vOrientation = veh->lerpAngles;
+		BG_VehicleAdjustBBoxForOrientation(veh->m_pVehicle, veh->lerpOrigin,
+			mins, maxs, vehicleNum, MASK_PLAYERSOLID, NULL);
+		veh->m_pVehicle->m_vOrientation = oldOrientation;
+		if (maxs[2] > top)
+			top = maxs[2];
+	}
+	VectorCopy(veh->lerpOrigin, pos);
+	pos[2] += top + 24;
+	if (!CG_WorldCoordToScreenCoord(pos, &x, &y))
+		return;
+	CG_TraceSkipEntity(&trace, cg.refdef.vieworg, NULL, NULL, pos,
+		cg.snap->ps.clientNum, localVehicleNum, CONTENTS_SOLID);
+	if (trace.startsolid || trace.allsolid ||
+		(trace.fraction < 1.0f && trace.entityNum != vehicleNum))
+		return;
+	CG_DrawScaledProportionalString(x, y, cgs.clientinfo[clientNum].name,
+		UI_CENTER, colorTable[CT_WHITE], cg_drawPlayerNamesScale.value);
+}
+
 static void CG_PlayerLabels(void)
 {
 	int i;
+	int localVehicleNum = cg.snap ? cg.snap->ps.m_iVehicleNum : ENTITYNUM_NONE;
+
+	// The camera can be inside the local fighter's collision box.
+	if (localVehicleNum <= 0 || localVehicleNum >= ENTITYNUM_WORLD)
+		localVehicleNum = ENTITYNUM_NONE;
 
 	if (!cg.snap || (cgs.restricts & RESTRICT_PLAYERLABELS) ||
+		cg.predictedPlayerState.zoomMode == 2 ||
 		cg.snap->ps.duelInProgress || cg.predictedPlayerState.duelInProgress ||
 		cgs.gametype == GT_DUEL || cgs.gametype == GT_POWERDUEL)
 		return;
@@ -12218,6 +12498,9 @@ static void CG_PlayerLabels(void)
 		trace_t		trace;
 		centity_t	*cent = &cg_entities[i];
 		vec3_t		diff;
+		centity_t	*veh = NULL;
+		int			vehicleNum;
+		int			labelsAbove = 0;
 
 		if (!cent->currentValid)
 			continue;
@@ -12235,8 +12518,6 @@ static void CG_PlayerLabels(void)
 			continue;
 		if (cent->currentState.bolt1) // Never label players participating in a private duel.
 			continue;
-		if (cg_drawnCrosshairNameClient == i)
-			continue;
 		if (CG_IsMindTricked(cent->currentState.trickedentindex,
 			cent->currentState.trickedentindex2,
 			cent->currentState.trickedentindex3,
@@ -12247,31 +12528,92 @@ static void CG_PlayerLabels(void)
 		if (cent->cloaked || (cent->currentState.powerups & (1 << PW_CLOAKED)))
 			continue;
 
-		VectorSubtract(cent->lerpOrigin, cg.refdef.vieworg, diff);
+		vehicleNum = cent->currentState.m_iVehicleNum;
+		if (vehicleNum >= MAX_CLIENTS && vehicleNum < ENTITYNUM_WORLD &&
+			cg_entities[vehicleNum].currentValid &&
+			cg_entities[vehicleNum].currentState.eType == ET_NPC &&
+			cg_entities[vehicleNum].currentState.NPC_class == CLASS_VEHICLE)
+			veh = &cg_entities[vehicleNum];
+		// A crosshair name is centered on the HUD, so it does not replace
+		// the label that identifies which vehicle the player occupies.
+		if (cg_drawnCrosshairNameClient == i && !veh)
+			continue;
+
+		VectorSubtract(veh ? veh->lerpOrigin : cent->lerpOrigin, cg.refdef.vieworg, diff);
 		if (VectorLength(diff) >= 3000) //Make sure distance is less than... 3000 ?
 			continue;
 
-		// Only an unobstructed camera-to-player trace (or a hit on this player)
-		// is visible. Doors, movers and other bodies must block names too.
-		CG_Trace(&trace, cg.refdef.vieworg, NULL, NULL, cent->lerpOrigin,
-			cg.snap->ps.clientNum, CONTENTS_SOLID | CONTENTS_BODY);
+		// Trace to the visible vehicle, not to a rider hidden inside its hull.
+		CG_TraceSkipEntity(&trace, cg.refdef.vieworg, NULL, NULL,
+			veh ? veh->lerpOrigin : cent->lerpOrigin,
+			cg.snap->ps.clientNum, localVehicleNum, CONTENTS_SOLID | CONTENTS_BODY);
 		if (trace.startsolid || trace.allsolid ||
-			(trace.fraction < 1.0f && trace.entityNum != i))
+			(trace.fraction < 1.0f && trace.entityNum != i &&
+				(!veh || trace.entityNum != vehicleNum)))
 			continue;
 
-		VectorCopy(cent->lerpOrigin, pos);
-		pos[2] += 64;
+		if (veh) {
+			int j;
+			float top = 64.0f;
+
+			// The packed bbox is too small for some ships; use the vehicle's
+			// oriented bounds when available so the label clears its hull.
+			if (veh->currentState.solid && veh->currentState.solid != SOLID_BMODEL)
+				top = ((veh->currentState.solid >> 16) & 255) - 32;
+			if (veh->m_pVehicle && veh->m_pVehicle->m_pVehicleInfo) {
+				vec3_t mins, maxs;
+				float *oldOrientation = veh->m_pVehicle->m_vOrientation;
+				VectorSet(mins, -16, -16, -24);
+				VectorSet(maxs, 16, 16, top);
+				veh->m_pVehicle->m_vOrientation = veh->lerpAngles;
+				BG_VehicleAdjustBBoxForOrientation(veh->m_pVehicle, veh->lerpOrigin,
+					mins, maxs, vehicleNum, MASK_PLAYERSOLID, NULL);
+				veh->m_pVehicle->m_vOrientation = oldOrientation;
+				if (maxs[2] > top)
+					top = maxs[2];
+			}
+			VectorCopy(veh->lerpOrigin, pos);
+			pos[2] += top + 24;
+			for (j = 0; j < i; j++)
+				if (cg_entities[j].currentValid &&
+					cg_entities[j].currentState.m_iVehicleNum == vehicleNum)
+					labelsAbove++;
+		} else {
+			VectorCopy(cent->lerpOrigin, pos);
+			pos[2] += 64;
+		}
 
 		if (!CG_WorldCoordToScreenCoord(pos, &x, &y)) //off-screen, don't draw it
 			continue;
+		y -= labelsAbove * 14.0f;
 
 		// The elevated label itself must not be projected through a ceiling/wall.
-		CG_Trace(&trace, cg.refdef.vieworg, NULL, NULL, pos,
-			cg.snap->ps.clientNum, CONTENTS_SOLID);
-		if (trace.startsolid || trace.allsolid || trace.fraction < 1.0f)
+		CG_TraceSkipEntity(&trace, cg.refdef.vieworg, NULL, NULL, pos,
+			cg.snap->ps.clientNum, localVehicleNum, CONTENTS_SOLID);
+		if (trace.startsolid || trace.allsolid ||
+			(trace.fraction < 1.0f && (!veh || trace.entityNum != vehicleNum)))
 			continue;
 
 		CG_DrawScaledProportionalString(x, y, cgs.clientinfo[i].name, UI_CENTER, colorTable[CT_WHITE], cg_drawPlayerNamesScale.value);
+	}
+
+	// hideRider vehicles remove their pilots from other clients' snapshots.
+	// The vehicle owner remains available and identifies the missing pilot.
+	for (i = MAX_CLIENTS; i < ENTITYNUM_WORLD; i++) {
+		centity_t *veh = &cg_entities[i];
+		int pilotNum = veh->currentState.owner;
+
+		if (!veh->currentValid || veh->currentState.eType != ET_NPC ||
+			veh->currentState.NPC_class != CLASS_VEHICLE ||
+			pilotNum < 0 || pilotNum >= MAX_CLIENTS ||
+			veh->currentState.m_iVehicleNum != pilotNum + 1 ||
+			pilotNum == cg.clientNum || pilotNum == cg.snap->ps.clientNum ||
+			cg_entities[pilotNum].currentValid ||
+			!cgs.clientinfo[pilotNum].infoValid ||
+			cgs.clientinfo[pilotNum].team == TEAM_SPECTATOR)
+			continue;
+
+		CG_HiddenVehiclePilotLabel(pilotNum, veh, localVehicleNum);
 	}
 }
 

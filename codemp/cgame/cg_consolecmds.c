@@ -1594,7 +1594,10 @@ static bitInfo_T pluginDisables[] = { // MAX_WEAPON_TWEAKS tweaks (24)
 static const int MAX_PLUGINDISABLES = ARRAY_LEN( pluginDisables );
 
 static qboolean CG_PluginOptionEnabled(int index)
-{ //these are JA+ disable bits, so the feature behind one is on while its bit is clear
+{ //Plugin 2 opts into end-duel rotation; the remaining features use JA+ disable bits.
+	if (index == 2) {
+		return (qboolean)((cp_pluginDisable.integer & JAPRO_PLUGIN_ENDDUELROTATION) != 0);
+	}
 	return (qboolean)(!(cp_pluginDisable.integer & (1 << index)) != 0);
 }
 
@@ -1614,8 +1617,8 @@ void CG_PluginDisable_f( void ) {
 			if (cgs.serverMod == SVMOD_JAPRO && !japroPluginDisables[i])
 				continue;
 
-			//nearly every entry is named as a disable, so its box tracks the bit. Plugin 9 is named
-			//as the feature itself ("Holster staff on back"), so its box ticks when the bit is clear
+			//Boxes track the bit, including Plugin 2's opt-in. Plugin 9 ("Holster staff on back")
+			//uses a disable bit, so its box ticks when the bit is clear.
 			if ( (i == 9) ? CG_PluginOptionEnabled(i) : (cp_pluginDisable.integer & (1 << i)) != 0 ) {
 				Com_Printf( "%2d [X] %s\n", display, pluginDisables[i].string );
 			}
@@ -2711,6 +2714,35 @@ static void CG_TeleToPlayer_f(void) {
 }
 
 extern int lastWhispererId;
+static void CG_PMOnly_f( void )
+{
+	const char *arg = CG_Argv( 1 );
+
+	if ( trap->Cmd_Argc() > 1 )
+	{
+		if ( !Q_stricmp( arg, "on" ) || !Q_stricmp( arg, "1" ) )
+		{
+			cg.pmOnlyChat = qtrue;
+		}
+		else if ( !Q_stricmp( arg, "off" ) || !Q_stricmp( arg, "0" ) )
+		{
+			cg.pmOnlyChat = qfalse;
+		}
+		else
+		{
+			trap->Print( "Usage: pmonly [on|off]\n" );
+			return;
+		}
+	}
+	else
+	{
+		cg.pmOnlyChat = !cg.pmOnlyChat;
+	}
+
+	trap->Print( "PM-only chat %s for this map.\n",
+		cg.pmOnlyChat ? "enabled" : "disabled" );
+}
+
 void CG_Say_f( void ) {
 	char msg[MAX_SAY_TEXT] = {0};
 	char word[MAX_SAY_TEXT] = {0};
@@ -2867,7 +2899,14 @@ int cmdcmp( const void *a, const void *b ) {
 	return Q_stricmp( (const char *)a, ((consoleCommand_t*)b)->cmd );
 }
 
+static void CG_ForceDestruction_f(void)
+{
+	if (CG_HasDestruction() && !cg.demoPlayback)
+		trap->SendClientCommand("force_destruction");
+}
+
 static consoleCommand_t	commands[] = {
+	{ "force_destruction", CG_ForceDestruction_f },
 	{ "+scores",					CG_ScoresDown_f },
 	{ "-scores",					CG_ScoresUp_f },
 	{ "briefing",					CG_SiegeBriefing_f },
@@ -2960,6 +2999,7 @@ static consoleCommand_t	commands[] = {
 	{ "listRemaps",					CG_ListRemaps_f },
 	{ "listEmojis",					CG_ListEmojis_f },
 	{ "loadTrail",					CG_SpawnStrafeTrailFromCFG_f },
+	{ "pmonly",					CG_PMOnly_f },
 	{ "weaplast",					CG_LastWeapon_f },
 	{ "do",							CG_Do_f },
 	{ "doStop",						CG_DoCancel_f },

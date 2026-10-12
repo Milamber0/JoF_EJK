@@ -13471,6 +13471,11 @@ void UI_Init( qboolean inGameLoad ) {
 	Init_Display(&uiInfo.uiDC);
 
 	UI_RegisterCvars();
+	// A rank change belongs to the connection that sent it; the server resends
+	// it on every join. One left over from the last session would be applied on
+	// the main menu, where the free-saber rule is unknown, and trim the build.
+	if (!inGameLoad)
+		trap->Cvar_Set("ui_rankChange", "0");
 	UI_Set2DRatio();
 
 	String_Init();

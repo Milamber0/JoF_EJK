@@ -41,5 +41,6 @@ Installing and running EternalJK:
 * [SomaZ](https://github.com/SomaZ) - for the Rend2 renderer version we package with our releases: [![Fork](https://img.shields.io/badge/repository-OpenJK-brightgreen.svg)](https://github.com/SomaZ/OpenJK)
 * [Sunny](https://github.com/JKSunny) - for the Vulkan renderer version we package with our releases: [![Fork](https://img.shields.io/badge/repository-EternalJK-brightgreen.svg)](https://github.com/JKSunny/EternalJK)
 * [Tayst](https://github.com/taysta) - for changes contributed to Sunny's EJK which we sourced from.
+* [Circa](https://jkhub.org/files/file/4564-elegance-hud-hd/) - for the HD Elegance HUD textures, based on the original HUD by [DarthNormaN](https://jkhub.org/files/file/296-elegance-hud/).
 * [Alereon](https://github.com/Alereon) - for the Cosmetics feature (hats and capes)
 * [Jedi Knight Galaxies Developers](https://github.com/JKGDevs) - for their Dialogue feature 

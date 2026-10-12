@@ -119,7 +119,7 @@
 		{
 			name				hatstitle
 			group				none
-			text				"Hats"
+			text				"HATS"
 			rect				15 45 200 20
 			textalign			ITEM_ALIGN_LEFT
 			textalignx			0
@@ -137,7 +137,7 @@
 			group				none
 			type				ITEM_TYPE_LISTBOX
 			style				WINDOW_STYLE_FILLED
-			elementwidth		215
+			elementwidth		160
 			elementheight		16
 			elementtype			LISTBOX_TEXT
 			feeder				46			//FEEDER_COSMETIC_HATS
@@ -150,7 +150,7 @@
 			rect				15 65 215 128
 			textscale			.9
 			textaligny			13					// the list paints a row high without this
-			descText			"Click to wear, click again to take off"
+			descText			"Click to wear, click again to take off."
 			visible			1
 			action
 			{
@@ -163,7 +163,7 @@
 		{
 			name				capestitle
 			group				none
-			text				"Capes"
+			text				"CAPES"
 			rect				15 195 200 20
 			textalign			ITEM_ALIGN_LEFT
 			textalignx			0
@@ -181,7 +181,7 @@
 			group				none
 			type				ITEM_TYPE_LISTBOX
 			style				WINDOW_STYLE_FILLED
-			elementwidth		215
+			elementwidth		160
 			elementheight		16
 			elementtype			LISTBOX_TEXT
 			feeder				47			//FEEDER_COSMETIC_CAPES
@@ -194,7 +194,7 @@
 			rect				15 215 215 112
 			textscale			.9
 			textaligny			13					// the list paints a row high without this
-			descText			"Click to wear, click again to take off"
+			descText			"Click to wear, click again to take off."
 			visible			1
 			action
 			{
@@ -212,19 +212,19 @@
 			cvar				"cg_cosmetics"
 			cvarFloatList
 			{
-				@MENUS_OFF 0
 				@MENUS_ON 1
 				"Only Me" 2
+				@MENUS_OFF 0
 			}
-			rect				70 330 290 20
-			textalign			ITEM_ALIGN_RIGHT
-			textalignx			150
+			rect				130 330 170 20
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			85
 			textaligny			0
 			font				2
 			textscale			.8
 			forecolor			1 .682 0 1
 			visible			1
-			descText			"Show cosmetics on everyone, only yourself, or nobody"
+			descText			"Show cosmetics on everyone, only yourself, or nobody."
 			action
 			{
 				play			"sound/interface/button1"
@@ -237,7 +237,7 @@
 			name				clearbutton_glow
 			group				buttonglows
 			style				WINDOW_STYLE_SHADER
-			rect				20 345 110 32
+			rect				24 348 102 26
 			background			"gfx/menus/menu_buttonback"
 			forecolor			1 1 1 1
 			decoration
@@ -248,7 +248,7 @@
 		{
 			name				clearcosmetics
 			group				none
-			text				"REMOVE ALL"
+			text				"Remove All"
 			type				ITEM_TYPE_BUTTON
 			style				WINDOW_STYLE_EMPTY
 			rect				20 345 110 32
@@ -258,7 +258,7 @@
 			font				2
 			textscale			.9
 			forecolor			1 .682 0 1
-			descText			"Take off the hat and the cape"
+			descText			"Take off the hat and the cape."
 			visible			1
 			action
 			{
@@ -281,7 +281,7 @@
 			name				backbutton_glow
 			group				buttonglows
 			style				WINDOW_STYLE_SHADER
-			rect				290 345 110 32
+			rect				294 348 102 26
 			background			"gfx/menus/menu_buttonback"
 			forecolor			1 1 1 1
 			decoration
@@ -293,7 +293,7 @@
 			name				backcosmetics
 			group				none
 			text				@MENUS_APPLY
-			descText			"Return to the player menu"
+			descText			"Return to the player menu."
 			type				ITEM_TYPE_BUTTON
 			style				WINDOW_STYLE_EMPTY
 			rect				290 345 110 32

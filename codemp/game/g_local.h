@@ -791,6 +791,10 @@ typedef struct clientPersistant_s {
 	int			netnameTime;				// Last time the name was changed
 	int			maxHealth;			// for handicapping
 	int			enterTime;			// level.time the client entered the game
+	int			missionPartyEntityNums[MAX_MISSION_PARTY];
+	int			missionPartyGenerations[MAX_MISSION_PARTY];
+	int			missionPartyDeadSince[MAX_MISSION_PARTY];
+	int			missionPartyCount;
 	playerTeamState_t teamState;	// status in teamplay games
 	qboolean	teamInfo;			// send team overlay updates?
 
@@ -965,6 +969,10 @@ struct gclient_s {
 	clientSession_t		sess;
 	int binocularNextUpdate;
 	qboolean binocularScanActive;
+	int missionPartyNextUpdate;
+	int missionPartyLastCount;
+	qboolean missionPartyTagHeld;
+	qboolean missionPartyClearHeld;
 
 	saberInfo_t	saber[MAX_SABERS];
 	void		*weaponGhoul2[MAX_SABERS];
@@ -1094,6 +1102,13 @@ struct gclient_s {
 	vec3_t		idleViewAngles;	//stop idling if viewangles change
 
 	int			forcePowerSoundDebounce; //if > level.time, don't do certain sound events again (drain sound, absorb sound, etc)
+	int			forceDestructionCooldown; // server-only; never extend the networked force arrays
+	int			forceDestructionChargeTime;
+	int			forceDestructionCost;
+	int			forceDestructionDamage;
+	int			forceDestructionRadius;
+	int			forceDestructionSpeed;
+	int			forceDestructionDimension;
 
 	char		modelname[MAX_QPATH];
 
@@ -1162,6 +1177,9 @@ struct gclient_s {
 	int			solidHack;
 
 	int			noLightningTime;
+	int			lightningDeflectAttacker;
+	int			lightningDeflectTime;
+	int			lightningDeflectAnim;
 
 	unsigned	mGameFlags;
 
@@ -1858,6 +1876,7 @@ void G_ClearTeamVote( gentity_t *ent, int team );
 void G_CheckClientTimeouts	( gentity_t *ent );
 void ClientThink			( int clientNum, usercmd_t *ucmd );
 void ClientEndFrame			( gentity_t *ent );
+void G_ClearMissionPartyTags	( gentity_t *viewer );
 void G_RunClient			( gentity_t *ent );
 
 //
@@ -1923,6 +1942,12 @@ void WP_SaberInitBladeData( gentity_t *ent );
 void WP_InitForcePowers( gentity_t *ent );
 void WP_SpawnInitForcePowers( gentity_t *ent );
 void WP_ForcePowersUpdate( gentity_t *self, usercmd_t *ucmd );
+void WP_UpdateLightningDeflect(gentity_t *self, const usercmd_t *cmd);
+void G_UpdateForceDestruction( gentity_t *self );
+void ForceDestruction( gentity_t *self );
+void G_ForceDestructionImpact( gentity_t *missile, trace_t *trace );
+int WP_AbsorbConversion(gentity_t *attacked, int atdAbsLevel, gentity_t *attacker,
+	int atPower, int atPowerLevel, int atForceSpent);
 int ForcePowerUsableOn(gentity_t *attacker, gentity_t *other, forcePowers_t forcePower);
 void ForceHeal( gentity_t *self );
 void ForceSpeed( gentity_t *self, int forceDuration );

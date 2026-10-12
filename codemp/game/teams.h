@@ -93,6 +93,8 @@ typedef enum
 	CLASS_VEHICLE,
 	CLASS_RANCOR,
 	CLASS_WAMPA,
+	// Keep new classes at the end so existing class IDs remain network-compatible.
+	CLASS_MARTIALARTIST,
 
 	CLASS_NUM_CLASSES
 } class_t;

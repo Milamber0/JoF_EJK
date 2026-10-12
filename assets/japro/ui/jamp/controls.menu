@@ -33,6 +33,11 @@
 			hide			othercontrols ;
 			hide			japrocontrols ;
 			hide			radialmenucontrols ;
+			hide radialmenupage1 ;
+			hide radialmenupage2 ;
+			hide radialmenupage3 ;
+			hide radialmenupage4 ;
+			hide radialmenupage5 ;
 			hide			japluscontrols ;
 			setitemcolor		movementcontrolbutton 		forecolor 1 1 1 1 ;
 			setitemcolor		attackcontrolbutton 		forecolor 1 .682 0 1 ;
@@ -499,6 +504,11 @@
 				hide			othercontrols ;
 				hide			japrocontrols ;
 				hide			radialmenucontrols ;
+				hide radialmenupage1 ;
+				hide radialmenupage2 ;
+				hide radialmenupage3 ;
+				hide radialmenupage4 ;
+				hide radialmenupage5 ;
 				hide			japluscontrols ;
 				setitemcolor		movementcontrolbutton 		forecolor 1 1 1 1 ;
 				setitemcolor		attackcontrolbutton 		forecolor 1 .682 0 1 ;
@@ -566,6 +576,11 @@
 				hide			othercontrols ;
 				hide			japrocontrols ;
 				hide			radialmenucontrols ;
+				hide radialmenupage1 ;
+				hide radialmenupage2 ;
+				hide radialmenupage3 ;
+				hide radialmenupage4 ;
+				hide radialmenupage5 ;
 				hide			japluscontrols ;
 				setitemcolor		movementcontrolbutton 		forecolor 1 .682 0 1 ;
 				setitemcolor		attackcontrolbutton 		forecolor 1 1 1 1 ;
@@ -632,6 +647,11 @@
 				hide			othercontrols ;
 				hide			japrocontrols ;
 				hide			radialmenucontrols ;
+				hide radialmenupage1 ;
+				hide radialmenupage2 ;
+				hide radialmenupage3 ;
+				hide radialmenupage4 ;
+				hide radialmenupage5 ;
 				hide			japluscontrols ;
 				setitemcolor		movementcontrolbutton 		forecolor 1 .682 0 1 ;
 				setitemcolor		attackcontrolbutton 		forecolor 1 .682 0 1 ;
@@ -698,6 +718,11 @@
 				hide			othercontrols ;
 				hide			japrocontrols ;
 				hide			radialmenucontrols ;
+				hide radialmenupage1 ;
+				hide radialmenupage2 ;
+				hide radialmenupage3 ;
+				hide radialmenupage4 ;
+				hide radialmenupage5 ;
 				hide			japluscontrols ;
 				setitemcolor		movementcontrolbutton 		forecolor 1 .682 0 1 ;
 				setitemcolor		attackcontrolbutton 		forecolor 1 .682 0 1 ;
@@ -763,6 +788,11 @@
 				hide			othercontrols ;
 				hide			japrocontrols ;
 				hide			radialmenucontrols ;
+				hide radialmenupage1 ;
+				hide radialmenupage2 ;
+				hide radialmenupage3 ;
+				hide radialmenupage4 ;
+				hide radialmenupage5 ;
 				hide			japluscontrols ;
 				setitemcolor		movementcontrolbutton 		forecolor 1 .682 0 1 ;
 				setitemcolor		attackcontrolbutton 		forecolor 1 .682 0 1 ;
@@ -829,6 +859,11 @@
 				hide			othercontrols ;
 				hide			japrocontrols ;
 				hide			radialmenucontrols ;
+				hide radialmenupage1 ;
+				hide radialmenupage2 ;
+				hide radialmenupage3 ;
+				hide radialmenupage4 ;
+				hide radialmenupage5 ;
 				hide			japluscontrols ;
 				setitemcolor		movementcontrolbutton 		forecolor 1 .682 0 1 ;
 				setitemcolor		attackcontrolbutton 		forecolor 1 .682 0 1 ;
@@ -895,6 +930,11 @@
 				show			othercontrols ;
 				hide			japrocontrols ;
 				hide			radialmenucontrols ;
+				hide radialmenupage1 ;
+				hide radialmenupage2 ;
+				hide radialmenupage3 ;
+				hide radialmenupage4 ;
+				hide radialmenupage5 ;
 				hide			japluscontrols ;
 				setitemcolor		movementcontrolbutton 		forecolor 1 .682 0 1 ;
 				setitemcolor		attackcontrolbutton 		forecolor 1 .682 0 1 ;
@@ -961,6 +1001,11 @@
 				hide			othercontrols ;
 				show			japrocontrols ;
 				hide			radialmenucontrols ;
+				hide radialmenupage1 ;
+				hide radialmenupage2 ;
+				hide radialmenupage3 ;
+				hide radialmenupage4 ;
+				hide radialmenupage5 ;
 				hide			japluscontrols ;
 				setitemcolor		movementcontrolbutton 		forecolor 1 .682 0 1 ;
 				setitemcolor		attackcontrolbutton 		forecolor 1 .682 0 1 ;
@@ -1026,6 +1071,16 @@
 				hide			othercontrols ;
 				hide			japrocontrols ;
 				show			radialmenucontrols ;
+								hide radialmenupage2 ;
+				hide radialmenupage3 ;
+				hide radialmenupage4 ;
+				hide radialmenupage5 ;
+				show radialmenupage1 ;
+				setitemcolor radialpagebutton1 forecolor 1 1 1 1 ;
+				setitemcolor radialpagebutton2 forecolor 1 .682 0 1 ;
+				setitemcolor radialpagebutton3 forecolor 1 .682 0 1 ;
+				setitemcolor radialpagebutton4 forecolor 1 .682 0 1 ;
+				setitemcolor radialpagebutton5 forecolor 1 .682 0 1 ;
 				hide			japluscontrols ;
 				setitemcolor		movementcontrolbutton 		forecolor 1 .682 0 1 ;
 				setitemcolor		attackcontrolbutton 		forecolor 1 .682 0 1 ;
@@ -1092,6 +1147,11 @@
 				hide			othercontrols ;
 				hide			japrocontrols ;
 				hide			radialmenucontrols ;
+				hide radialmenupage1 ;
+				hide radialmenupage2 ;
+				hide radialmenupage3 ;
+				hide radialmenupage4 ;
+				hide radialmenupage5 ;
 				show			japluscontrols ;
 				setitemcolor		movementcontrolbutton 		forecolor 1 .682 0 1 ;
 				setitemcolor		attackcontrolbutton 		forecolor 1 .682 0 1 ;
@@ -3075,7 +3135,7 @@
 
 		itemDef 
 		{
-			group				radialmenucontrols
+			group				radialmenupage1
 			type				ITEM_TYPE_EDITFIELD
 			text				"Radial Slot 1:"
 			cvar				"cg_radialbind1"
@@ -3109,7 +3169,7 @@
 
 		itemDef 
 		{
-			group				radialmenucontrols
+			group				radialmenupage1
 			type				ITEM_TYPE_EDITFIELD
 			text				"Radial Slot 2:"
 			cvar				"cg_radialbind2"
@@ -3143,7 +3203,7 @@
 
 		itemDef 
 		{
-			group				radialmenucontrols
+			group				radialmenupage1
 			type				ITEM_TYPE_EDITFIELD
 			text				"Radial Slot 3:"
 			cvar				"cg_radialbind3"
@@ -3177,7 +3237,7 @@
 
 		itemDef 
 		{
-			group				radialmenucontrols
+			group				radialmenupage1
 			type				ITEM_TYPE_EDITFIELD
 			text				"Radial Slot 4:"
 			cvar				"cg_radialbind4"
@@ -3211,7 +3271,7 @@
 
 		itemDef 
 		{
-			group				radialmenucontrols
+			group				radialmenupage1
 			type				ITEM_TYPE_EDITFIELD
 			text				"Radial Slot 5:"
 			cvar				"cg_radialbind5"
@@ -3245,7 +3305,7 @@
 
 		itemDef 
 		{
-			group				radialmenucontrols
+			group				radialmenupage1
 			type				ITEM_TYPE_EDITFIELD
 			text				"Radial Slot 6:"
 			cvar				"cg_radialbind6"
@@ -3279,7 +3339,7 @@
 
 		itemDef 
 		{
-			group				radialmenucontrols
+			group				radialmenupage1
 			type				ITEM_TYPE_EDITFIELD
 			text				"Radial Slot 7:"
 			cvar				"cg_radialbind7"
@@ -3313,7 +3373,7 @@
 
 		itemDef 
 		{
-			group				radialmenucontrols
+			group				radialmenupage1
 			type				ITEM_TYPE_EDITFIELD
 			text				"Radial Slot 8:"
 			cvar				"cg_radialbind8"
@@ -3342,6 +3402,1249 @@
 			{
 				hide			highlight9
 				hide			keybindstatus
+			}
+		}
+
+		itemDef
+		{
+			group				radialmenupage2
+			type				ITEM_TYPE_EDITFIELD
+			text				"Radial Slot 9:"
+			cvar				"cg_radialbind9"
+			rect				260 204 340 14
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			visible				0
+			descText			"The command will be executed on slot 9."
+			maxChars        	64
+			maxPaintChars   	32
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+			}
+
+			mouseenter
+			{
+				show			highlight2
+				show			keybindstatus
+			}
+			mouseexit
+			{
+				hide			highlight2
+				hide			keybindstatus
+			}
+		}
+
+		itemDef
+		{
+			group				radialmenupage2
+			type				ITEM_TYPE_EDITFIELD
+			text				"Radial Slot 10:"
+			cvar				"cg_radialbind10"
+			rect				260 218 340 14
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			visible				0
+			descText			"The command will be executed on slot 10."
+			maxChars        	64
+			maxPaintChars   	32
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+			}
+
+			mouseenter
+			{
+				show			highlight3
+				show			keybindstatus
+			}
+			mouseexit
+			{
+				hide			highlight3
+				hide			keybindstatus
+			}
+		}
+
+		itemDef
+		{
+			group				radialmenupage2
+			type				ITEM_TYPE_EDITFIELD
+			text				"Radial Slot 11:"
+			cvar				"cg_radialbind11"
+			rect				260 232 340 14
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			visible				0
+			descText			"The command will be executed on slot 11."
+			maxChars        	64
+			maxPaintChars   	32
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+			}
+
+			mouseenter
+			{
+				show			highlight4
+				show			keybindstatus
+			}
+			mouseexit
+			{
+				hide			highlight4
+				hide			keybindstatus
+			}
+		}
+
+		itemDef
+		{
+			group				radialmenupage2
+			type				ITEM_TYPE_EDITFIELD
+			text				"Radial Slot 12:"
+			cvar				"cg_radialbind12"
+			rect				260 246 340 14
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			visible				0
+			descText			"The command will be executed on slot 12."
+			maxChars        	64
+			maxPaintChars   	32
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+			}
+
+			mouseenter
+			{
+				show			highlight5
+				show			keybindstatus
+			}
+			mouseexit
+			{
+				hide			highlight5
+				hide			keybindstatus
+			}
+		}
+
+		itemDef
+		{
+			group				radialmenupage2
+			type				ITEM_TYPE_EDITFIELD
+			text				"Radial Slot 13:"
+			cvar				"cg_radialbind13"
+			rect				260 260 340 14
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			visible				0
+			descText			"The command will be executed on slot 13."
+			maxChars        	64
+			maxPaintChars   	32
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+			}
+
+			mouseenter
+			{
+				show			highlight6
+				show			keybindstatus
+			}
+			mouseexit
+			{
+				hide			highlight6
+				hide			keybindstatus
+			}
+		}
+
+		itemDef
+		{
+			group				radialmenupage2
+			type				ITEM_TYPE_EDITFIELD
+			text				"Radial Slot 14:"
+			cvar				"cg_radialbind14"
+			rect				260 274 340 14
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			visible				0
+			descText			"The command will be executed on slot 14."
+			maxChars        	64
+			maxPaintChars   	32
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+			}
+
+			mouseenter
+			{
+				show			highlight7
+				show			keybindstatus
+			}
+			mouseexit
+			{
+				hide			highlight7
+				hide			keybindstatus
+			}
+		}
+
+		itemDef
+		{
+			group				radialmenupage2
+			type				ITEM_TYPE_EDITFIELD
+			text				"Radial Slot 15:"
+			cvar				"cg_radialbind15"
+			rect				260 288 340 14
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			visible				0
+			descText			"The command will be executed on slot 15."
+			maxChars        	64
+			maxPaintChars   	32
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+			}
+
+			mouseenter
+			{
+				show			highlight8
+				show			keybindstatus
+			}
+			mouseexit
+			{
+				hide			highlight8
+				hide			keybindstatus
+			}
+		}
+
+		itemDef
+		{
+			group				radialmenupage2
+			type				ITEM_TYPE_EDITFIELD
+			text				"Radial Slot 16:"
+			cvar				"cg_radialbind16"
+			rect				260 302 340 14
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			visible				0
+			descText			"The command will be executed on slot 16."
+			maxChars        	64
+			maxPaintChars   	32
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+			}
+
+			mouseenter
+			{
+				show			highlight9
+				show			keybindstatus
+			}
+			mouseexit
+			{
+				hide			highlight9
+				hide			keybindstatus
+			}
+		}
+
+		itemDef
+		{
+			group				radialmenupage3
+			type				ITEM_TYPE_EDITFIELD
+			text				"Radial Slot 17:"
+			cvar				"cg_radialbind17"
+			rect				260 204 340 14
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			visible				0
+			descText			"The command will be executed on slot 17."
+			maxChars        	64
+			maxPaintChars   	32
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+			}
+
+			mouseenter
+			{
+				show			highlight2
+				show			keybindstatus
+			}
+			mouseexit
+			{
+				hide			highlight2
+				hide			keybindstatus
+			}
+		}
+
+		itemDef
+		{
+			group				radialmenupage3
+			type				ITEM_TYPE_EDITFIELD
+			text				"Radial Slot 18:"
+			cvar				"cg_radialbind18"
+			rect				260 218 340 14
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			visible				0
+			descText			"The command will be executed on slot 18."
+			maxChars        	64
+			maxPaintChars   	32
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+			}
+
+			mouseenter
+			{
+				show			highlight3
+				show			keybindstatus
+			}
+			mouseexit
+			{
+				hide			highlight3
+				hide			keybindstatus
+			}
+		}
+
+		itemDef
+		{
+			group				radialmenupage3
+			type				ITEM_TYPE_EDITFIELD
+			text				"Radial Slot 19:"
+			cvar				"cg_radialbind19"
+			rect				260 232 340 14
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			visible				0
+			descText			"The command will be executed on slot 19."
+			maxChars        	64
+			maxPaintChars   	32
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+			}
+
+			mouseenter
+			{
+				show			highlight4
+				show			keybindstatus
+			}
+			mouseexit
+			{
+				hide			highlight4
+				hide			keybindstatus
+			}
+		}
+
+		itemDef
+		{
+			group				radialmenupage3
+			type				ITEM_TYPE_EDITFIELD
+			text				"Radial Slot 20:"
+			cvar				"cg_radialbind20"
+			rect				260 246 340 14
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			visible				0
+			descText			"The command will be executed on slot 20."
+			maxChars        	64
+			maxPaintChars   	32
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+			}
+
+			mouseenter
+			{
+				show			highlight5
+				show			keybindstatus
+			}
+			mouseexit
+			{
+				hide			highlight5
+				hide			keybindstatus
+			}
+		}
+
+		itemDef
+		{
+			group				radialmenupage3
+			type				ITEM_TYPE_EDITFIELD
+			text				"Radial Slot 21:"
+			cvar				"cg_radialbind21"
+			rect				260 260 340 14
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			visible				0
+			descText			"The command will be executed on slot 21."
+			maxChars        	64
+			maxPaintChars   	32
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+			}
+
+			mouseenter
+			{
+				show			highlight6
+				show			keybindstatus
+			}
+			mouseexit
+			{
+				hide			highlight6
+				hide			keybindstatus
+			}
+		}
+
+		itemDef
+		{
+			group				radialmenupage3
+			type				ITEM_TYPE_EDITFIELD
+			text				"Radial Slot 22:"
+			cvar				"cg_radialbind22"
+			rect				260 274 340 14
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			visible				0
+			descText			"The command will be executed on slot 22."
+			maxChars        	64
+			maxPaintChars   	32
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+			}
+
+			mouseenter
+			{
+				show			highlight7
+				show			keybindstatus
+			}
+			mouseexit
+			{
+				hide			highlight7
+				hide			keybindstatus
+			}
+		}
+
+		itemDef
+		{
+			group				radialmenupage3
+			type				ITEM_TYPE_EDITFIELD
+			text				"Radial Slot 23:"
+			cvar				"cg_radialbind23"
+			rect				260 288 340 14
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			visible				0
+			descText			"The command will be executed on slot 23."
+			maxChars        	64
+			maxPaintChars   	32
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+			}
+
+			mouseenter
+			{
+				show			highlight8
+				show			keybindstatus
+			}
+			mouseexit
+			{
+				hide			highlight8
+				hide			keybindstatus
+			}
+		}
+
+		itemDef
+		{
+			group				radialmenupage3
+			type				ITEM_TYPE_EDITFIELD
+			text				"Radial Slot 24:"
+			cvar				"cg_radialbind24"
+			rect				260 302 340 14
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			visible				0
+			descText			"The command will be executed on slot 24."
+			maxChars        	64
+			maxPaintChars   	32
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+			}
+
+			mouseenter
+			{
+				show			highlight9
+				show			keybindstatus
+			}
+			mouseexit
+			{
+				hide			highlight9
+				hide			keybindstatus
+			}
+		}
+
+		itemDef
+		{
+			group				radialmenupage4
+			type				ITEM_TYPE_EDITFIELD
+			text				"Radial Slot 25:"
+			cvar				"cg_radialbind25"
+			rect				260 204 340 14
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			visible				0
+			descText			"The command will be executed on slot 25."
+			maxChars        	64
+			maxPaintChars   	32
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+			}
+
+			mouseenter
+			{
+				show			highlight2
+				show			keybindstatus
+			}
+			mouseexit
+			{
+				hide			highlight2
+				hide			keybindstatus
+			}
+		}
+
+		itemDef
+		{
+			group				radialmenupage4
+			type				ITEM_TYPE_EDITFIELD
+			text				"Radial Slot 26:"
+			cvar				"cg_radialbind26"
+			rect				260 218 340 14
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			visible				0
+			descText			"The command will be executed on slot 26."
+			maxChars        	64
+			maxPaintChars   	32
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+			}
+
+			mouseenter
+			{
+				show			highlight3
+				show			keybindstatus
+			}
+			mouseexit
+			{
+				hide			highlight3
+				hide			keybindstatus
+			}
+		}
+
+		itemDef
+		{
+			group				radialmenupage4
+			type				ITEM_TYPE_EDITFIELD
+			text				"Radial Slot 27:"
+			cvar				"cg_radialbind27"
+			rect				260 232 340 14
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			visible				0
+			descText			"The command will be executed on slot 27."
+			maxChars        	64
+			maxPaintChars   	32
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+			}
+
+			mouseenter
+			{
+				show			highlight4
+				show			keybindstatus
+			}
+			mouseexit
+			{
+				hide			highlight4
+				hide			keybindstatus
+			}
+		}
+
+		itemDef
+		{
+			group				radialmenupage4
+			type				ITEM_TYPE_EDITFIELD
+			text				"Radial Slot 28:"
+			cvar				"cg_radialbind28"
+			rect				260 246 340 14
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			visible				0
+			descText			"The command will be executed on slot 28."
+			maxChars        	64
+			maxPaintChars   	32
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+			}
+
+			mouseenter
+			{
+				show			highlight5
+				show			keybindstatus
+			}
+			mouseexit
+			{
+				hide			highlight5
+				hide			keybindstatus
+			}
+		}
+
+		itemDef
+		{
+			group				radialmenupage4
+			type				ITEM_TYPE_EDITFIELD
+			text				"Radial Slot 29:"
+			cvar				"cg_radialbind29"
+			rect				260 260 340 14
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			visible				0
+			descText			"The command will be executed on slot 29."
+			maxChars        	64
+			maxPaintChars   	32
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+			}
+
+			mouseenter
+			{
+				show			highlight6
+				show			keybindstatus
+			}
+			mouseexit
+			{
+				hide			highlight6
+				hide			keybindstatus
+			}
+		}
+
+		itemDef
+		{
+			group				radialmenupage4
+			type				ITEM_TYPE_EDITFIELD
+			text				"Radial Slot 30:"
+			cvar				"cg_radialbind30"
+			rect				260 274 340 14
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			visible				0
+			descText			"The command will be executed on slot 30."
+			maxChars        	64
+			maxPaintChars   	32
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+			}
+
+			mouseenter
+			{
+				show			highlight7
+				show			keybindstatus
+			}
+			mouseexit
+			{
+				hide			highlight7
+				hide			keybindstatus
+			}
+		}
+
+		itemDef
+		{
+			group				radialmenupage4
+			type				ITEM_TYPE_EDITFIELD
+			text				"Radial Slot 31:"
+			cvar				"cg_radialbind31"
+			rect				260 288 340 14
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			visible				0
+			descText			"The command will be executed on slot 31."
+			maxChars        	64
+			maxPaintChars   	32
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+			}
+
+			mouseenter
+			{
+				show			highlight8
+				show			keybindstatus
+			}
+			mouseexit
+			{
+				hide			highlight8
+				hide			keybindstatus
+			}
+		}
+
+		itemDef
+		{
+			group				radialmenupage4
+			type				ITEM_TYPE_EDITFIELD
+			text				"Radial Slot 32:"
+			cvar				"cg_radialbind32"
+			rect				260 302 340 14
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			visible				0
+			descText			"The command will be executed on slot 32."
+			maxChars        	64
+			maxPaintChars   	32
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+			}
+
+			mouseenter
+			{
+				show			highlight9
+				show			keybindstatus
+			}
+			mouseexit
+			{
+				hide			highlight9
+				hide			keybindstatus
+			}
+		}
+
+		itemDef
+		{
+			group				radialmenupage5
+			type				ITEM_TYPE_EDITFIELD
+			text				"Radial Slot 33:"
+			cvar				"cg_radialbind33"
+			rect				260 204 340 14
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			visible				0
+			descText			"The command will be executed on slot 33."
+			maxChars        	64
+			maxPaintChars   	32
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+			}
+
+			mouseenter
+			{
+				show			highlight2
+				show			keybindstatus
+			}
+			mouseexit
+			{
+				hide			highlight2
+				hide			keybindstatus
+			}
+		}
+
+		itemDef
+		{
+			group				radialmenupage5
+			type				ITEM_TYPE_EDITFIELD
+			text				"Radial Slot 34:"
+			cvar				"cg_radialbind34"
+			rect				260 218 340 14
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			visible				0
+			descText			"The command will be executed on slot 34."
+			maxChars        	64
+			maxPaintChars   	32
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+			}
+
+			mouseenter
+			{
+				show			highlight3
+				show			keybindstatus
+			}
+			mouseexit
+			{
+				hide			highlight3
+				hide			keybindstatus
+			}
+		}
+
+		itemDef
+		{
+			group				radialmenupage5
+			type				ITEM_TYPE_EDITFIELD
+			text				"Radial Slot 35:"
+			cvar				"cg_radialbind35"
+			rect				260 232 340 14
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			visible				0
+			descText			"The command will be executed on slot 35."
+			maxChars        	64
+			maxPaintChars   	32
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+			}
+
+			mouseenter
+			{
+				show			highlight4
+				show			keybindstatus
+			}
+			mouseexit
+			{
+				hide			highlight4
+				hide			keybindstatus
+			}
+		}
+
+		itemDef
+		{
+			group				radialmenupage5
+			type				ITEM_TYPE_EDITFIELD
+			text				"Radial Slot 36:"
+			cvar				"cg_radialbind36"
+			rect				260 246 340 14
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			visible				0
+			descText			"The command will be executed on slot 36."
+			maxChars        	64
+			maxPaintChars   	32
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+			}
+
+			mouseenter
+			{
+				show			highlight5
+				show			keybindstatus
+			}
+			mouseexit
+			{
+				hide			highlight5
+				hide			keybindstatus
+			}
+		}
+
+		itemDef
+		{
+			group				radialmenupage5
+			type				ITEM_TYPE_EDITFIELD
+			text				"Radial Slot 37:"
+			cvar				"cg_radialbind37"
+			rect				260 260 340 14
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			visible				0
+			descText			"The command will be executed on slot 37."
+			maxChars        	64
+			maxPaintChars   	32
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+			}
+
+			mouseenter
+			{
+				show			highlight6
+				show			keybindstatus
+			}
+			mouseexit
+			{
+				hide			highlight6
+				hide			keybindstatus
+			}
+		}
+
+		itemDef
+		{
+			group				radialmenupage5
+			type				ITEM_TYPE_EDITFIELD
+			text				"Radial Slot 38:"
+			cvar				"cg_radialbind38"
+			rect				260 274 340 14
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			visible				0
+			descText			"The command will be executed on slot 38."
+			maxChars        	64
+			maxPaintChars   	32
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+			}
+
+			mouseenter
+			{
+				show			highlight7
+				show			keybindstatus
+			}
+			mouseexit
+			{
+				hide			highlight7
+				hide			keybindstatus
+			}
+		}
+
+		itemDef
+		{
+			group				radialmenupage5
+			type				ITEM_TYPE_EDITFIELD
+			text				"Radial Slot 39:"
+			cvar				"cg_radialbind39"
+			rect				260 288 340 14
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			visible				0
+			descText			"The command will be executed on slot 39."
+			maxChars        	64
+			maxPaintChars   	32
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+			}
+
+			mouseenter
+			{
+				show			highlight8
+				show			keybindstatus
+			}
+			mouseexit
+			{
+				hide			highlight8
+				hide			keybindstatus
+			}
+		}
+
+		itemDef
+		{
+			group				radialmenupage5
+			type				ITEM_TYPE_EDITFIELD
+			text				"Radial Slot 40:"
+			cvar				"cg_radialbind40"
+			rect				260 302 340 14
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			visible				0
+			descText			"The command will be executed on slot 40."
+			maxChars        	64
+			maxPaintChars   	32
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+			}
+
+			mouseenter
+			{
+				show			highlight9
+				show			keybindstatus
+			}
+			mouseexit
+			{
+				hide			highlight9
+				hide			keybindstatus
+			}
+		}
+
+		itemDef
+		{
+			name radialpagebutton1
+			group radialmenucontrols
+			type ITEM_TYPE_BUTTON
+			text "Page 1"
+			rect 260 334 60 20
+			textalign ITEM_ALIGN_CENTER
+			textalignx 30
+			font 4
+			textscale 1
+			forecolor 1 1 1 1
+			visible 0
+			descText "Configure radial slots 1-8."
+			action
+			{
+				play "sound/interface/button1.wav" ;
+				hide radialmenupage1 ;
+				hide radialmenupage2 ;
+				hide radialmenupage3 ;
+				hide radialmenupage4 ;
+				hide radialmenupage5 ;
+				show radialmenupage1 ;
+				setitemcolor radialpagebutton1 forecolor 1 1 1 1 ;
+				setitemcolor radialpagebutton2 forecolor 1 .682 0 1 ;
+				setitemcolor radialpagebutton3 forecolor 1 .682 0 1 ;
+				setitemcolor radialpagebutton4 forecolor 1 .682 0 1 ;
+				setitemcolor radialpagebutton5 forecolor 1 .682 0 1 ;
+			}
+		}
+
+		itemDef
+		{
+			name radialpagebutton2
+			group radialmenucontrols
+			type ITEM_TYPE_BUTTON
+			text "Page 2"
+			rect 324 334 60 20
+			textalign ITEM_ALIGN_CENTER
+			textalignx 30
+			font 4
+			textscale 1
+			forecolor 1 .682 0 1
+			visible 0
+			descText "Configure radial slots 9-16."
+			action
+			{
+				play "sound/interface/button1.wav" ;
+				hide radialmenupage1 ;
+				hide radialmenupage2 ;
+				hide radialmenupage3 ;
+				hide radialmenupage4 ;
+				hide radialmenupage5 ;
+				show radialmenupage2 ;
+				setitemcolor radialpagebutton1 forecolor 1 .682 0 1 ;
+				setitemcolor radialpagebutton2 forecolor 1 1 1 1 ;
+				setitemcolor radialpagebutton3 forecolor 1 .682 0 1 ;
+				setitemcolor radialpagebutton4 forecolor 1 .682 0 1 ;
+				setitemcolor radialpagebutton5 forecolor 1 .682 0 1 ;
+			}
+		}
+
+		itemDef
+		{
+			name radialpagebutton3
+			group radialmenucontrols
+			type ITEM_TYPE_BUTTON
+			text "Page 3"
+			rect 388 334 60 20
+			textalign ITEM_ALIGN_CENTER
+			textalignx 30
+			font 4
+			textscale 1
+			forecolor 1 .682 0 1
+			visible 0
+			descText "Configure radial slots 17-24."
+			action
+			{
+				play "sound/interface/button1.wav" ;
+				hide radialmenupage1 ;
+				hide radialmenupage2 ;
+				hide radialmenupage3 ;
+				hide radialmenupage4 ;
+				hide radialmenupage5 ;
+				show radialmenupage3 ;
+				setitemcolor radialpagebutton1 forecolor 1 .682 0 1 ;
+				setitemcolor radialpagebutton2 forecolor 1 .682 0 1 ;
+				setitemcolor radialpagebutton3 forecolor 1 1 1 1 ;
+				setitemcolor radialpagebutton4 forecolor 1 .682 0 1 ;
+				setitemcolor radialpagebutton5 forecolor 1 .682 0 1 ;
+			}
+		}
+
+		itemDef
+		{
+			name radialpagebutton4
+			group radialmenucontrols
+			type ITEM_TYPE_BUTTON
+			text "Page 4"
+			rect 452 334 60 20
+			textalign ITEM_ALIGN_CENTER
+			textalignx 30
+			font 4
+			textscale 1
+			forecolor 1 .682 0 1
+			visible 0
+			descText "Configure radial slots 25-32."
+			action
+			{
+				play "sound/interface/button1.wav" ;
+				hide radialmenupage1 ;
+				hide radialmenupage2 ;
+				hide radialmenupage3 ;
+				hide radialmenupage4 ;
+				hide radialmenupage5 ;
+				show radialmenupage4 ;
+				setitemcolor radialpagebutton1 forecolor 1 .682 0 1 ;
+				setitemcolor radialpagebutton2 forecolor 1 .682 0 1 ;
+				setitemcolor radialpagebutton3 forecolor 1 .682 0 1 ;
+				setitemcolor radialpagebutton4 forecolor 1 1 1 1 ;
+				setitemcolor radialpagebutton5 forecolor 1 .682 0 1 ;
+			}
+		}
+
+		itemDef
+		{
+			name radialpagebutton5
+			group radialmenucontrols
+			type ITEM_TYPE_BUTTON
+			text "Page 5"
+			rect 516 334 60 20
+			textalign ITEM_ALIGN_CENTER
+			textalignx 30
+			font 4
+			textscale 1
+			forecolor 1 .682 0 1
+			visible 0
+			descText "Configure radial slots 33-40."
+			action
+			{
+				play "sound/interface/button1.wav" ;
+				hide radialmenupage1 ;
+				hide radialmenupage2 ;
+				hide radialmenupage3 ;
+				hide radialmenupage4 ;
+				hide radialmenupage5 ;
+				show radialmenupage5 ;
+				setitemcolor radialpagebutton1 forecolor 1 .682 0 1 ;
+				setitemcolor radialpagebutton2 forecolor 1 .682 0 1 ;
+				setitemcolor radialpagebutton3 forecolor 1 .682 0 1 ;
+				setitemcolor radialpagebutton4 forecolor 1 .682 0 1 ;
+				setitemcolor radialpagebutton5 forecolor 1 1 1 1 ;
 			}
 		}
 

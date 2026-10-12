@@ -1,0 +1,14 @@
+Elegance HUD - HD textures
+
+HD artwork by Circa, based on the original Elegance HUD by DarthNormaN.
+Source: https://jkhub.org/files/file/4564-elegance-hud-hd/
+Original HUD: https://jkhub.org/files/file/296-elegance-hud/
+
+The HD health, armor, ammo, and force ticks and the fast, medium, and strong
+saber bars in this folder come from Circa's Elegance HUD - HD package.
+The Desann, Tavion, staff, and dual bars were adapted for JoF EJK from
+Circa's HD strong bar, using the colors of this client's original bars.
+Circa's original package readme is included as CIRCA_ORIGINAL_README.txt.
+
+The JKHub download permits modification and sharing with credit to the
+original author. Credit is given here to both Circa and DarthNormaN.

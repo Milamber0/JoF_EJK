@@ -455,6 +455,12 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 
 	other = &g_entities[trace->entityNum];
 
+	if (ent->s.weapon == WP_CONCUSSION && ent->s.generic1 == DESTRUCTION_MISSILE_TAG)
+	{
+		G_ForceDestructionImpact(ent, trace);
+		return;
+	}
+
 	// check for bounce
 	if ( other->takedamage &&
 		(ent->bounceCount > 0 || ent->bounceCount == -5) &&

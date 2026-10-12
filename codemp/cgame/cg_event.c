@@ -154,6 +154,7 @@ static void CG_Obituary( entityState_t *ent ) {
 	if ( !targetInfo || !targetInfo->infoValid ) {
 		return;
 	}
+
 	Com_sprintf(targetName, sizeof(targetName), "%s%s", targetInfo->name, S_COLOR_WHITE);
 	targetInfo->deaths++;
 
@@ -468,13 +469,23 @@ clientkilled:
 
 void CG_ToggleBinoculars(centity_t *cent, int forceZoom)
 {
+	playerState_t *eventPlayerState;
+
 	if (cent->currentState.number != cg.snap->ps.clientNum)
 	{
 		return;
 	}
 
-	if (cg.snap->ps.weaponstate != WEAPON_READY)
-	{ //So we can't fool it and reactivate while switching to the saber or something.
+	eventPlayerState = cent->playerState ? cent->playerState : &cg.snap->ps;
+
+	// A nonzero forceZoom comes from the server after ItemUse_Binoculars has
+	// already accepted and applied the toggle. Do not reject its sound because
+	// another snapshot still carries a transient forced-state weapon timer. For
+	// predicted item use, validate the player state that produced the event.
+	if (!forceZoom && (eventPlayerState->weaponTime > 0 ||
+		eventPlayerState->weaponstate == WEAPON_CHARGING ||
+		eventPlayerState->weaponstate == WEAPON_CHARGING_ALT))
+	{ //Still block unconfirmed predicted uses during genuine weapon activity.
 		return;
 	}
 
@@ -1745,7 +1756,6 @@ extern int cg_dueltypes[MAX_CLIENTS];//JAPRO - Clientside - Fullforce Duels
 void CG_GibPlayer( vec3_t playerOrigin );
 
 #define	DEBUGNAME(x) if(cg_debugEvents.integer){trap->Print(x"\n");}
-extern void CG_ChatBox_AddString(char *chatStr); //cg_draw.c
 void CG_SpotIcon( int client, vec3_t org );
 void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 	entityState_t	*es;
@@ -1995,6 +2005,20 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 		if (cg.snap->ps.clientNum != es->number)
 		{
 			break;
+		}
+
+		if (cgs.serverMod == SVMOD_JAPLUS && es->number == cg.clientNum) {
+			cg.endDuelCameraTime = 0;
+			// JA+ starts Plugin 2 from EV_PRIVATE_DUEL 0, not an obituary.
+			// The survivor can receive this before prediction clears duelInProgress.
+			if (!es->eventParm &&
+				(cp_pluginDisable.integer & JAPRO_PLUGIN_ENDDUELROTATION) &&
+				!(cg.snap->ps.pm_flags & PMF_FOLLOW) &&
+				cg.snap->ps.persistant[PERS_TEAM] != TEAM_SPECTATOR &&
+				cg.snap->ps.stats[STAT_HEALTH] > 0) {
+				cg.endDuelCameraTime = cg.time;
+				cg.endDuelCameraSpawnCount = cg.snap->ps.persistant[PERS_SPAWN_COUNT];
+			}
 		}
 
 //JAPRO - Clientside - Fullforce Duels - Start
@@ -3644,6 +3668,17 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 
 	case EV_MISSILE_MISS:
 		DEBUGNAME("EV_MISSILE_MISS");
+		if (es->weapon == WP_CONCUSSION && es->generic1 == DESTRUCTION_MISSILE_TAG)
+		{
+			// This is Force energy, not a gun impact: full-force duels must see it.
+			if (es->owner >= 0 && es->owner < MAX_GENTITIES &&
+				!CG_DuelCull(&cg_entities[es->owner]))
+			{
+				ByteToDir(es->eventParm, dir);
+				CG_PlayDestructionEffect(es, position, dir, qtrue);
+			}
+			break;
+		}
 		if (cgs.serverMod == SVMOD_JAPRO && cg.predictedPlayerState.stats[STAT_RACEMODE] && cg.predictedPlayerState.stats[STAT_MOVEMENTSTYLE] >= MV_COOP_JKA) {
 		}
 		else if (cg.predictedPlayerState.duelInProgress &&
@@ -3926,7 +3961,7 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 				}
 				if (ci->team == ourTeam || isGlobalVGS(s)) //put it to console or.. just not at all?
 				{ //add to the chat box
-					CG_ChatBox_AddString(va("<%s^7: %s>", ci->name, descr));
+					CG_ChatBox_AddString(va("<%s^7: %s>", ci->name, descr), qfalse);
 				}
 
 				if (ci->team == ourTeam || isGlobalVGS(s))
@@ -3978,6 +4013,7 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 					//the forced hilt's own sound is the one he is owed, so settle that first and
 					//hold that one - his saber info is what the staff swap matches against
 					sfxHandle_t sound = CG_ForceOwnSaberSound(es, es->number, cgs.gameSounds[ es->eventParm ]);
+					sound = CG_DestructionCastSound(es, sound);
 					//JA+ hands the saber ignition out this way, dropped at the owner's feet with
 					//nothing on it to say whose it is - hold it back if it belongs to a staff being
 					//drawn over a shoulder, so it lands with the blade

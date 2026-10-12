@@ -40,6 +40,7 @@ qboolean PM_SaberInReturn( int move );
 qboolean WP_SaberStyleValidForSaber( saberInfo_t *saber1, saberInfo_t *saber2, int saberHolstered, int saberAnimLevel );
 qboolean saberCheckKnockdown_DuelLoss(gentity_t *saberent, gentity_t *saberOwner, gentity_t *other);
 qboolean BG_CanJetpack(playerState_t *ps);
+static void G_TryMissionPartyTag(gentity_t *viewer);
 
 void P_SetTwitchInfo(gclient_t	*client)
 {
@@ -3440,6 +3441,8 @@ void ClientThink_real( gentity_t *ent ) {
 	qboolean	controlledByPlayer = qfalse;
 	qboolean	killJetFlags = qtrue;
 	qboolean	isFollowing;
+	qboolean	missionPartyTagPressed = qfalse;
+	qboolean	missionPartyClearPressed = qfalse;
 
 	client = ent->client;
 
@@ -4807,6 +4810,26 @@ void ClientThink_real( gentity_t *ent ) {
 	//FIXME: need to do this before check to avoid walls and cliffs (or just cliffs?)
 	G_AddPushVecToUcmd( ent, ucmd );
 
+	// With binoculars active and the saber fully down, primary fire operates
+	// the mission-party uplink and alt fire clears it. Consume both attacks
+	// before pmove so they cannot ignite the saber, and trigger each action only
+	// once per physical button press.
+	if (!isNPC && client->ps.zoomMode == 2 && client->ps.weapon == WP_SABER &&
+		client->ps.saberHolstered == 2) {
+		qboolean attackHeld = (ucmd->buttons & BUTTON_ATTACK) != 0;
+		qboolean altAttackHeld = (ucmd->buttons & BUTTON_ALT_ATTACK) != 0;
+		if (attackHeld && !client->missionPartyTagHeld)
+			missionPartyTagPressed = qtrue;
+		if (altAttackHeld && !client->missionPartyClearHeld)
+			missionPartyClearPressed = qtrue;
+		client->missionPartyTagHeld = attackHeld;
+		client->missionPartyClearHeld = altAttackHeld;
+		ucmd->buttons &= ~(BUTTON_ATTACK | BUTTON_ALT_ATTACK);
+	} else {
+		client->missionPartyTagHeld = qfalse;
+		client->missionPartyClearHeld = qfalse;
+	}
+
 	//play/stop any looping sounds tied to controlled movement
 	G_CheckMovingLoopingSounds( ent, ucmd );
 
@@ -5075,7 +5098,19 @@ void ClientThink_real( gentity_t *ent ) {
 #endif
 	}
 
+	// Release the passive lightning pose before this command handles combat.
+	WP_UpdateLightningDeflect(ent, &pmove.cmd);
 	Pmove (&pmove);
+	// Movement applies the new view angles and may enter a jump or saber move.
+	WP_UpdateLightningDeflect(ent, &pmove.cmd);
+
+	// Pmove applies the command's view angles, so resolve the contact using the
+	// same frame the player actually aimed and pressed primary fire. Alt fire
+	// wins if both buttons were pressed together.
+	if (missionPartyClearPressed)
+		G_ClearMissionPartyTags(ent);
+	else if (missionPartyTagPressed)
+		G_TryMissionPartyTag(ent);
 
 	if (ent->client->solidHack)
 	{
@@ -6064,6 +6099,241 @@ static void G_BinocularName(gentity_t *target, char *name, int size) {
 	}
 }
 
+static qboolean G_BinocularTargetVisible(gentity_t *viewer, gentity_t *target,
+	const vec3_t eye, const vec3_t forward, float minimumScore, float *targetScore) {
+	vec3_t point, direction;
+	float distance, score;
+	trace_t trace;
+	int targetNum = target - g_entities;
+
+	if (target == viewer || !target->inuse || !target->client || !target->r.linked ||
+		(target->s.eType != ET_PLAYER && target->s.eType != ET_NPC) ||
+		target->health <= 0 || (target->s.eFlags & (EF_DEAD | EF_NODRAW)) ||
+		(target->r.svFlags & SVF_NOCLIENT))
+		return qfalse;
+	if (target->s.eType == ET_PLAYER && (target->client->pers.connected != CON_CONNECTED ||
+		target->client->sess.sessionTeam == TEAM_SPECTATOR))
+		return qfalse;
+	if (((target->r.svFlags & SVF_SINGLECLIENT) && target->r.singleClient != viewer->s.number) ||
+		((target->r.svFlags & SVF_NOTSINGLECLIENT) && target->r.singleClient == viewer->s.number) ||
+		((target->r.svFlags & SVF_BROADCASTCLIENTS) &&
+		 !(target->r.broadcastClients[viewer->s.number / 32] & (1u << (viewer->s.number % 32)))) ||
+		target->client->ps.powerups[PW_CLOAKED] ||
+		G_IsMindTricked(&target->client->ps.fd, viewer->s.number))
+		return qfalse;
+
+	VectorCopy(target->r.currentOrigin, point);
+	point[2] += (target->r.mins[2] + target->r.maxs[2]) * 0.5f;
+	VectorSubtract(point, eye, direction);
+	distance = VectorNormalize(direction);
+	score = DotProduct(direction, forward);
+	if (distance > BINOCULAR_RANGE || score < minimumScore || !trap->InPVS(eye, point))
+		return qfalse;
+	trap->Trace(&trace, eye, NULL, NULL, point, viewer->s.number, MASK_SHOT, qfalse, 0, 0);
+	if (trace.startsolid || trace.allsolid ||
+		(trace.fraction < 1.0f && trace.entityNum != targetNum))
+		return qfalse;
+	if (targetScore)
+		*targetScore = score;
+	return qtrue;
+}
+
+static int G_MissionPartyGeneration(gentity_t *target) {
+	if (target->s.number < MAX_CLIENTS)
+		return target->client->pers.enterTime;
+	return target->freetime;
+}
+
+static void G_RemoveMissionPartyMember(clientPersistant_t *pers, int slot) {
+	int remaining = pers->missionPartyCount - slot - 1;
+	if (remaining > 0) {
+		memmove(&pers->missionPartyEntityNums[slot], &pers->missionPartyEntityNums[slot + 1],
+			remaining * sizeof(pers->missionPartyEntityNums[0]));
+		memmove(&pers->missionPartyGenerations[slot], &pers->missionPartyGenerations[slot + 1],
+			remaining * sizeof(pers->missionPartyGenerations[0]));
+		memmove(&pers->missionPartyDeadSince[slot], &pers->missionPartyDeadSince[slot + 1],
+			remaining * sizeof(pers->missionPartyDeadSince[0]));
+	}
+	pers->missionPartyCount--;
+	pers->missionPartyDeadSince[pers->missionPartyCount] = 0;
+}
+
+void G_ClearMissionPartyTags(gentity_t *viewer) {
+	clientPersistant_t *pers;
+
+	if (!viewer || !viewer->client || viewer->s.number >= MAX_CLIENTS)
+		return;
+	pers = &viewer->client->pers;
+	if (!pers->missionPartyCount)
+		return;
+
+	memset(pers->missionPartyEntityNums, 0, sizeof(pers->missionPartyEntityNums));
+	memset(pers->missionPartyGenerations, 0, sizeof(pers->missionPartyGenerations));
+	memset(pers->missionPartyDeadSince, 0, sizeof(pers->missionPartyDeadSince));
+	pers->missionPartyCount = 0;
+	viewer->client->missionPartyNextUpdate = 0;
+	viewer->client->missionPartyLastCount = 0;
+	trap->SendServerCommand(viewer->s.number, va("partyStats %i 0", level.time));
+}
+
+static qboolean G_MissionPartyMemberValid(clientPersistant_t *pers, int slot) {
+	int entityNum = pers->missionPartyEntityNums[slot];
+	gentity_t *target;
+	if (entityNum < 0 || entityNum >= ENTITYNUM_WORLD)
+		return qfalse;
+	target = &g_entities[entityNum];
+	if (entityNum >= MAX_CLIENTS || !target->inuse || !target->client ||
+		target->s.eType != ET_PLAYER ||
+		(target->r.svFlags & SVF_NOCLIENT) ||
+		G_MissionPartyGeneration(target) != pers->missionPartyGenerations[slot])
+		return qfalse;
+	if (target->client->pers.connected != CON_CONNECTED ||
+		target->client->sess.sessionTeam == TEAM_SPECTATOR)
+		return qfalse;
+	return qtrue;
+}
+
+static void G_UpdateMissionParty(gentity_t *viewer) {
+	gclient_t *client = viewer->client;
+	clientPersistant_t *pers = &client->pers;
+	char userinfo[MAX_INFO_STRING], payload[MAX_STRING_CHARS], command[MAX_STRING_CHARS];
+	int i;
+
+	if (viewer->s.number < MAX_CLIENTS && pers->missionPartyCount &&
+		(viewer->health <= 0 || client->ps.pm_type == PM_DEAD ||
+		(client->ps.eFlags & EF_DEAD))) {
+		G_ClearMissionPartyTags(viewer);
+	}
+
+	if (viewer->s.number >= MAX_CLIENTS || (viewer->r.svFlags & SVF_BOT) ||
+		level.time < client->missionPartyNextUpdate)
+		return;
+	client->missionPartyNextUpdate = level.time + MISSION_PARTY_UPDATE_MSEC;
+	trap->GetUserinfo(viewer->s.number, userinfo, sizeof(userinfo));
+	if (strcmp(Info_ValueForKey(userinfo, "binoScan"), "1"))
+		return;
+
+	for (i = 0; i < pers->missionPartyCount; ) {
+		if (!G_MissionPartyMemberValid(pers, i))
+			G_RemoveMissionPartyMember(pers, i);
+		else {
+			gentity_t *target = &g_entities[pers->missionPartyEntityNums[i]];
+			if (!pers->missionPartyDeadSince[i] &&
+				(target->health <= 0 || (target->s.eFlags & EF_DEAD)))
+				pers->missionPartyDeadSince[i] = level.time;
+			if (pers->missionPartyDeadSince[i] &&
+				level.time - pers->missionPartyDeadSince[i] >= MISSION_PARTY_DEAD_MSEC) {
+				G_RemoveMissionPartyMember(pers, i);
+				continue;
+			}
+			i++;
+		}
+	}
+	// Do not spend a reliable command four times per second on clients that
+	// have no roster. A transition from one member to zero is still sent once.
+	if (!pers->missionPartyCount && !client->missionPartyLastCount)
+		return;
+
+	payload[0] = '\0';
+	for (i = 0; i < pers->missionPartyCount; i++) {
+		gentity_t *target = &g_entities[pers->missionPartyEntityNums[i]];
+		char record[96];
+		Com_sprintf(record, sizeof(record), " %i %i %i %i %i %i", target->s.number,
+			pers->missionPartyDeadSince[i] ? 0 : Q_max(0, target->health),
+			Q_max(1, target->client->ps.stats[STAT_MAX_HEALTH]),
+			Q_max(0, target->client->ps.stats[STAT_ARMOR]),
+			Q_max(0, target->client->ps.fd.forcePower),
+			Q_max(1, target->client->ps.fd.forcePowerMax));
+		Q_strcat(payload, sizeof(payload), record);
+	}
+	Com_sprintf(command, sizeof(command), "partyStats %i %i%s", level.time,
+		pers->missionPartyCount, payload);
+	trap->SendServerCommand(viewer->s.number, command);
+	client->missionPartyLastCount = pers->missionPartyCount;
+
+	payload[0] = '\0';
+	for (i = 0; i < pers->missionPartyCount; i++) {
+		gentity_t *target = &g_entities[pers->missionPartyEntityNums[i]];
+		char name[64], record[96];
+		if (target->s.eType != ET_NPC)
+			continue;
+		G_BinocularName(target, name, sizeof(name));
+		Com_sprintf(record, sizeof(record), " %i \"%s\"", target->s.number, name);
+		Q_strcat(payload, sizeof(payload), record);
+	}
+	if (payload[0]) {
+		Com_sprintf(command, sizeof(command), "partyNames %i%s", level.time, payload);
+		trap->SendServerCommand(viewer->s.number, command);
+	}
+}
+
+static void G_ToggleMissionPartyTag(gentity_t *viewer, int entityNum) {
+	clientPersistant_t *pers;
+	gentity_t *target;
+	vec3_t eye, forward;
+	int i, generation;
+
+	if (!viewer || !viewer->client || viewer->s.number >= MAX_CLIENTS ||
+		viewer->client->ps.zoomMode != 2 || viewer->health <= 0 ||
+		viewer->client->ps.weapon != WP_SABER ||
+		viewer->client->ps.saberHolstered != 2 ||
+		viewer->client->sess.sessionTeam == TEAM_SPECTATOR ||
+		entityNum < 0 || entityNum >= ENTITYNUM_WORLD)
+		return;
+	target = &g_entities[entityNum];
+	if (entityNum >= MAX_CLIENTS || target->s.eType != ET_PLAYER)
+		return;
+	VectorCopy(viewer->client->ps.origin, eye);
+	eye[2] += viewer->client->ps.viewheight;
+	AngleVectors(viewer->client->ps.viewangles, forward, NULL, NULL);
+	// A tag must be centered in the optics. Range, concealment, PVS and line of
+	// sight are rechecked here before the party link changes.
+	if (!G_BinocularTargetVisible(viewer, target, eye, forward, 0.985f, NULL)) {
+		return;
+	}
+
+	pers = &viewer->client->pers;
+	generation = G_MissionPartyGeneration(target);
+	for (i = 0; i < pers->missionPartyCount; i++) {
+		if (pers->missionPartyEntityNums[i] == entityNum &&
+			pers->missionPartyGenerations[i] == generation) {
+			G_RemoveMissionPartyMember(pers, i);
+			viewer->client->missionPartyNextUpdate = 0;
+			return;
+		}
+	}
+	if (pers->missionPartyCount >= MAX_MISSION_PARTY) {
+		return;
+	}
+	pers->missionPartyEntityNums[pers->missionPartyCount] = entityNum;
+	pers->missionPartyGenerations[pers->missionPartyCount] = generation;
+	pers->missionPartyDeadSince[pers->missionPartyCount] = 0;
+	pers->missionPartyCount++;
+	viewer->client->missionPartyNextUpdate = 0;
+}
+
+static void G_TryMissionPartyTag(gentity_t *viewer) {
+	vec3_t eye, forward;
+	float bestScore = -1.0f;
+	int i, targetNum = ENTITYNUM_NONE;
+
+	VectorCopy(viewer->client->ps.origin, eye);
+	eye[2] += viewer->client->ps.viewheight;
+	AngleVectors(viewer->client->ps.viewangles, forward, NULL, NULL);
+	for (i = 0; i < level.maxclients; i++) {
+		float score;
+		if (G_BinocularTargetVisible(viewer, &g_entities[i], eye, forward, 0.985f, &score) &&
+			score > bestScore) {
+			bestScore = score;
+			targetNum = i;
+		}
+	}
+	if (targetNum == ENTITYNUM_NONE) {
+		return;
+	}
+	G_ToggleMissionPartyTag(viewer, targetNum);
+}
+
 static void G_UpdateBinocularScan(gentity_t *viewer) {
 	gclient_t *client = viewer->client;
 	binocularTarget_t targets[MAX_BINOCULAR_TARGETS];
@@ -6094,36 +6364,12 @@ static void G_UpdateBinocularScan(gentity_t *viewer) {
 	AngleVectors(client->ps.viewangles, forward, NULL, NULL);
 	for (i = 0; i < level.num_entities; i++) {
 		gentity_t *target = &g_entities[i];
-		vec3_t point, direction;
-		float distance, score;
-		trace_t trace;
+		float score;
 		int slot, j;
-		if (target == viewer || !target->inuse || !target->client || !target->r.linked ||
-			(target->s.eType != ET_PLAYER && target->s.eType != ET_NPC) ||
-			target->health <= 0 || (target->s.eFlags & (EF_DEAD | EF_NODRAW)) ||
-			(target->r.svFlags & SVF_NOCLIENT))
-			continue;
-		if (target->s.eType == ET_PLAYER && (target->client->pers.connected != CON_CONNECTED ||
-			target->client->sess.sessionTeam == TEAM_SPECTATOR))
-			continue;
-		if (((target->r.svFlags & SVF_SINGLECLIENT) && target->r.singleClient != viewer->s.number) ||
-			((target->r.svFlags & SVF_NOTSINGLECLIENT) && target->r.singleClient == viewer->s.number) ||
-			((target->r.svFlags & SVF_BROADCASTCLIENTS) &&
-			 !(target->r.broadcastClients[viewer->s.number / 32] & (1u << (viewer->s.number % 32)))) ||
-			target->client->ps.powerups[PW_CLOAKED] || G_IsMindTricked(&target->client->ps.fd, viewer->s.number))
-			continue;
-		VectorCopy(target->r.currentOrigin, point);
-		point[2] += (target->r.mins[2] + target->r.maxs[2]) * 0.5f;
-		VectorSubtract(point, eye, direction);
-		distance = VectorNormalize(direction);
-		score = DotProduct(direction, forward);
-		if (distance > BINOCULAR_RANGE || score < 0.7f || !trap->InPVS(eye, point))
+		if (!G_BinocularTargetVisible(viewer, target, eye, forward, 0.7f, &score))
 			continue;
 		// Prefer targets near the reticle; bound both the packet and HUD clutter.
 		if (count == MAX_BINOCULAR_TARGETS && score <= scores[count - 1])
-			continue;
-		trap->Trace(&trace, eye, NULL, NULL, point, viewer->s.number, MASK_SHOT, qfalse, 0, 0);
-		if (trace.startsolid || trace.allsolid || (trace.fraction < 1.0f && trace.entityNum != i))
 			continue;
 		slot = count < MAX_BINOCULAR_TARGETS ? count++ : count - 1;
 		for (j = slot; j > 0 && score > scores[j - 1]; j--) {
@@ -6179,7 +6425,9 @@ void ClientEndFrame( gentity_t *ent ) {
 	qboolean isNPC = qfalse;
 	int frames; //japro smoothclients
 
+	G_UpdateMissionParty(ent);
 	G_UpdateBinocularScan(ent);
+	G_UpdateForceDestruction(ent);
 
 	if (ent->s.eType == ET_NPC)
 	{
@@ -6230,6 +6478,8 @@ void ClientEndFrame( gentity_t *ent ) {
 		//ent->client->forceDebounce.drain += time_delta;
 		//ent->client->forceDebounce.lightning += time_delta;
 		ent->client->ps.fd.forcePowerRegenDebounceTime += time_delta;
+		if (ent->client->forceDestructionCooldown > level.previousTime)
+			ent->client->forceDestructionCooldown += time_delta;
 	}
 
 	//

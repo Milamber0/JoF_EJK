@@ -94,7 +94,7 @@ qboolean CG_NoUseableForce(void)
 	}
 
 	// Also count JoF pseudo-powers (stasis/repulse/dash live in bits beyond NUM_FORCE_POWERS).
-	if ( CG_HasStasis() || CG_HasRepulse() || CG_HasDash() )
+	if ( CG_HasStasis() || CG_HasRepulse() || CG_HasDash() || CG_HasDestruction() )
 		return qfalse;
 
 	//no useable force powers, I guess.
@@ -825,9 +825,18 @@ static void CG_RegisterSounds( void ) {
 	trap->S_RegisterSound("sound/weapons/force/see.wav");
 	trap->S_RegisterSound("sound/weapons/force/rage.wav");
 	trap->S_RegisterSound("sound/weapons/force/lightning");
-	trap->S_RegisterSound("sound/weapons/force/lightninghit1");
-	trap->S_RegisterSound("sound/weapons/force/lightninghit2");
-	trap->S_RegisterSound("sound/weapons/force/lightninghit3");
+	cgs.media.forceLightningImpactSounds[0] = trap->S_RegisterSound("sound/weapons/force/lightninghit1");
+	cgs.media.forceLightningImpactSounds[1] = trap->S_RegisterSound("sound/weapons/force/lightninghit2");
+	cgs.media.forceLightningImpactSounds[2] = trap->S_RegisterSound("sound/weapons/force/lightninghit3");
+	// Environment impacts use the stock spark sounds.
+	// Environmental arcs use three dedicated sound variants.
+	// Separate asset names preserve player-hit audio.
+	for (i = 0; i < ARRAY_LEN(cgs.media.forceLightningEnvironmentArcSounds); i++) {
+		cgs.media.forceLightningEnvironmentArcSounds[i] = trap->S_RegisterSound(va("sound/weapons/force/lightningenv%i.mp3", i + 1));
+	}
+	for (i = 0; i < ARRAY_LEN(cgs.media.forceLightningEnvironmentSounds); i++) {
+		cgs.media.forceLightningEnvironmentSounds[i] = trap->S_RegisterSound(va("sound/ambience/spark%i.wav", i + 1));
+	}
 	trap->S_RegisterSound("sound/weapons/force/drain.wav");
 	trap->S_RegisterSound("sound/weapons/force/jumpbuild.wav");
 	trap->S_RegisterSound("sound/weapons/force/distract.wav");
@@ -1172,6 +1181,94 @@ static void CG_RegisterSounds( void ) {
 }
 
 
+static void CG_RegisterDestructionEffects(void)
+{
+	fxHandle_t effect;
+	sfxHandle_t sound;
+
+	// Always preload the stock effects, including on saber-only maps. These
+	// handles are local and do not replace the server's shared FX registrations.
+	cgs.effects.destructionProjectile = trap->FX_RegisterEffect("concussion/shot");
+	cgs.effects.destructionImpact = trap->FX_RegisterEffect("concussion/explosion");
+	cgs.effects.destructionCustomProjectile = qfalse;
+	cgs.effects.destructionCustomImpact = qfalse;
+
+	effect = trap->FX_RegisterEffect("forcedestruction/destruction");
+	if (effect)
+	{
+		cgs.effects.destructionProjectile = effect;
+		cgs.effects.destructionCustomProjectile = qtrue;
+	}
+	// Optional bigger orb for Super Destruction (server marks it with iModelScale 115). 0 = normal orb.
+	cgs.effects.destructionSuper = trap->FX_RegisterEffect("forcedestruction/destruction_super");
+	// Charge hand: the Drain hand effect.
+	cgs.effects.destructionDrainHand = trap->FX_RegisterEffect("force/drain_hand");
+	effect = trap->FX_RegisterEffect("forcedestruction/destruction_explode_enhanced2");
+	if (!effect)
+		effect = trap->FX_RegisterEffect("forcedestruction/destruction_explode");
+	if (effect)
+	{
+		cgs.effects.destructionImpact = effect;
+		cgs.effects.destructionCustomImpact = qtrue;
+	}
+
+	cgs.media.destructionIcon = trap->R_RegisterShaderNoMip("gfx/forcedestruction/force_destruction.tga");
+	if (!cgs.media.destructionIcon)
+		cgs.media.destructionIcon = cgs.media.forcePowerIcons[FP_LIGHTNING];
+
+	// Choose audio independently of visuals: partial packs must not leave silent
+	// casts or impacts. Optional custom impact EFX must leave audio to cgame.
+	cgs.media.destructionCastSound = trap->S_RegisterSound("sound/forcedestruction/destruction.mp3");
+	if (!cgs.media.destructionCastSound)
+		cgs.media.destructionCastSound = trap->S_RegisterSound("sound/weapons/force/push.wav");
+	sound = trap->S_RegisterSound("sound/vehicles/weapons/mine/impact.wav");
+	cgs.media.destructionImpactSounds[0] = trap->S_RegisterSound("sound/forcedestruction/forcedestruct01.wav");
+	cgs.media.destructionImpactSounds[1] = trap->S_RegisterSound("sound/forcedestruction/forcedestruct02.wav");
+	if (!cgs.media.destructionImpactSounds[0])
+		cgs.media.destructionImpactSounds[0] = cgs.media.destructionImpactSounds[1];
+	if (!cgs.media.destructionImpactSounds[1])
+		cgs.media.destructionImpactSounds[1] = cgs.media.destructionImpactSounds[0];
+	if (!cgs.media.destructionImpactSounds[0])
+		cgs.media.destructionImpactSounds[0] = cgs.media.destructionImpactSounds[1] = sound;
+}
+
+sfxHandle_t CG_DestructionCastSound(const entityState_t *state, sfxHandle_t fallback)
+{
+	if (state->weapon == WP_CONCUSSION && state->generic1 == DESTRUCTION_MISSILE_TAG &&
+		cgs.media.destructionCastSound)
+		return cgs.media.destructionCastSound;
+	return fallback;
+}
+
+qboolean CG_PlayDestructionEffect(const entityState_t *state, vec3_t origin,
+	const vec3_t direction, qboolean impact)
+{
+	vec3_t forward;
+
+	if (state->weapon != WP_CONCUSSION || state->generic1 != DESTRUCTION_MISSILE_TAG)
+		return qfalse;
+
+	if (VectorNormalize2(direction, forward) == 0.0f)
+		forward[2] = 1.0f;
+	if (impact)
+		trap->FX_PlayEffectID(cgs.effects.destructionImpact, origin, forward, -1, -1, qfalse);
+	else
+	{
+		int i;
+		// Stack the custom orb like MB2; keep the additive stock shot at one layer.
+		fxHandle_t fx = cgs.effects.destructionProjectile;
+
+		// Super Destruction (cast with melee): the server sends iModelScale 115 on the orb.
+		if (state->iModelScale > 100 && cgs.effects.destructionSuper && cgs.effects.destructionCustomProjectile)
+			fx = cgs.effects.destructionSuper;
+		for (i = 0; i < (cgs.effects.destructionCustomProjectile ? DESTRUCTION_EFX_LAYERS : 1); i++)
+			trap->FX_PlayEffectID(fx, origin, forward, -1, -1, qfalse);
+	}
+	if (impact && cgs.effects.destructionCustomImpact && cgs.media.destructionImpactSounds[state->number & 1])
+		trap->S_StartSound(origin, state->number, CHAN_AUTO, cgs.media.destructionImpactSounds[state->number & 1]);
+	return qtrue;
+}
+
 //-------------------------------------
 // CG_RegisterEffects
 //
@@ -1219,6 +1316,7 @@ static void CG_RegisterEffects( void )
 	cgs.effects.acidSplash = trap->FX_RegisterEffect( "env/acid_splash" );
 	cgs.effects.heal2FX = trap->FX_RegisterEffect("force/heal2");
 	cgs.effects.rageFX = trap->FX_RegisterEffect("force/rage2");
+	CG_RegisterDestructionEffects();
 
 }
 
@@ -1227,6 +1325,17 @@ static void CG_RegisterEffects( void )
 extern char *forceHolocronModels[];
 int CG_HandleAppendedSkin(char *modelName);
 void CG_CacheG2AnimInfo(char *modelName);
+
+// The reference-lightning asset pack is optional and distributed separately.
+static fxHandle_t CG_RegisterOptionalLightningEffect(const char *path) {
+	fileHandle_t file = 0;
+	trap->FS_Open(path, &file, FS_READ);
+	if (!file)
+		return 0;
+	trap->FS_Close(file);
+	return trap->FX_RegisterEffect(path);
+}
+
 /*
 =================
 CG_RegisterGraphics
@@ -1371,6 +1480,18 @@ static void CG_RegisterGraphics( void )
 
 	cgs.effects.forceLightning		= trap->FX_RegisterEffect( "effects/force/lightning.efx" );
 	cgs.effects.forceLightningWide	= trap->FX_RegisterEffect( "effects/force/lightningwide.efx" );
+	cgs.effects.forceLightningEnvironmentImpact = trap->FX_RegisterEffect("effects/mp/lightning_environment_impact");
+	cgs.effects.demp2WallImpactEffectSmall = trap->FX_RegisterEffect( "effects/mp/wall_impact_small" );
+	cgs.effects.forceLightningBranch = trap->FX_RegisterEffect( "effects/mp/lightning_branch" );
+
+	cgs.effects.forceLightningDeflectArc = trap->FX_RegisterEffect("effects/mp/lightning_deflect_mb2/lightning_arc.efx");
+	cgs.effects.forceLightningDeflectFlare = trap->FX_RegisterEffect("effects/mp/lightning_deflect_mb2/lightning_flare.efx");
+	cgs.effects.forceLightningReference = trap->FX_RegisterEffect("effects/mp/lightning_reference/lightning");
+	cgs.effects.forceLightningReferenceWide = trap->FX_RegisterEffect("effects/mp/lightning_reference/lightningwide");
+	cgs.effects.forceLightningReferenceArc = trap->FX_RegisterEffect("effects/mp/lightning_reference/lightning_arc");
+
+	cgs.media.forceLightningArcShader = trap->R_RegisterShader("gfx/misc/blueLine");
+	cgs.media.forceLightningFlashShader = trap->R_RegisterShader("gfx/misc/lightningFlash");
 	cgs.effects.forceDrain		= trap->FX_RegisterEffect( "effects/mp/drain.efx" );
 	cgs.effects.forceDrainWide	= trap->FX_RegisterEffect( "effects/mp/drainwide.efx" );
 	cgs.effects.forceDrainWideJaPRO	= trap->FX_RegisterEffect( "effects/mp/drainwide_japro.efx" );
@@ -3088,6 +3209,9 @@ Ghoul2 Insert End
 	// load a few needed things before we do any screen updates
 	cgs.media.charsetShader			= trap->R_RegisterShaderNoMip( "gfx/2d/charsgrid_med" );
 	cgs.media.whiteShader			= trap->R_RegisterShader( "white" );
+	// Keep the private stock OCR-A assets: HD atlas strokes can vanish at small HUD scales.
+	cgs.media.binocularHudFont		= trap->R_RegisterFont( "jof_binohud" );
+	cgs.media.missionPartyUnknownIcon = trap->R_RegisterShaderNoMip( "icons/icon_default_unknown" );
 
 	cgs.media.loadBarLED			= trap->R_RegisterShaderNoMip( "gfx/hud/load_tick" );
 	cgs.media.loadBarLEDCap			= trap->R_RegisterShaderNoMip( "gfx/hud/load_tick_cap" );
@@ -3164,6 +3288,7 @@ Ghoul2 Insert End
 	cgs.media.rageRecShader = trap->R_RegisterShaderNoMip("gfx/mp/f_icon_ragerec");
 	cgs.media.repulseIcon   = trap->R_RegisterShaderNoMip("gfx/jof/force_repulse.tga");	// JoF: Force Repulse wheel icon
 	cgs.media.dashIcon      = trap->R_RegisterShaderNoMip("gfx/jof/force_dash.tga");		// JoF: Force Dash wheel icon
+	trap->Cvar_Set("cl_destructionSelected", "0");
 	cgs.media.flamethrowerIcon = trap->R_RegisterShaderNoMip("gfx/jof/force_flamethrower.png");
 
 
@@ -3370,6 +3495,7 @@ Called before every level change or subsystem restart
 */
 void CG_Shutdown( void )
 {
+	trap->Cvar_Set("cl_destructionSelected", "0");
 	// Userinfo is handled by the engine even when game commands are flood
 	// filtered. Do not leave readiness behind for a subsequently loaded mod.
 	trap->Cvar_Set("cg_pickupReady", "0");
@@ -3437,6 +3563,14 @@ qboolean CG_HasDash( void )
 	return (cg.snap && (cg.snap->ps.fd.forcePowersKnown & (1 << DASH_KNOWN_BIT))) ? qtrue : qfalse;
 }
 
+qboolean CG_HasDestruction( void )
+{
+	return cgs.forceDestruction && cg.snap &&
+		cg.snap->ps.pm_type != PM_SPECTATOR && cg.snap->ps.pm_type != PM_DEAD &&
+		!(cg.snap->ps.pm_flags & PMF_FOLLOW) && cg.snap->ps.stats[STAT_HEALTH] > 0 &&
+		(cg.snap->ps.fd.forcePowersKnown & DESTRUCTION_KNOWN_FLAG) ? qtrue : qfalse;
+}
+
 /*
 ===============
 CG_BuildForceWheel
@@ -3444,8 +3578,9 @@ CG_BuildForceWheel
 Builds the ordered list of selectable force-wheel entries: the valid real powers in
 display order, with the stasis and repulse pseudo-slots inserted right after Force
 Sense (FP_SEE) and the dash pseudo-slot inserted right before Speed (FP_SPEED), if
-granted. Any pseudo-slot whose anchor power isn't owned is appended last.
-Returns the count and fills slots[] (must hold at least NUM_FORCE_POWERS+3 entries).
+granted. Destruction follows Repulse, before Lightning. All pseudo-slots use their
+anchor's position in forcePowerSorted even when the anchor power isn't owned.
+Returns the count and fills slots[] (must hold FORCE_WHEEL_CAPACITY entries).
 ===============
 */
 int CG_BuildForceWheel( int *slots )
@@ -3453,37 +3588,26 @@ int CG_BuildForceWheel( int *slots )
 	qboolean stasis = CG_HasStasis();
 	qboolean repulse = CG_HasRepulse();
 	qboolean dash = CG_HasDash();
-	qboolean placed = qfalse;		// stasis/repulse anchor (FP_SEE)
-	qboolean dashPlaced = qfalse;	// dash anchor (FP_SPEED)
+	qboolean destruction = CG_HasDestruction();
 	int n = 0, i;
 
 	for ( i = 0; i < NUM_FORCE_POWERS; i++ )
 	{
 		int p = forcePowerSorted[i];
-		if ( !ForcePower_Valid( p ) )
-			continue;
-
-		if ( dash && p == FP_SPEED && !dashPlaced )	// place dash right before Speed
-		{
+		// Use the anchor's position whether or not its real power is owned.
+		if ( dash && p == FP_SPEED )
 			slots[n++] = DASH_WHEEL_SLOT;
-			dashPlaced = qtrue;
-		}
-		slots[n++] = p;
-		if ( (stasis || repulse) && p == FP_SEE && !placed )	// place pseudo-slots right after Force Sense
+		if ( destruction && p == FP_LIGHTNING )
+			slots[n++] = DESTRUCTION_WHEEL_SLOT;
+
+		if ( ForcePower_Valid( p ) )
+			slots[n++] = p;
+
+		if ( p == FP_SEE )
 		{
 			if ( stasis )  slots[n++] = STASIS_WHEEL_SLOT;
 			if ( repulse ) slots[n++] = REPULSE_WHEEL_SLOT;
-			placed = qtrue;
 		}
-	}
-
-	if ( dash && !dashPlaced )	// Force Speed not owned: fall back to the end
-		slots[n++] = DASH_WHEEL_SLOT;
-
-	if ( !placed )	// Force Sense not owned: fall back to the end
-	{
-		if ( stasis )  slots[n++] = STASIS_WHEEL_SLOT;
-		if ( repulse ) slots[n++] = REPULSE_WHEEL_SLOT;
 	}
 
 	return n;
@@ -3522,7 +3646,7 @@ void CG_NextForcePower_f( void )
 	// Walk our own wheel order so pseudo-slots (stasis=18, repulse=19, dash=20) can be cycled
 	// onto/off of without ever putting them into the networked forcePowerSelected (kept 0-17).
 	{
-		int slots[NUM_FORCE_POWERS + 3], n = CG_BuildForceWheel( slots ), cur = -1, i;
+		int slots[FORCE_WHEEL_CAPACITY], n = CG_BuildForceWheel( slots ), cur = -1, i;
 		for ( i = 0; i < n; i++ )
 		{
 			if ( slots[i] == cg.forceSelect ) { cur = i; break; }
@@ -3570,7 +3694,7 @@ void CG_PrevForcePower_f( void )
 
 	// Mirror of CG_NextForcePower_f, stepping the other way. See note there.
 	{
-		int slots[NUM_FORCE_POWERS + 3], n = CG_BuildForceWheel( slots ), cur = -1, i;
+		int slots[FORCE_WHEEL_CAPACITY], n = CG_BuildForceWheel( slots ), cur = -1, i;
 		for ( i = 0; i < n; i++ )
 		{
 			if ( slots[i] == cg.forceSelect ) { cur = i; break; }

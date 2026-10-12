@@ -4988,8 +4988,35 @@ void Item_Multi_Paint(itemDef_t *item) {
 
 	Item_TextColor(item, &color);
 	if (item->text) {
-		Item_Text_Paint(item);
-		DC->drawText(item->textRect.x + item->textRect.w + 8, item->textRect.y, item->textscale, color, text, 0, 0, item->textStyle,item->iMenuFont);
+		if (item->textalignment == ITEM_ALIGN_CENTER) {
+			const char *label = item->text;
+			char labelTemp[MAX_STRING_CHARS];
+			float x = item->textalignx;
+			float y = item->textaligny;
+			int labelWidth;
+			int valueWidth;
+
+			if (*label == '@') {
+				trap->SE_GetStringTextString(&label[1], labelTemp, sizeof(labelTemp));
+				label = labelTemp;
+			}
+
+			labelWidth = DC->textWidth(label, item->textscale, item->iMenuFont);
+			valueWidth = DC->textWidth(text, item->textscale, item->iMenuFont);
+			ToWindowCoords(&x, &y, &item->window);
+			x -= (labelWidth + 8 + valueWidth) / 2.0f;
+
+			item->textRect.x = x;
+			item->textRect.y = y;
+			item->textRect.w = labelWidth;
+			item->textRect.h = DC->textHeight(label, item->textscale, item->iMenuFont);
+
+			DC->drawText(x, y, item->textscale, color, label, 0, 0, item->textStyle, item->iMenuFont);
+			DC->drawText(x + labelWidth + 8, y, item->textscale, color, text, 0, 0, item->textStyle, item->iMenuFont);
+		} else {
+			Item_Text_Paint(item);
+			DC->drawText(item->textRect.x + item->textRect.w + 8, item->textRect.y, item->textscale, color, text, 0, 0, item->textStyle,item->iMenuFont);
+		}
 	} else {
 		//JLF added xoffset
 		DC->drawText(item->textRect.x+item->xoffset, item->textRect.y, item->textscale, color, text, 0, 0, item->textStyle,item->iMenuFont);

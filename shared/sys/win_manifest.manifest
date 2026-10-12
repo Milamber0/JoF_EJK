@@ -32,6 +32,11 @@
     <windowsSettings>
       <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">True/PM</dpiAware>
       <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2, PerMonitor</dpiAwareness>
+      <!-- Windows 10 1903+: makes the process's "ANSI" codepage UTF-8, so
+           argv[0]/GetModuleFileNameA/fopen etc. round-trip non-Latin (e.g.
+           Cyrillic) install paths correctly instead of mangling them
+           through the legacy system codepage. Ignored on older Windows. -->
+      <activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage>
     </windowsSettings>
   </application>
 </assembly>

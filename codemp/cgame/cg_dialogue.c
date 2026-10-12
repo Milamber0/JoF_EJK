@@ -12,6 +12,10 @@
 #define CG_DLG_CHOICE_SIZE 160
 #define CG_DLG_BODY_SCALE 0.60f
 #define CG_DLG_CHOICE_SCALE 0.55f
+// Keep voice-over independent of player/menu sounds and the current view entity.
+// "Global" controls attenuation here; delivery remains local to this client.
+#define CG_DLG_SOUND_ENTITY ENTITYNUM_NONE
+#define CG_DLG_SOUND_CHANNEL CHAN_VOICE_GLOBAL
 #define CG_DLG_SPEAKER_SCALE 0.60f
 
 typedef struct {
@@ -25,6 +29,8 @@ typedef struct {
 	qboolean awaitingResponse;
 	int responseTime;
 	int openTime;
+	qboolean soundPlaying;
+	int soundEntityNum;
 	float choiceY[CG_DLG_MAX_CHOICES];
 	float choiceH[CG_DLG_MAX_CHOICES];
 } cgDialogueState_t;
@@ -45,12 +51,15 @@ static void CG_DialogueDecodeText( const char *in, char *out, size_t outSize ) {
 }
 
 static void CG_DialogueCloseLocal( void ) {
-	memset( &s_dialogue, 0, sizeof( s_dialogue ) );
+	CG_DialogueReset();
 	trap->Key_SetCatcher( trap->Key_GetCatcher() & ~KEYCATCH_CGAME );
 	if ( cgs.eventHandling == CGAME_EVENT_DIALOGUE ) CG_EventHandling( CGAME_EVENT_NONE );
 }
 
 void CG_DialogueReset( void ) {
+	if ( s_dialogue.soundPlaying ) {
+		trap->S_MuteSound( s_dialogue.soundEntityNum, CG_DLG_SOUND_CHANNEL );
+	}
 	memset( &s_dialogue, 0, sizeof( s_dialogue ) );
 }
 
@@ -68,7 +77,7 @@ void CG_DialogueServerCommand( void ) {
 	serial = (unsigned int)strtoul( CG_Argv( 2 ), NULL, 10 );
 
 	if ( !Q_stricmp( action, "begin" ) ) {
-		memset( &s_dialogue, 0, sizeof( s_dialogue ) );
+		CG_DialogueReset();
 		s_dialogue.serial = serial;
 		CG_DialogueDecodeText( CG_Argv( 3 ), s_dialogue.speaker, sizeof( s_dialogue.speaker ) );
 		CG_DialogueDecodeText( CG_Argv( 4 ), s_dialogue.text, sizeof( s_dialogue.text ) );
@@ -80,7 +89,9 @@ void CG_DialogueServerCommand( void ) {
 		CG_DialogueDecodeText( CG_Argv( 4 ), s_dialogue.choices[index], sizeof( s_dialogue.choices[index] ) );
 		if ( index >= s_dialogue.numChoices ) s_dialogue.numChoices = index + 1;
 	} else if ( !Q_stricmp( action, "show" ) ) {
-		if ( serial != s_dialogue.serial || !s_dialogue.numChoices ) return;
+		char sound[MAX_QPATH];
+		if ( serial != s_dialogue.serial || !s_dialogue.numChoices || s_dialogue.active ) return;
+		Q_strncpyz( sound, CG_Argv( 3 ), sizeof( sound ) );
 		s_dialogue.active = qtrue;
 		s_dialogue.selected = 0;
 		s_dialogue.openTime = cg.time;
@@ -88,6 +99,17 @@ void CG_DialogueServerCommand( void ) {
 		cgs.cursorY = SCREEN_HEIGHT - ( s_dialogue.numChoices * 25.0f + 22.0f ) + 34.0f;
 		CG_EventHandling( CGAME_EVENT_DIALOGUE );
 		trap->Key_SetCatcher( trap->Key_GetCatcher() | KEYCATCH_CGAME );
+		// The optional path keeps older servers' silent show commands valid.
+		if ( sound[0] ) {
+			sfxHandle_t sfx = trap->S_RegisterSound( sound );
+			if ( sfx ) {
+				s_dialogue.soundPlaying = qtrue;
+				s_dialogue.soundEntityNum = CG_DLG_SOUND_ENTITY;
+				trap->S_StartSound( NULL, s_dialogue.soundEntityNum, CG_DLG_SOUND_CHANNEL, sfx );
+			} else {
+				trap->Print( "Dialogue: could not load sound '%s'; check the client's PK3 and audio format\n", sound );
+			}
+		}
 	} else if ( !Q_stricmp( action, "stop" ) ) {
 		if ( serial == s_dialogue.serial ) CG_DialogueCloseLocal();
 	}

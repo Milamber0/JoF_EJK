@@ -814,7 +814,9 @@ void CFxScheduler::PlayEffect( int id, vec3_t origin, matrix3_t axis, const int 
 	int						modelNum = 0, boltNum = -1;
 	int						entityNum = -1;
 
-	if ( boltInfo > 0 )
+	// Zero encodes entity 0, model 0, bolt 0 (the player's right hand).
+	// Only -1 means unattached; bolted callers deliberately pass a null axis.
+	if ( boltInfo != -1 )
 	{
 		// extract the wraith ID from the bolt info
 		modelNum	= ( boltInfo >> MODEL_SHIFT )	& MODEL_AND;

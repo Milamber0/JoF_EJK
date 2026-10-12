@@ -224,7 +224,7 @@
 			name				cosmeticsbutton
 			group				none
 			text				"Cosmetics"
-			descText			"Wear a hat or a cape"
+			descText			"Wear a hat or a cape."
 			type				ITEM_TYPE_BUTTON
 			style				WINDOW_STYLE_EMPTY
 			rect				425 126 160 26

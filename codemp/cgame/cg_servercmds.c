@@ -222,6 +222,7 @@ void CG_ParseServerinfo( void ) {
 	}
 
 	cgs.fDisable = atoi( Info_ValueForKey( info, "g_forcePowerDisable" ) );
+	cgs.forceDestruction = atoi(Info_ValueForKey(info, "g_forceDestruction")) != 0;
 	cgs.dmflags = atoi( Info_ValueForKey( info, "dmflags" ) );
 	cgs.duel_fraglimit = atoi( Info_ValueForKey( info, "duel_fraglimit" ) );
 	cgs.capturelimit = atoi( Info_ValueForKey( info, "capturelimit" ) );
@@ -588,10 +589,12 @@ static void CG_RegisterCustomSounds(clientInfo_t *ci, int setType, const char *p
 			char modifiedSound[MAX_QPATH];
 			char *p;
 
-			strcpy(modifiedSound, s);
-			p = strchr(modifiedSound,'.');
+			COM_StripExtension( s, modifiedSound, sizeof( modifiedSound ) );
+			// Custom sound tables use extensionless names. Inspect the final
+			// character rather than looking for a dot that is never present.
+			p = modifiedSound + strlen( modifiedSound );
 
-			if (p)
+			if (p > modifiedSound)
 			{
 				char testNumber[2];
 				p--;
@@ -603,9 +606,7 @@ static void CG_RegisterCustomSounds(clientInfo_t *ci, int setType, const char *p
 				testNumber[1] = 0;
 				if (atoi(testNumber))
 				{
-					*p = 0;
-
-					strcat(modifiedSound, "1.wav");
+					*p = '1';
 
 					hSFX = trap->S_RegisterSound( va("sound/chars/%s/misc/%s", psDir, modifiedSound) );
 				}
@@ -1095,6 +1096,8 @@ void CG_KillCEntityG2(int entNum)
 
 			j++;
 		}
+
+		CG_CleanHolsteredSabers( ci );
 	}
 
 	if (cent->ghoul2 && trap->G2_HaveWeGhoul2Models(cent->ghoul2))
@@ -1224,6 +1227,8 @@ static void CG_MapRestart( void ) {
 
 	cg.intermissionStarted = qfalse;
 	cg.binocularTargetCount = 0;
+	cg.endDuelCameraTime = 0;
+	cg.missionPartyCount = 0;
 
 	cgs.voteTime = 0;
 
@@ -1691,20 +1696,27 @@ static void CG_Print_f( void ) {
 		CG_LogPrintf(cg.log.file, "%s\n", strEd); //Log server console prints?
 }
 
-void CG_ChatBox_AddString(char *chatStr);
 static void CG_Chat_f( void ) {
 	char cmd[MAX_STRING_CHARS] = {0}, text[MAX_NETNAME+MAX_SAY_TEXT] = {0}, logtext[MAX_NETNAME+MAX_SAY_TEXT] = {0};
+	qboolean isPrivate;
 
 	trap->Cmd_Argv( 0, cmd, sizeof( cmd ) );
 
 	if (cmd[0] != 'l') { // normal chat ?/}
 
 		trap->Cmd_Argv( 1, text, sizeof( text ) );
-
-		if ( !Q_stricmp( cmd, "chat" ) && !cg_teamChatsOnly.integer )
+		// The server marks both received tells and sent-message echoes before the name.
+		// Check before stripping escape characters; message text/colors can be faked.
+		isPrivate = !Q_stricmp( cmd, "chat" ) && text[0] == '\x19' && text[1] == '[';
+		if ( cg.pmOnlyChat && !isPrivate )
 		{
-			CG_RemoveChatEscapeChar( text );
+			return;
+		}
+		CG_RemoveChatEscapeChar( text );
 
+		if ( !Q_stricmp( cmd, "chat" ) &&
+			(!cg_teamChatsOnly.integer || cg.pmOnlyChat) )
+		{
 			if (cg_cleanChatbox.integer) {
 				char cleanMsg[MAX_NETNAME + MAX_SAY_TEXT];
 
@@ -1726,7 +1738,7 @@ static void CG_Chat_f( void ) {
 			//New msg
 			//JAPRO - Clientside - Chatsounds options
 			if (cg_chatSounds.integer == 2) {
-				if (Q_stristr(text, "^7]: ^6")) //pm
+				if (isPrivate)
 					trap->S_StartLocalSound(cgs.media.privateChatSound, CHAN_LOCAL_SOUND);
 				else //all chat
 					trap->S_StartLocalSound(cgs.media.talkSound, CHAN_LOCAL_SOUND);
@@ -1735,13 +1747,11 @@ static void CG_Chat_f( void ) {
 				trap->S_StartLocalSound(cgs.media.talkSound, CHAN_LOCAL_SOUND);
 			}
 
-			CG_ChatBox_AddString(text);
+			CG_ChatBox_AddString(text, isPrivate);
 			Q_strncpyz(cg.lastChatMsg, text, sizeof(cg.lastChatMsg));
 		}
 		else if ( !Q_stricmp( cmd, "tchat" ) )
 		{
-			CG_RemoveChatEscapeChar( text );
-
 			if (cg_cleanChatbox.integer && !Q_strncmp(text, cg.lastChatMsg, strlen(text))) {//Same exact msg/sender as previous //replace this with q_strcmp in entire function..?
 				return;
 			}
@@ -1750,7 +1760,7 @@ static void CG_Chat_f( void ) {
 				trap->S_StartLocalSound(cgs.media.teamChatSound, CHAN_LOCAL_SOUND);
 			else if (cg_chatSounds.integer)
 				trap->S_StartLocalSound(cgs.media.talkSound, CHAN_LOCAL_SOUND);
-			CG_ChatBox_AddString(text);
+			CG_ChatBox_AddString(text, qfalse);
 		}
 	}
 	else
@@ -1758,13 +1768,18 @@ static void CG_Chat_f( void ) {
 		char	name[MAX_NETNAME]={0},	loc[MAX_STRING_CHARS]={0},
 				color[8]={0},			message[MAX_STRING_CHARS]={0};
 
-		if ( trap->Cmd_Argc() < 4 )
+		if ( trap->Cmd_Argc() < 5 )
 			return;
 
 		trap->Cmd_Argv( 1, name, sizeof( name ) );
 		trap->Cmd_Argv( 2, loc, sizeof( loc ) );
 		trap->Cmd_Argv( 3, color, sizeof( color ) );
 		trap->Cmd_Argv( 4, message, sizeof( message ) );
+		isPrivate = !Q_stricmp( cmd, "lchat" ) && name[0] == '\x19' && name[1] == '[';
+		if ( cg.pmOnlyChat && !isPrivate )
+		{
+			return;
+		}
 
 		//get localized text
 		if (loc[0] == '@')
@@ -1773,15 +1788,16 @@ static void CG_Chat_f( void ) {
 		if (cg_chatSounds.integer)//JAPRO - Clientside - Chatsounds option
 			trap->S_StartLocalSound(cgs.media.talkSound, CHAN_LOCAL_SOUND);
 
-		if ( !Q_stricmp( cmd, "lchat" ) && !cg_teamChatsOnly.integer ) {
+		if ( !Q_stricmp( cmd, "lchat" ) &&
+			(!cg_teamChatsOnly.integer || cg.pmOnlyChat) ) {
 			Com_sprintf( text, sizeof( text ), "%s" S_COLOR_WHITE "<%s> ^%s%s", name, loc, color, message );
 			CG_RemoveChatEscapeChar( text );
-			CG_ChatBox_AddString( text );
+			CG_ChatBox_AddString( text, isPrivate );
 		}
 		else if ( !Q_stricmp( cmd, "ltchat" ) ) {
 			Com_sprintf( text, sizeof( text ), "%s" S_COLOR_WHITE "<%s> ^%s%s", name, loc, color, message );
 			CG_RemoveChatEscapeChar( text );
-			CG_ChatBox_AddString( text );
+			CG_ChatBox_AddString( text, qfalse );
 		}
 	}
 }
@@ -1792,6 +1808,9 @@ static void CG_RemapShader_f( void ) {
 
 		trap->Cmd_Argv( 1, shader1, sizeof( shader1 ) );
 		trap->Cmd_Argv( 2, shader2, sizeof( shader2 ) );
+		// cg_remaps: 0 off, 1 map only (block player model remaps), 2 map + model
+		if ( cg_remaps.integer == 1 && !Q_stricmpn( shader1, "models/players/", 15 ) )
+			return;
 		if ( cg_remaps.integer )//JAPRO - Clientside - Allow noremaps
 			trap->R_RemapShader( shader1, shader2, CG_Argv( 3 ) );
 	}
@@ -1875,6 +1894,66 @@ static void CG_BinocularNames_f(void) {
 	}
 }
 
+// partyStats <server time> <count>
+// [<entity> <health> <max health> <armor> <force> <max force>]...
+static void CG_MissionPartyStats_f(void) {
+	int i, count, serverTime;
+	binocularTarget_t members[MAX_MISSION_PARTY];
+	memset(members, 0, sizeof(members));
+	if (trap->Cmd_Argc() < 3)
+		return;
+	serverTime = CG_BinocularIntArg(1);
+	count = CG_BinocularIntArg(2);
+	if (serverTime < 0 || count < 0 || count > MAX_MISSION_PARTY ||
+		trap->Cmd_Argc() != 3 + count * 6)
+		return;
+	for (i = 0; i < count; i++) {
+		binocularTarget_t *member = &members[i];
+		member->entityNum = CG_BinocularIntArg(3 + i * 6);
+		member->health = CG_BinocularIntArg(4 + i * 6);
+		member->maxHealth = CG_BinocularIntArg(5 + i * 6);
+		member->armor = CG_BinocularIntArg(6 + i * 6);
+		member->force = CG_BinocularIntArg(7 + i * 6);
+		member->maxForce = CG_BinocularIntArg(8 + i * 6);
+		if (member->entityNum < 0 || member->entityNum >= ENTITYNUM_WORLD ||
+			member->health < 0 || member->maxHealth <= 0 || member->armor < 0 ||
+			member->force < 0 || member->maxForce <= 0)
+			return;
+		// Player display names are already available locally and do not need to
+		// consume reliable-command bandwidth.
+		if (member->entityNum < MAX_CLIENTS && cgs.clientinfo[member->entityNum].infoValid) {
+			Q_strncpyz(member->name, cgs.clientinfo[member->entityNum].name, sizeof(member->name));
+			Q_CleanStr(member->name);
+		}
+	}
+	memcpy(cg.missionParty, members, count * sizeof(members[0]));
+	cg.missionPartyUpdateTime = serverTime;
+	cg.missionPartyCount = count;
+}
+
+static void CG_MissionPartyNames_f(void) {
+	int arg, i, argc = trap->Cmd_Argc();
+	if (argc < 4 || (argc - 2) % 2 ||
+		CG_BinocularIntArg(1) != cg.missionPartyUpdateTime)
+		return;
+	for (arg = 2; arg < argc; arg += 2) {
+		int entityNum = CG_BinocularIntArg(arg);
+		for (i = 0; i < cg.missionPartyCount; i++) {
+			if (cg.missionParty[i].entityNum == entityNum) {
+				char *name = cg.missionParty[i].name;
+				int j;
+				Q_strncpyz(name, CG_Argv(arg + 1), sizeof(cg.missionParty[i].name));
+				Q_CleanStr(name);
+				for (j = 0; name[j]; j++) {
+					if ((unsigned char)name[j] < 32 || name[j] == 127)
+						name[j] = ' ';
+				}
+				break;
+			}
+		}
+	}
+}
+
 // Force Stasis (JoF JA+ V58): the server sends a reliable "stasis" command when the
 // power fires (only to clients that advertised the "jofejk" userinfo key). Play the
 // local feedback sound, with a client-side cooldown so bursts / replayed snapshots
@@ -1903,6 +1982,8 @@ int svcmdcmp( const void *a, const void *b ) {
 static serverCommand_t	commands[] = {
 	{ "binoStats", CG_BinocularStats_f },
 	{ "binoNames", CG_BinocularNames_f },
+	{ "partyStats", CG_MissionPartyStats_f },
+	{ "partyNames", CG_MissionPartyNames_f },
 	{ "chat",				CG_Chat_f },
 	{ "clientLevelShot",	CG_ClientLevelShot_f },
 	{ "cp",					CG_CenterPrint_f },

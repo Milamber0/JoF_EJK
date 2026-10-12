@@ -102,6 +102,7 @@ stringID_table_t ClassTable[] =
 	ENUM2STRING(CLASS_VEHICLE),
 	ENUM2STRING(CLASS_RANCOR),
 	ENUM2STRING(CLASS_WAMPA),
+	ENUM2STRING(CLASS_MARTIALARTIST),
 	{"",	-1}
 };
 
@@ -209,11 +210,13 @@ char	*ClassNames[CLASS_NUM_CLASSES] =
 	"tavion",
 	"trandoshan",
 	"ugnaught",
+	"jawa",
 	"weequay",
 	"bobafett",
 	"vehicle",
 	"rancor",
 	"wampa",
+	"martialartist",
 };
 
 

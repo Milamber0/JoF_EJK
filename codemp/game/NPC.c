@@ -1340,6 +1340,7 @@ void NPC_RunBehavior( int team, int bState )
 //	else if ( NPCS.NPC->client->ps.weapon == WP_SABER )		// this is an _extremely_ shitty comparison.. FIXME: make a CLASS_CULTIST? --eez
 	else if ( NPCS.NPC->client->NPC_class == CLASS_JEDI ||
 		NPCS.NPC->client->NPC_class == CLASS_REBORN ||
+		NPCS.NPC->client->NPC_class == CLASS_MARTIALARTIST ||
 		NPCS.NPC->client->ps.weapon == WP_SABER )
 	{//jedi
 		NPC_BehaviorSet_Jedi( bState );

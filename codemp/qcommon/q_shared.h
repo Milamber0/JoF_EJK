@@ -424,6 +424,15 @@ typedef enum
 #define DASH_KNOWN_BIT		(NUM_FORCE_POWERS + 2)	// spare forcePowersKnown bit (20) the server sets while dash is granted
 #define DASH_WHEEL_SLOT		(NUM_FORCE_POWERS + 2)	// client-only pseudo-slot (20) for the force wheel; display only, never networked
 
+// Server-granted Force Destruction. Keep the stock force arrays/protocol intact.
+#define DESTRUCTION_KNOWN_BIT	(NUM_FORCE_POWERS + 3)
+#define DESTRUCTION_KNOWN_FLAG	(1u << DESTRUCTION_KNOWN_BIT)
+#define DESTRUCTION_HAND_FLAG	(1u << DESTRUCTION_KNOWN_BIT) // in forcePowersActive, not forcePowersKnown
+#define DESTRUCTION_WHEEL_SLOT	(NUM_FORCE_POWERS + 3)
+#define FORCE_WHEEL_CAPACITY		(NUM_FORCE_POWERS + 4)
+// Identifies our concussion-compatible missile/impact; generic1 is an 8-bit field.
+#define DESTRUCTION_MISSILE_TAG	213
+
 // Client movement prediction: the server is not clipping us against other players.
 // Not just /amghost - the server derives this bit from its own clipmask every ClientThink, so it
 // covers every reason it makes us non-solid (the ghost, the unghost overlap grace, the walk-apart

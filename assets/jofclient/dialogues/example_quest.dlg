@@ -5,6 +5,8 @@ dialogue {
 	node greeting {
 		speaker "Quartermaster"
 		text "A supply crate vanished near the old landing pad. Will you look for it?"
+		// Optional voice-over, once the referenced audio is included in your PK3:
+		// sound "sound/voice/quartermaster/greeting.mp3"
 
 		choice {
 			text "I'll find it."

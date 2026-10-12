@@ -3049,6 +3049,9 @@ static void CG_Missile( centity_t *cent ) {
 	// calculate the axis
 	VectorCopy( s1->angles, cent->lerpAngles);
 
+	if (CG_PlayDestructionEffect(s1, cent->lerpOrigin, s1->pos.trDelta, qfalse))
+		return;
+
 	if ( s1->otherEntityNum2 && s1->weapon != WP_SABER )
 	{//using an over-ridden trail effect!
 		vec3_t forward;
@@ -3639,6 +3642,9 @@ CG_CalcEntityLerpPositions
 ===============
 */
 void CG_CalcEntityLerpPositions(centity_t* cent) {
+	const qboolean soloRace = cgs.serverMod == SVMOD_JAPRO && cg.snap->ps.stats[STAT_RACEMODE] &&
+		cg.snap->ps.stats[STAT_MOVEMENTSTYLE] != MV_COOP_JKA;
+
 	if (cent->currentState.eType == ET_NPC) {
 		cent->doLerp = qtrue;
 	}
@@ -3658,9 +3664,11 @@ void CG_CalcEntityLerpPositions(centity_t* cent) {
 		cent->doLerp = qfalse;
 	}
 
-	// if this player does not want to see extrapolated players
-	if (cent->doLerp) {
-		// make sure the clients use TR_INTERPOLATE
+	// TaystJK's cg_smoothClients switch: off (or solo race mode) forces client
+	// interpolation; on leaves client trajectories available for extrapolation.
+	// Keep this client's existing NPC interpolation independent of that switch.
+	if (cent->currentState.eType == ET_NPC ||
+		((!cg_smoothClients.integer || soloRace) && cent->currentState.number < MAX_CLIENTS)) {
 		cent->currentState.pos.trType = TR_INTERPOLATE;
 		cent->nextState.pos.trType = TR_INTERPOLATE;
 	}
@@ -3697,7 +3705,8 @@ void CG_CalcEntityLerpPositions(centity_t* cent) {
 
 	// first see if we can interpolate between two snaps for
 	// linear extrapolated clients
-	if (cent->interpolate && cent->currentState.pos.trType == TR_LINEAR_STOP && cent->doLerp) {
+	if (cent->interpolate && cent->currentState.pos.trType == TR_LINEAR_STOP &&
+		cent->currentState.number < MAX_CLIENTS) {
 		CG_InterpolateEntityPosition(cent);
 		return;
 	}
@@ -3705,6 +3714,10 @@ void CG_CalcEntityLerpPositions(centity_t* cent) {
 		// just use the current frame and evaluate as best we can
 		BG_EvaluateTrajectory(&cent->currentState.pos, cg.time, &cent->lerpOrigin);
 		BG_EvaluateTrajectory(&cent->currentState.apos, cg.time, &cent->lerpAngles);
+	}
+	if (cent->currentState.number == cg.clientNum) {
+		VectorCopy(cg.predictedPlayerState.origin, cent->lerpOrigin);
+		VectorCopy(cg.predictedPlayerState.origin, cent->currentState.pos.trBase);
 	}
 
 	// adjust for riding a mover if it wasn't rolled into the predicted player state
@@ -3940,6 +3953,26 @@ void CG_ManualEntityRender(centity_t *cent)
 	CG_AddCEntity(cent);
 }
 
+static void CG_AddPredictedPlayerEntity(void)
+{
+	const int smoothClients = cg_smoothClients.integer;
+	centity_t *cent = &cg_entities[cg.predictedPlayerState.clientNum];
+	const qboolean interpolate = cent->interpolate;
+
+	// TaystJK disables smoothing while rendering the predicted local player
+	// to avoid jitter, then restores the player's setting for packet entities.
+	if (smoothClients) {
+		cg_smoothClients.integer = 0;
+	}
+	// Its origin/angles already come from prediction (or hold interpolation).
+	// Interpolating that state toward nextState again makes the rendered body
+	// drift ahead of the camera, then snap back at every snapshot boundary.
+	cent->interpolate = qfalse;
+	CG_AddCEntity(cent);
+	cent->interpolate = interpolate;
+	cg_smoothClients.integer = smoothClients;
+}
+
 /*
 ===============
 CG_AddPacketEntities
@@ -3996,8 +4029,16 @@ void CG_AddPacketEntities( qboolean isPortal ) { //base JKA function, probably s
 
 		if (veh->currentState.owner == cg.predictedPlayerState.clientNum)
 		{
+			//the vehicle's own predicted playerstate (vps) never carries iModelScale over the network
+			//(see vehPlayerStateFields in msg.cpp), so BG_PlayerStateToEntityState() below would zero out
+			//the scale that already arrived correctly via the normal entity snapshot. Preserve it across
+			//the overwrite so a scaled vehicle (set via "scale" in its .npc file) renders correctly for
+			//its own rider too, not just for observers.
+			int savedModelScale = veh->currentState.iModelScale;
+
 			BG_PlayerStateToEntityState( &cg.predictedVehicleState, &veh->currentState, qfalse );
 			veh->currentState.eType = ET_NPC;
+			veh->currentState.iModelScale = savedModelScale;
 
 			veh->currentState.pos.trType = TR_INTERPOLATE;
 		}
@@ -4005,7 +4046,7 @@ void CG_AddPacketEntities( qboolean isPortal ) { //base JKA function, probably s
 		veh->bodyHeight = cg.time; //indicate we have already been added
 	}
 
-	CG_AddCEntity( &cg_entities[cg.predictedPlayerState.clientNum] );
+	CG_AddPredictedPlayerEntity();
 
 	/*
 	// lerp the non-predicted value for lightning gun origins
@@ -4108,8 +4149,16 @@ void CG_AddPacketEntities( qboolean isPortal ) {
 
 		if (veh->currentState.owner == cg.predictedPlayerState.clientNum)
 		{
+			//the vehicle's own predicted playerstate (vps) never carries iModelScale over the network
+			//(see vehPlayerStateFields in msg.cpp), so BG_PlayerStateToEntityState() below would zero out
+			//the scale that already arrived correctly via the normal entity snapshot. Preserve it across
+			//the overwrite so a scaled vehicle (set via "scale" in its .npc file) renders correctly for
+			//its own rider too, not just for observers.
+			int savedModelScale = veh->currentState.iModelScale;
+
 			BG_PlayerStateToEntityState( &cg.predictedVehicleState, &veh->currentState, qfalse );
 			veh->currentState.eType = ET_NPC;
+			veh->currentState.iModelScale = savedModelScale;
 
 			veh->currentState.pos.trType = TR_INTERPOLATE;
 		}
@@ -4117,7 +4166,7 @@ void CG_AddPacketEntities( qboolean isPortal ) {
 		veh->bodyHeight = cg.time; //indicate we have already been added
 	}
 
-	CG_AddCEntity( &cg_entities[cg.predictedPlayerState.clientNum] );
+	CG_AddPredictedPlayerEntity();
 	/*
 	// lerp the non-predicted value for lightning gun origins
 	CG_CalcEntityLerpPositions( &cg_entities[ cg.snap->ps.clientNum ] );

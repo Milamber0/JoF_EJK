@@ -850,6 +850,26 @@ int CG_G2EvIndexForModel(void *g2, int animIndex)
 	return evtIndex;
 }
 
+static int CG_NPCEventIndexForModel( void *g2, const char *modelDirectory, int animIndex )
+{
+	char filename[MAX_QPATH];
+	fileHandle_t file;
+
+	// Keep model-specific events, including deliberately empty files. A missing
+	// file is cached as an empty event set by the parser, so check before parsing.
+	Com_sprintf( filename, sizeof( filename ), "%sanimevents.cfg", modelDirectory );
+	trap->FS_Open( filename, &file, FS_READ );
+	if ( file )
+	{
+		trap->FS_Close( file );
+		return BG_ParseAnimationEvtFile( modelDirectory, animIndex, bgNumAnimEvents );
+	}
+
+	// Custom humanoid NPCs commonly share the player skeleton without supplying
+	// an event file of their own. Resolve the actual skeleton for other NPCs too.
+	return CG_G2EvIndexForModel( g2, animIndex );
+}
+
 void CG_LoadCISounds(clientInfo_t *ci, qboolean modelloaded, qboolean isDefaultModel)
 {
 	fileHandle_t f;
@@ -1331,6 +1351,21 @@ This will usually be deferred to a safe time
 ===================
 */
 
+static sfxHandle_t CG_SaberHumSound( const saberInfo_t *saber, int clientNum ) {
+	if (saber->soundLoopCustom || cg_saberHum.integer == 6 ||
+		clientNum < 0 || clientNum >= MAX_CLIENTS) {
+		return saber->soundLoop;
+	}
+
+	if (cg_saberHum.integer >= 1 && cg_saberHum.integer <= 5) {
+		return cgs.media.saberHumSounds[cg_saberHum.integer - 1];
+	}
+	if (cg_saberHum.integer == 0) {
+		return cgs.media.saberHumSounds[clientNum % 5];
+	}
+	return saber->soundLoop;
+}
+
 void CG_LoadClientInfo( clientInfo_t *ci, int clientNum ) {
 	qboolean	modelloaded;
 	qboolean	isDefaultModel;
@@ -1341,29 +1376,6 @@ void CG_LoadClientInfo( clientInfo_t *ci, int clientNum ) {
 	if (ci->gender == GENDER_FEMALE) {
 		fallbackModel = DEFAULT_MODEL_FEMALE;
 	}
-
-	switch (cg_saberHum.integer)
-	{
-	case 1:
-		ci->saber[0].soundLoop = trap->S_RegisterSound("sound/weapons/saber/saberhum1.wav");
-		break;
-	case 2:
-		ci->saber[0].soundLoop = trap->S_RegisterSound("sound/weapons/saber/saberhum2.wav");
-		break;
-	case 3:
-		ci->saber[0].soundLoop = trap->S_RegisterSound("sound/weapons/saber/saberhum3.wav");
-		break;
-	case 4:
-		ci->saber[0].soundLoop = trap->S_RegisterSound("sound/weapons/saber/saberhum4.wav");
-		break;
-	case 5:
-		ci->saber[0].soundLoop = trap->S_RegisterSound("sound/weapons/saber/saberhum5.wav");
-		break;
-	case 0:
-	default:
-		ci->saber[0].soundLoop = cgs.media.saberHumSounds[clientNum % 5];
-	}
-
 
 	if (clientNum < 0 || clientNum >= MAX_CLIENTS)
 	{
@@ -2185,6 +2197,21 @@ qboolean CG_ModelIsBlacklisted( const char *modelName ) {
 	return BG_ModelInList( modelName, cg_modelBlacklist.string );
 }
 
+void CG_CleanHolsteredSabers( clientInfo_t *ci ) {
+	if ( !ci ) {
+		return;
+	}
+
+	if ( ci->holsterGhoul2 && trap->G2_HaveWeGhoul2Models( ci->holsterGhoul2 ) ) {
+		trap->G2API_CleanGhoul2Models( &ci->holsterGhoul2 );
+	}
+	ci->holsterGhoul2 = NULL;
+
+	if ( ci->holsterGhoul2_2 && trap->G2_HaveWeGhoul2Models( ci->holsterGhoul2_2 ) ) {
+		trap->G2API_CleanGhoul2Models( &ci->holsterGhoul2_2 );
+	}
+	ci->holsterGhoul2_2 = NULL;
+}
 //whatever this client's staff was part way through, it belongs to the old saber
 static void CG_StaffSwapForgetClient( int clientNum );
 
@@ -2230,6 +2257,7 @@ void CG_NewClientInfo( int clientNum, qboolean entitiesInitialized ) {
 			}
 			k++;
 		}
+		CG_CleanHolsteredSabers( ci );
 
 		if ( ci->infoValid )
 			cgs.numClients--;
@@ -2692,15 +2720,7 @@ void CG_NewClientInfo( int clientNum, qboolean entitiesInitialized ) {
 	  //Otherwise we will end up with extra instances all over the place, I think.
 		trap->G2API_CleanGhoul2Models(&ci->ghoul2Model);
 	}
-
-	//newInfo is about to take these over as NULL, so let go of the holstered hilt instances rather
-	//than losing the only pointers to them. They get rebuilt from whatever saber he has now.
-	if (ci->holsterGhoul2 && trap->G2_HaveWeGhoul2Models(ci->holsterGhoul2))
-		trap->G2API_CleanGhoul2Models(&ci->holsterGhoul2);
-
-	if (ci->holsterGhoul2_2 && trap->G2_HaveWeGhoul2Models(ci->holsterGhoul2_2))
-		trap->G2API_CleanGhoul2Models(&ci->holsterGhoul2_2);
-
+	CG_CleanHolsteredSabers( ci );
 	*ci = newInfo;
 
 	CG_StaffSwapForgetClient( clientNum );
@@ -3122,6 +3142,23 @@ static void CG_PlayerFootsteps( centity_t *cent, footstepType_t footStepType )
 	}
 }
 
+static sfxHandle_t CG_AnimEventSound( int entityNum, const animevent_t *animEvent )
+{
+	int sound = animEvent->eventData[AED_SOUNDINDEX_START +
+		Q_irand( 0, animEvent->eventData[AED_SOUND_NUMRANDOMSNDS] )];
+
+	if ( animEvent->stringData && animEvent->stringData[0] == '*' )
+	{
+		const char *name = animEvent->stringData;
+		if ( sound > 0 )
+		{
+			name = va( name, sound );
+		}
+		return CG_CustomSound( entityNum, name );
+	}
+	return sound;
+}
+
 void CG_PlayerAnimEventDo( centity_t *cent, animevent_t *animEvent )
 {
 	soundChannel_t channel = CHAN_AUTO;
@@ -3140,7 +3177,7 @@ void CG_PlayerAnimEventDo( centity_t *cent, animevent_t *animEvent )
 		channel = (soundChannel_t)animEvent->eventData[AED_SOUNDCHANNEL];
 	case AEV_SOUND:
 		{	// are there variations on the sound?
-			const int holdSnd = animEvent->eventData[ AED_SOUNDINDEX_START+Q_irand( 0, animEvent->eventData[AED_SOUND_NUMRANDOMSNDS] ) ];
+			const sfxHandle_t holdSnd = CG_AnimEventSound( cent->currentState.number, animEvent );
 			if ( holdSnd > 0 )
 			{
 				trap->S_StartSound( NULL, cent->currentState.number, channel, holdSnd );
@@ -3351,6 +3388,7 @@ void CG_PlayerAnimEvents( int animFileIndex, int eventFileIndex, qboolean torso,
 	int		i;
 	int		firstFrame = 0, lastFrame = 0;
 	qboolean	doEvent = qfalse, inSameAnim = qfalse, loopAnim = qfalse, match = qfalse, animBackward = qfalse;
+	qboolean grappleFrames = qfalse;
 	animevent_t *animEvents = NULL;
 
 	if ( torso )
@@ -3394,6 +3432,20 @@ void CG_PlayerAnimEvents( int animFileIndex, int eventFileIndex, qboolean torso,
 				anim = cg_entities[entNum].nextState.legsAnim;
 			}
 		}
+		// nextState can already contain the release/get-up while Ghoul2 is
+		// still playing the current kata. Its sampled frames, not the future
+		// snapshot's animation, decide whether an impact was crossed.
+		if ( BG_IsGrappleSoundAnim( oldAnim ) )
+		{
+			const animation_t *playing = &bgAllAnims[animFileIndex].anims[oldAnim];
+			if ( oldFrame >= playing->firstFrame &&
+				oldFrame < playing->firstFrame + playing->numFrames &&
+				frame >= playing->firstFrame &&
+				frame < playing->firstFrame + playing->numFrames )
+			{
+				anim = oldAnim;
+			}
+		}
 		if ( anim != oldAnim )
 		{//not in same anim
 			inSameAnim = qfalse;
@@ -3405,6 +3457,14 @@ void CG_PlayerAnimEvents( int animFileIndex, int eventFileIndex, qboolean torso,
 
 			inSameAnim = qtrue;
 			animation = &bgAllAnims[animFileIndex].anims[anim];
+			// Paired melee sounds must survive skipped render frames. Only relax
+			// the proximity check when both sampled frames belong to this move;
+			// a stale frame from another animation must not trigger its events.
+			grappleFrames = BG_IsGrappleSoundAnim( anim ) &&
+				oldFrame >= animation->firstFrame &&
+				oldFrame < animation->firstFrame + animation->numFrames &&
+				frame >= animation->firstFrame &&
+				frame < animation->firstFrame + animation->numFrames;
 			animBackward = (animation->frameLerp<0);
 			if ( animation->loopFrames != -1 )
 			{//a looping anim!
@@ -3432,7 +3492,7 @@ void CG_PlayerAnimEvents( int animFileIndex, int eventFileIndex, qboolean torso,
 		{//given a range, see if keyFrame falls in that range
 			if ( inSameAnim )
 			{//if changed anims altogether, sorry, the sound is lost
-				if ( fabs((float)(oldFrame-animEvents[i].keyFrame)) <= 3
+				if ( grappleFrames || fabs((float)(oldFrame-animEvents[i].keyFrame)) <= 3
 					 || fabs((float)(frame-animEvents[i].keyFrame)) <= 3 )
 				{//must be at least close to the keyframe
 					if ( animBackward )
@@ -3651,6 +3711,7 @@ CG_SetLerpFrameAnimation
 */
 qboolean BG_SaberStanceAnim( int anim );
 qboolean PM_RunningAnim( int anim );
+static qboolean CG_LightningDeflectionFrame(centity_t *cent, lerpFrame_t *lf, int animation);
 static void CG_SetLerpFrameAnimation( centity_t *cent, clientInfo_t *ci, lerpFrame_t *lf, int newAnimation, float animSpeedMult, qboolean torsoOnly, qboolean flipState) {
 	animation_t	*anim;
 	float animSpeed;
@@ -4109,6 +4170,9 @@ static void CG_RunLerpFrame( centity_t *cent, clientInfo_t *ci, lerpFrame_t *lf,
 
 		lf->lastForcedFrame = -1;
 
+		if (torsoOnly && CG_LightningDeflectionFrame(cent, lf, newAnimation))
+			return;
+
 		if ( (newAnimation != lf->animationNumber || cent->currentState.brokenLimbs != ci->brokenLimbs || lf->lastFlip != flipState || !lf->animation) || (CG_FirstAnimFrame(lf, torsoOnly, speedScale)) )
 		{
 			CG_SetLerpFrameAnimation( cent, ci, lf, newAnimation, speedScale, torsoOnly, flipState);
@@ -4192,6 +4256,96 @@ CG_PlayerAnimation
 ===============
 */
 qboolean PM_WalkingAnim( int anim );
+
+static int CG_LightningDeflectionCaster(const centity_t *guard)
+{
+	int index, best = ENTITYNUM_NONE;
+	float bestDistance = 1024.0f * 1024.0f;
+	for (index = 0; index < MAX_GENTITIES; index++)
+	{
+		// The viewing player's own entity comes from prediction, not the
+		// snapshot entity list. Include it when that player is the caster.
+		centity_t *caster = &cg_entities[index];
+		qboolean localCaster = index == cg.predictedPlayerState.clientNum;
+		int activePass = localCaster ? cg.predictedPlayerState.activeForcePass : caster->currentState.activeForcePass;
+		int activePowers = localCaster ? cg.predictedPlayerState.fd.forcePowersActive : caster->currentState.forcePowersActive;
+		int flags = localCaster ? cg.predictedPlayerState.eFlags : caster->currentState.eFlags;
+		vec3_t delta;
+		float distance;
+		if (index == guard->currentState.number ||
+			(!localCaster && !caster->currentValid) ||
+			(flags & (EF_DEAD | EF_NODRAW)) ||
+			activePass <= 0 || activePass > FORCE_LEVEL_3 ||
+			!(activePowers & (1 << FP_LIGHTNING)))
+			continue;
+		VectorSubtract(guard->lerpOrigin,
+			localCaster ? cg.predictedPlayerState.origin : caster->lerpOrigin, delta);
+		distance = VectorLengthSquared(delta);
+		if (distance < bestDistance)
+		{
+			bestDistance = distance;
+			best = index;
+		}
+	}
+	return best;
+}
+
+static qboolean CG_LightningDeflectionActive(const centity_t *cent)
+{
+	// Effects follow the ordinary server-selected animation. Cgame never
+	// authorizes the guard or chooses/replaces its pose.
+	if (cent->currentState.weapon != WP_SABER || cent->currentState.saberHolstered == 2 ||
+		cent->currentState.saberInFlight || (cent->currentState.eFlags & (EF_DEAD | EF_NODRAW)) ||
+		(cent->currentState.saberMove != LS_NONE && cent->currentState.saberMove != LS_READY))
+		return qfalse;
+	if (cent->currentState.number == cg.predictedPlayerState.clientNum &&
+		(cg.predictedPlayerState.torsoTimer <= 0 ||
+		 cg.predictedPlayerState.forceHandExtend != HANDEXTEND_NONE))
+		return qfalse;
+	return (cent->currentState.torsoAnim == BOTH_BF1LOCK ||
+		cent->currentState.torsoAnim == BOTH_LK_S_DL_T_SB_1_L ||
+		cent->currentState.torsoAnim == BOTH_LK_DL_S_T_L_1 ||
+		cent->currentState.torsoAnim == BOTH_LK_ST_ST_T_L_1) &&
+		CG_LightningDeflectionCaster(cent) != ENTITYNUM_NONE;
+}
+
+static qboolean CG_LightningDeflectionFrame(centity_t *cent, lerpFrame_t *lf, int animation)
+{
+	animation_t *anim;
+	int frame, blendTime;
+	if (!cent->ghoul2 || cent->noLumbar || !CG_LightningDeflectionActive(cent) ||
+		animation != cent->currentState.torsoAnim)
+	{
+		cent->lightningDeflectFrameAnim = 0;
+		return qfalse;
+	}
+	anim = &bgAllAnims[cent->localAnimIndex].anims[animation];
+	if (anim->numFrames <= 0)
+	{
+		cent->lightningDeflectFrameAnim = 0;
+		return qfalse;
+	}
+	// Staff uses the start of its pose; other styles use the end of playback.
+	frame = anim->firstFrame;
+	if ((animation == BOTH_LK_ST_ST_T_L_1) == (anim->frameLerp < 0))
+		frame += anim->numFrames - 1;
+	blendTime = cent->lightningDeflectFrameAnim == animation + 1 ? 0 : 100;
+	trap->G2API_SetBoneAnim(cent->ghoul2, 0, "lower_lumbar", frame, frame + 1,
+		BONE_ANIM_OVERRIDE_FREEZE | BONE_ANIM_BLEND, 1.0f, cg.time, frame, blendTime);
+	// The humanoid spine correction reads Motion as well as lower_lumbar.
+	// Keep both on the same pose, as the ordinary torso animation setter does.
+	if (cent->localAnimIndex <= 1)
+		trap->G2API_SetBoneAnim(cent->ghoul2, 0, "Motion", frame, frame + 1,
+			BONE_ANIM_OVERRIDE_FREEZE | BONE_ANIM_BLEND, 1.0f, cg.time, frame, blendTime);
+	cent->lightningDeflectFrameAnim = animation + 1;
+	lf->animation = anim;
+	// Force normal playback to restart when the guard ends, even for the same anim.
+	lf->animationNumber = -1;
+	lf->oldFrame = lf->frame = frame;
+	lf->oldFrameTime = lf->frameTime = cg.time;
+	lf->backlerp = 0;
+	return qtrue;
+}
 
 static void CG_PlayerAnimation( centity_t *cent, int *legsOld, int *legs, float *legsBackLerp,
 						int *torsoOld, int *torso, float *torsoBackLerp ) {
@@ -5206,6 +5360,71 @@ qboolean CG_G2PlayerHeadAnims( centity_t *cent )
 #if 1
 int cgFPLSState = 0;
 #endif
+static qboolean CG_GetHeldHandPosition( const centity_t *cent, vec3_t position )
+{
+	centity_t *holder = NULL;
+	mdxaBone_t boltMatrix;
+	int handBolt, i;
+
+	// The stock wire field has only six bits: NPC entity+1 links wrap,
+	// including to zero. Never treat that wrapped value as a player slot.
+	if ( cent->currentState.heldByClient < 0 ||
+		cent->currentState.heldByClient > ENTITYNUM_WORLD )
+	{
+		return qfalse;
+	}
+	if ( cent->currentState.heldByClient > 63 )
+	{
+		holder = &cg_entities[cent->currentState.heldByClient - 1];
+	}
+	else
+	{
+		if ( !cent->currentState.heldByClient &&
+			cent->currentState.legsAnim != BOTH_KNEES1 &&
+			cent->currentState.torsoAnim != BOTH_KNEES1 )
+		{
+			return qfalse;
+		}
+		for ( i = (cent->currentState.heldByClient + 63) & 63;
+			i < ENTITYNUM_WORLD; i += 64 )
+		{
+			centity_t *candidate = &cg_entities[i];
+			if ( i == cent->currentState.number || !candidate->currentValid ||
+				!candidate->ghoul2 ||
+				(candidate->currentState.eType != ET_PLAYER && candidate->currentState.eType != ET_NPC) ||
+				candidate->currentState.torsoAnim != BOTH_A3_TL_BR ||
+				candidate->currentState.legsAnim != BOTH_A3_TL_BR ||
+				DistanceSquared( candidate->currentState.pos.trBase,
+					cent->currentState.pos.trBase ) > 128.0f * 128.0f )
+			{
+				continue;
+			}
+			if ( holder )
+			{
+				return qfalse; // Ambiguous links must not pull the arm to another actor.
+			}
+			holder = candidate;
+		}
+	}
+	if ( !holder || !holder->currentValid || !holder->ghoul2 ||
+		(holder->currentState.eType != ET_PLAYER && holder->currentState.eType != ET_NPC) )
+	{
+		return qfalse;
+	}
+
+	// Bolt indices belong to each model; the victim's index need not match a
+	// custom NPC holder's index. Zero is also a valid bolt index.
+	handBolt = trap->G2API_AddBolt( holder->ghoul2, 0, "*l_hand" );
+	if ( handBolt < 0 || !trap->G2API_GetBoltMatrix( holder->ghoul2, 0, handBolt,
+		&boltMatrix, holder->turAngles, holder->lerpOrigin, cg.time,
+		cgs.gameModels, holder->modelScale ) )
+	{
+		return qfalse;
+	}
+	BG_GiveMeVectorFromMatrix( &boltMatrix, ORIGIN, position );
+	return qtrue;
+}
+
 static void CG_G2PlayerAngles( centity_t *cent, matrix3_t legs, vec3_t legsAngles)
 {
 	clientInfo_t *ci;
@@ -5293,28 +5512,18 @@ static void CG_G2PlayerAngles( centity_t *cent, matrix3_t legs, vec3_t legsAngle
 			cg.frametime, cent->turAngles, cent->modelScale, ci->legsAnim, ci->torsoAnim, &ci->corrTime,
 			lookAngles, ci->lastHeadAngles, ci->lookTime, emplaced, &ci->superSmoothTime);
 
-		if (cent->currentState.heldByClient && cent->currentState.heldByClient <= MAX_CLIENTS)
-		{ //then put our arm in this client's hand
-			//is index+1 because index 0 is valid.
-			int heldByIndex = cent->currentState.heldByClient-1;
-			centity_t *other = &cg_entities[heldByIndex];
-
-			if (other && other->ghoul2 && ci->bolt_lhand)
+		{
+			vec3_t boltOrg;
+			if ( ci->bolt_lhand >= 0 && CG_GetHeldHandPosition( cent, boltOrg ) )
 			{
-				mdxaBone_t boltMatrix;
-				vec3_t boltOrg;
-
-				trap->G2API_GetBoltMatrix(other->ghoul2, 0, ci->bolt_lhand, &boltMatrix, other->turAngles, other->lerpOrigin, cg.time, cgs.gameModels, other->modelScale);
-				BG_GiveMeVectorFromMatrix(&boltMatrix, ORIGIN, boltOrg);
-
 				BG_IK_MoveArm(cent->ghoul2, ci->bolt_lhand, cg.time, &cent->currentState,
 					cent->currentState.torsoAnim/*BOTH_DEAD1*/, boltOrg, &cent->ikStatus, cent->lerpOrigin, cent->lerpAngles, cent->modelScale, 500, qfalse);
 			}
-		}
-		else if (cent->ikStatus)
-		{ //make sure we aren't IKing if we don't have anyone to hold onto us.
-			BG_IK_MoveArm(cent->ghoul2, ci->bolt_lhand, cg.time, &cent->currentState,
-				cent->currentState.torsoAnim/*BOTH_DEAD1*/, vec3_origin, &cent->ikStatus, cent->lerpOrigin, cent->lerpAngles, cent->modelScale, 500, qtrue);
+			else if (cent->ikStatus)
+			{ //clear IK when the holder or its hand is no longer available.
+				BG_IK_MoveArm(cent->ghoul2, ci->bolt_lhand, cg.time, &cent->currentState,
+					cent->currentState.torsoAnim/*BOTH_DEAD1*/, vec3_origin, &cent->ikStatus, cent->lerpOrigin, cent->lerpAngles, cent->modelScale, 500, qtrue);
+			}
 		}
 	}
 	else if ( cent->m_pVehicle && cent->m_pVehicle->m_pVehicleInfo->type == VH_WALKER )
@@ -6314,6 +6523,48 @@ static void CG_ForceGripEffect( vec3_t org )
 	ex->color[1] = 255;
 	ex->color[2] = 255;
 	ex->refEntity.customShader = cgs.media.redSaberGlowShader;//trap->R_RegisterShader( "gfx/effects/forcePush" );
+}
+
+// Force Destruction charge (250 ms): the hand plays force/drain_hand.efx at the left hand;
+// Super Destruction (melee, two-handed lightning pose) plays it on BOTH hands every frame.
+// Resolve each hand bolt when delayed particles spawn, then leave the particles
+// in world space so hand movement preserves the effect's intentional trail.
+static void CG_ForceDestructionHandFX( centity_t *cent, int bolt, vec3_t handOrg, matrix3_t axis )
+{
+	if ( bolt >= 0 && cent->ghoul2 &&
+		trap->FX_PlayBoltedEffectID( cgs.effects.destructionDrainHand, handOrg, cent->ghoul2, bolt,
+			cent->currentState.number, 0, 0, qfalse ) )
+		return;
+	// no usable bolt: play it at the hand position
+	trap->FX_PlayEntityEffectID( cgs.effects.destructionDrainHand, handOrg, axis, -1, -1, -1, -1 );
+}
+
+static void CG_ForceDestructionDrainHand( centity_t *cent, clientInfo_t *ci, const vec3_t lHandOrg )
+{
+	matrix3_t axis;
+	mdxaBone_t rHandMatrix;
+	vec3_t fAng, lOrg, rOrg;
+	qboolean super = ( cent->currentState.weapon == WP_MELEE ||
+		cent->currentState.torsoAnim == BOTH_FORCE_2HANDEDLIGHTNING );
+
+	if ( !cgs.effects.destructionDrainHand )
+		return;
+
+	VectorSet( fAng, cent->pe.torso.pitchAngle, cent->pe.torso.yawAngle, 0 );
+	AnglesToAxis( fAng, axis );
+
+	VectorCopy( lHandOrg, lOrg );
+	CG_ForceDestructionHandFX( cent, ci->bolt_lhand, lOrg, axis );
+
+	if ( super && ci->bolt_rhand >= 0 &&
+		trap->G2API_GetBoltMatrix( cent->ghoul2, 0, ci->bolt_rhand, &rHandMatrix, cent->turAngles,
+			cent->lerpOrigin, cg.time, cgs.gameModels, cent->modelScale ) )
+	{
+		rOrg[0] = rHandMatrix.matrix[0][3];
+		rOrg[1] = rHandMatrix.matrix[1][3];
+		rOrg[2] = rHandMatrix.matrix[2][3];
+		CG_ForceDestructionHandFX( cent, ci->bolt_rhand, rOrg, axis );
+	}
 }
 
 
@@ -8210,6 +8461,13 @@ void CG_AddSaberBlade( centity_t *cent, centity_t *scent, refEntity_t *saber, in
 		}
 	}
 CheckTrail:
+	if (!dontDraw && CG_LightningDeflectionActive(cent) &&
+		!(client->saber[saberNum].saberFlags2 &
+			(WP_SaberBladeUseSecondBladeStyle(&client->saber[saberNum], bladeNum) ?
+				SFL2_NO_BLADE2 : SFL2_NO_BLADE)))
+	{
+		FX_ForceLightningSaberContact(cent, saberNum, bladeNum, org_, end, axis_[0]);
+	}
 
 	if (!cg_saberTrail.integer && !sfxSabers)
 	{ //don't do the trail in this case
@@ -9520,7 +9778,7 @@ void CG_G2AnimEntModelLoad(centity_t *cent)
 					*slash = 0;
 				}
 
-				cent->eventAnimIndex = BG_ParseAnimationEvtFile(originalModelName, cent->localAnimIndex, bgNumAnimEvents);
+				cent->eventAnimIndex = CG_NPCEventIndexForModel(cent->ghoul2, originalModelName, cent->localAnimIndex);
 			}
 		}
 	}
@@ -11497,10 +11755,11 @@ void CG_Player( centity_t *cent ) {
 	vec3_t			angles, dir, elevated, enang, seekorg;
 	int				iwantout = 0, successchange = 0;
 	int				team;
-	mdxaBone_t 		boltMatrix, lHandMatrix;
+	mdxaBone_t 		boltMatrix, lHandMatrix, rHandMatrix;
 	mdxaBone_t 		headMatrix; //fpls
 	int				doAlpha = 0;
 	qboolean		gotLHandMatrix = qfalse;
+	qboolean		gotRHandMatrix = qfalse;
 	qboolean		g2HasWeapon = qfalse;
 	qboolean		drawPlayerSaber = qfalse;
 	qboolean		checkDroidShields = qfalse;
@@ -11548,7 +11807,11 @@ void CG_Player( centity_t *cent ) {
 		VectorClear(cent->modelScale);
 	}
 
-	if ((cent->doLerp || cent->currentState.heldByClient) && (cent->currentState.groundEntityNum >= ENTITYNUM_WORLD || cent->currentState.eType == ET_TERRAIN) &&
+	// The local carry has already been interpolated with its camera. Applying
+	// the frame-dependent body smoother again separates the two while held.
+	if (!(cent->currentState.number == cg.predictedPlayerState.clientNum &&
+		(cg.predictedPlayerState.forceHandExtend == HANDEXTEND_PRETHROWN || cg.predictedPlayerState.heldByClient)) &&
+		(cent->doLerp || cent->currentState.heldByClient) && (cent->currentState.groundEntityNum >= ENTITYNUM_WORLD || cent->currentState.eType == ET_TERRAIN) &&
 		!(cent->currentState.eFlags2 & EF2_HYPERSPACE) && cg.predictedPlayerState.m_iVehicleNum != cent->currentState.number)
 	{ //always smooth when being thrown
 		vec3_t			posDif;
@@ -13010,8 +13273,7 @@ skipTrail:
 		if ( cent->currentState.torsoAnim == BOTH_FORCE_2HANDEDLIGHTNING_HOLD
 			&& Q_irand( 0, 1 ) )
 		{//alternate back and forth between left and right
-			mdxaBone_t 	rHandMatrix;
-			trap->G2API_GetBoltMatrix(cent->ghoul2, 0, ci->bolt_rhand, &rHandMatrix, cent->turAngles, cent->lerpOrigin, cg.time, cgs.gameModels, cent->modelScale);
+			gotRHandMatrix = trap->G2API_GetBoltMatrix(cent->ghoul2, 0, ci->bolt_rhand, &rHandMatrix, cent->turAngles, cent->lerpOrigin, cg.time, cgs.gameModels, cent->modelScale);
 			efOrg[0] = rHandMatrix.matrix[0][3];
 			efOrg[1] = rHandMatrix.matrix[1][3];
 			efOrg[2] = rHandMatrix.matrix[2][3];
@@ -13110,6 +13372,11 @@ skipTrail:
 			trap->FX_PlayEntityEffectID(flameThrowerToUse, efOrg, flameAxis, -1, -1, -1, -1);
 
 			stopFlameThrowerSnd = qfalse;
+		}
+		else if (FX_ForceLightningEnvironment(cent, efOrg, axis,
+			cent->currentState.activeForcePass > FORCE_LEVEL_2))
+		{
+			// The selected lightning mode owns the hand spray and environment arcs.
 		}
 		else if ( cent->currentState.activeForcePass > FORCE_LEVEL_2 )
 		{//arc
@@ -13241,7 +13508,17 @@ skipTrail:
 		efOrg[1] = lHandMatrix.matrix[1][3];
 		efOrg[2] = lHandMatrix.matrix[2][3];
 
-		if ( (cent->currentState.forcePowersActive & (1 << FP_GRIP)) &&
+		// Consume the marker even when hidden/first-person: never fall through to
+		// the vanilla Grip compatibility bit or the caster's stock Push blur.
+		if ( cent->currentState.forcePowersActive & DESTRUCTION_HAND_FLAG )
+		{
+			if ( (cg.renderingThirdPerson || cent->currentState.number != cg.snap->ps.clientNum) &&
+				forceFXVisible )
+			{
+				CG_ForceDestructionDrainHand( cent, ci, efOrg );
+			}
+		}
+		else if ( (cent->currentState.forcePowersActive & (1 << FP_GRIP)) &&
 			(cg.renderingThirdPerson || cent->currentState.number != cg.snap->ps.clientNum) &&
 			forceFXVisible )
 		{
@@ -13675,6 +13952,7 @@ stillDoSaber:
 		{
 			vec3_t soundSpot;
 			qboolean didFirstSound = qfalse;
+			const sfxHandle_t primaryHum = CG_SaberHumSound(&ci->saber[0], cent->currentState.number);
 
 			if (cg.snap->ps.clientNum == cent->currentState.number)
 			{
@@ -13690,7 +13968,7 @@ stillDoSaber:
 			}
 
 			if (ci->saber[0].model[0]
-				&& ci->saber[0].soundLoop
+				&& primaryHum
 				&& !cent->currentState.saberInFlight)
 			{
 				int i = 0;
@@ -13709,13 +13987,13 @@ stillDoSaber:
 				if (hasLen)
 				{
 					trap->S_AddLoopingSound( cent->currentState.number, soundSpot, vec3_origin,
-						ci->saber[0].soundLoop );
+						primaryHum );
 					didFirstSound = qtrue;
 				}
 			}
 			if (ci->saber[1].model[0]
 				&& ci->saber[1].soundLoop
-					&& (!didFirstSound || ci->saber[0].soundLoop != ci->saber[1].soundLoop))
+					&& (!didFirstSound || primaryHum != ci->saber[1].soundLoop))
 			{
 				int i = 0;
 				qboolean hasLen = qfalse;
@@ -15021,7 +15299,8 @@ stillDoSaber:
 
 	// Electricity
 	//------------------------------------------------
-	if ( cent->currentState.emplacedOwner > cg.time )
+	if ( cent->currentState.emplacedOwner > cg.time &&
+		!CG_LightningDeflectionActive(cent) )
 	{
 		int	dif = cent->currentState.emplacedOwner - cg.time;
 		vec3_t tempAngles;

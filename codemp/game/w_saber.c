@@ -8259,6 +8259,101 @@ static QINLINE qboolean G_PrettyCloseIGuess(float a, float b, float tolerance)
 	return qfalse;
 }
 
+qboolean G_JediMeleeKata( gentity_t *self, gentity_t *target )
+{
+	vec3_t toTarget, targetAngles;
+	trace_t trace;
+	int attackerAnim, victimAnim;
+
+	if ( !self || !self->client || !self->ghoul2 || self->health <= 0 ||
+		!target || !target->inuse || !target->client || !target->ghoul2 ||
+		!g2SaberInstance || target->health <= 0 ||
+		( target->s.eType != ET_PLAYER && target->s.eType != ET_NPC ) ||
+		self->localAnimIndex < 0 || self->localAnimIndex > 1 ||
+		target->localAnimIndex < 0 || target->localAnimIndex > 1 ||
+		!G_CanBeEnemy( self, target ) ||
+		self->client->ps.weapon != WP_MELEE || self->client->grappleState ||
+		target->client->grappleState ||
+		BG_InGrappleMove( target->client->ps.torsoAnim ) ||
+		BG_InGrappleMove( target->client->ps.legsAnim ) ||
+		!G_PrettyCloseIGuess( target->client->ps.origin[2], self->client->ps.origin[2], 4.0f ) )
+	{
+		return qfalse;
+	}
+
+	VectorSubtract( target->client->ps.origin, self->client->ps.origin, toTarget );
+	if ( VectorLength( toTarget ) > 64.0f )
+	{
+		return qfalse;
+	}
+
+	// The kata can grab the current enemy at any angle, but cannot pass through cover.
+	JP_Trace( &trace, self->client->ps.origin, NULL, NULL, target->client->ps.origin,
+		self->s.number, MASK_SHOT, qfalse, 0, 0 );
+	if ( trace.fraction < 1.0f && trace.entityNum != target->s.number )
+	{
+		return qfalse;
+	}
+
+	// The throw needs a third animation on the victim after the paired hold.
+	attackerAnim = BOTH_KYLE_PA_2;
+	victimAnim = BOTH_PLAYER_PA_2;
+	if ( BG_HasAnimation( self->localAnimIndex, BOTH_KYLE_PA_3 ) &&
+		BG_HasAnimation( target->localAnimIndex, BOTH_PLAYER_PA_3 ) &&
+		BG_HasAnimation( target->localAnimIndex, BOTH_PLAYER_PA_3_FLY ) &&
+		Q_irand( 0, 1 ) )
+	{
+		attackerAnim = BOTH_KYLE_PA_3;
+		victimAnim = BOTH_PLAYER_PA_3;
+	}
+	if ( !BG_HasAnimation( self->localAnimIndex, attackerAnim ) ||
+		!BG_HasAnimation( target->localAnimIndex, victimAnim ) )
+	{
+		return qfalse;
+	}
+
+	vectoangles( toTarget, targetAngles );
+	// Paired melee animations only need horizontal facing. Feeding the vertical
+	// separation into SetClientViewAngle can leave the victim with an extreme
+	// pitch that remains locked throughout the throw animation.
+	targetAngles[PITCH] = 0.0f;
+	targetAngles[ROLL] = 0.0f;
+	SetClientViewAngle( self, targetAngles );
+	G_SetAnim( self, &self->client->pers.cmd, SETANIM_BOTH, attackerAnim,
+		SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD, 0 );
+	G_SetAnim( target, &target->client->pers.cmd, SETANIM_BOTH, victimAnim,
+		SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD, 0 );
+	if ( self->client->ps.torsoAnim != attackerAnim ||
+		self->client->ps.legsAnim != attackerAnim ||
+		target->client->ps.torsoAnim != victimAnim ||
+		target->client->ps.legsAnim != victimAnim )
+	{
+		return qfalse;
+	}
+
+	self->client->grappleIndex = target->s.number;
+	self->client->grappleState = 1;
+	target->client->grappleIndex = self->s.number;
+	target->client->grappleState = 20;
+	VectorClear( self->client->ps.velocity );
+	VectorClear( target->client->ps.velocity );
+	VectorClear( target->client->ps.moveDir );
+	target->client->ps.forceHandExtend = HANDEXTEND_NONE;
+	target->client->ps.forceHandExtendTime = 0;
+	self->client->ps.weaponTime = self->client->ps.torsoTimer;
+	if ( target->client->ps.torsoTimer < self->client->ps.torsoTimer )
+	{
+		target->client->ps.torsoTimer = self->client->ps.torsoTimer;
+		target->client->ps.legsTimer = self->client->ps.torsoTimer;
+	}
+	target->client->ps.weaponTime = target->client->ps.torsoTimer;
+	if ( target->client->ps.weapon == WP_SABER )
+	{
+		target->client->ps.saberHolstered = 2;
+	}
+	return qtrue;
+}
+
 static void G_GrabSomeMofos(gentity_t *self)
 {
 	renderInfo_t *ri = &self->client->renderInfo;
@@ -8283,12 +8378,10 @@ static void G_GrabSomeMofos(gentity_t *self)
 
 	//trace from my origin to my hand, if we hit anyone then get 'em
 	JP_Trace( &trace, self->client->ps.origin, grabMins, grabMaxs, pos, self->s.number, MASK_SHOT, qfalse, G2TRFLAG_DOGHOULTRACE|G2TRFLAG_GETSURFINDEX|G2TRFLAG_THICK|G2TRFLAG_HITCORPSES, g_g2TraceLod.integer );
-
 	if (trace.fraction != 1.0f &&
 		trace.entityNum < ENTITYNUM_WORLD)
 	{
 		gentity_t *grabbed = &g_entities[trace.entityNum];
-
 		if (grabbed->inuse && (grabbed->s.eType == ET_PLAYER || grabbed->s.eType == ET_NPC) &&
 			grabbed->client && grabbed->health > 0 &&
 			G_CanBeEnemy(self, grabbed) &&
@@ -8434,17 +8527,73 @@ void WP_SaberPositionUpdate( gentity_t *self, usercmd_t *ucmd )
 		return;
 	}
 
+	if ( TIMER_Exists( self, "meleeKataRecovery" ) &&
+		TIMER_Done( self, "meleeKataRecovery" ) )
+	{
+		TIMER_Remove( self, "meleeKataRecovery" );
+		if ( self->health > 0 && !self->client->grappleState &&
+			self->client->ps.forceHandExtend != HANDEXTEND_KNOCKDOWN )
+		{
+			// Use the game's throw recovery after the flight animation has played.
+			// It keeps the victim down until grounded, then plays the getup.
+			self->client->ps.forceHandExtend = HANDEXTEND_POSTTHROWN;
+			self->client->ps.forceDodgeAnim = 0;
+			self->client->ps.forceHandExtendTime = level.time + 900;
+		}
+	}
+
 	if ((BG_KickingAnim(self->client->ps.legsAnim) || (!(SaberKickTweak(self)) /*!d_saberKickTweak.integer*/ && (self->client->ps.legsAnim == BOTH_JUMPATTACK7))))//JAPRO
 	{ //do some kick traces and stuff if we're in the appropriate anim
 		G_KickSomeMofos(self);
 	}
 	else if (self->client->ps.torsoAnim == BOTH_KYLE_GRAB)
 	{ //try to grab someone
-		G_GrabSomeMofos(self);
+		if ( !TIMER_Exists( self, "meleeKataWindup" ) )
+		{
+			G_GrabSomeMofos(self);
+		}
 	}
 	else if (self->client->grappleState)
 	{
 		gentity_t *grappler = &g_entities[self->client->grappleIndex];
+		if ( self->client->grappleState >= 20 && self->health > 0 &&
+			grappler->inuse && grappler->health > 0 &&
+			grappler->client && grappler->s.eType == ET_NPC &&
+			grappler->client->ps.weapon == WP_MELEE &&
+			grappler->client->grappleIndex == self->s.number &&
+			grappler->client->grappleState > 0 &&
+			grappler->client->grappleState < 20 )
+		{
+			int victimAnim = 0;
+			if ( grappler->client->ps.torsoAnim == BOTH_KYLE_PA_2 )
+			{
+				victimAnim = BOTH_PLAYER_PA_2;
+			}
+			else if ( grappler->client->ps.torsoAnim == BOTH_KYLE_PA_3 )
+			{
+				victimAnim = BOTH_PLAYER_PA_3;
+			}
+			if ( victimAnim )
+			{
+				VectorClear( self->client->ps.velocity );
+				VectorClear( self->client->ps.moveDir );
+				self->client->ps.forceHandExtend = HANDEXTEND_NONE;
+				self->client->ps.forceHandExtendTime = 0;
+				if ( self->client->ps.torsoAnim != victimAnim ||
+					self->client->ps.legsAnim != victimAnim )
+				{
+					G_SetAnim( self, &self->client->pers.cmd, SETANIM_BOTH,
+						victimAnim, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD, 0 );
+					if ( self->client->ps.torsoAnim == victimAnim &&
+						self->client->ps.legsAnim == victimAnim )
+					{
+						self->client->ps.torsoTimer = grappler->client->ps.torsoTimer;
+						self->client->ps.legsTimer = grappler->client->ps.legsTimer;
+						self->client->ps.weaponTime = self->client->ps.torsoTimer;
+					}
+				}
+			}
+		}
 
 		if (!grappler->inuse || !grappler->client || grappler->client->grappleIndex != self->s.number ||
 			!BG_InGrappleMove(grappler->client->ps.torsoAnim) || !BG_InGrappleMove(grappler->client->ps.legsAnim) ||
@@ -8487,6 +8636,11 @@ void WP_SaberPositionUpdate( gentity_t *self, usercmd_t *ucmd )
 			else
 			{
 				vectoangles(grapAng, grapAng);
+				// Grapples align the actors around the vertical axis. Never derive
+				// camera pitch from their origin height difference: the flight anim
+				// keeps this angle locked after release.
+				grapAng[PITCH] = 0.0f;
+				grapAng[ROLL] = 0.0f;
 				SetClientViewAngle(self, grapAng);
 
 				if (self->client->grappleState >= 20)
@@ -8663,6 +8817,62 @@ void WP_SaberPositionUpdate( gentity_t *self, usercmd_t *ucmd )
 								}
 
 								self->client->grappleState = 0;
+							}
+						}
+					}
+					else if (self->client->ps.torsoAnim == BOTH_KYLE_PA_3)
+					{ //hold, strike twice, then throw
+						int hitTime = self->client->grappleState == 1 ? 3000 : 1800;
+						if (self->client->grappleState <= 2 && self->client->ps.torsoTimer < hitTime)
+						{
+							int victimAnim = grappler->client->ps.torsoAnim;
+							int victimTime = grappler->client->ps.torsoTimer;
+
+							G_Damage(grappler, self, self, NULL, self->client->ps.origin, 10, 0, MOD_MELEE);
+							if (grappler->health > 0)
+							{
+								grappler->client->ps.torsoAnim = victimAnim;
+								grappler->client->ps.legsAnim = victimAnim;
+								grappler->client->ps.torsoTimer = victimTime;
+								grappler->client->ps.legsTimer = victimTime;
+								grappler->client->ps.weaponTime = victimTime;
+							}
+							self->client->grappleState++;
+						}
+						else if (self->client->grappleState >= 3 && self->client->ps.torsoTimer < 800)
+						{
+							vec3_t tossDir;
+
+							// Release both sides together; the victim's flight is no longer a grapple.
+							self->client->grappleState = 0;
+							grappler->client->grappleState = 0;
+							G_Damage(grappler, self, self, NULL, self->client->ps.origin, 20, 0, MOD_MELEE);
+							if (grappler->health > 0)
+							{
+								VectorSubtract(grappler->client->ps.origin, self->client->ps.origin, tossDir);
+								VectorNormalize(tossDir);
+								VectorScale(tossDir, 500.0f, tossDir);
+								tossDir[2] = 200.0f;
+								VectorAdd(grappler->client->ps.velocity, tossDir, grappler->client->ps.velocity);
+								// Keep server movement and local prediction on the same ballistic
+								// path. Direct velocity changes without knockback time let replayed
+								// user commands steer the predicted victim away from the throw.
+								grappler->client->ps.pm_flags |= PMF_TIME_KNOCKBACK;
+								if ( grappler->client->ps.pm_time < 200 )
+								{
+									grappler->client->ps.pm_time = 200;
+								}
+								if ( BG_HasAnimation( grappler->localAnimIndex, BOTH_PLAYER_PA_3_FLY ) )
+								{
+									G_SetAnim(grappler, &grappler->client->pers.cmd, SETANIM_BOTH,
+										BOTH_PLAYER_PA_3_FLY, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD, 0);
+									if (grappler->client->ps.torsoAnim == BOTH_PLAYER_PA_3_FLY)
+									{
+										grappler->client->ps.weaponTime = grappler->client->ps.torsoTimer;
+										TIMER_Set( grappler, "meleeKataRecovery",
+											grappler->client->ps.torsoTimer - 100 );
+									}
+								}
 							}
 						}
 					}

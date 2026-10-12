@@ -28,12 +28,18 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define BINOCULAR_UPDATE_MSEC 200
 #define BINOCULAR_EXPIRE_MSEC 600
 #define BINOCULAR_RANGE 8192.0f
+#define MAX_MISSION_PARTY 7
+#define MISSION_PARTY_UPDATE_MSEC 250
+#define MISSION_PARTY_EXPIRE_MSEC 1500
+#define MISSION_PARTY_DEAD_MSEC 8000
 
 typedef struct binocularTarget_s {
 	int entityNum;
 	int health;
 	int maxHealth;
 	int armor;
+	int force;
+	int maxForce;
 	char name[64]; // Optional binoNames extension; empty when unavailable.
 } binocularTarget_t;
 
@@ -386,7 +392,7 @@ typedef struct animevent_s
 	animEventType_t	eventType;
 	unsigned short	keyFrame;			//Frame to play event on
 	signed short	eventData[AED_ARRAY_SIZE];	//Unique IDs, can be soundIndex of sound file to play OR effect index or footstep type, etc.
-	char			*stringData;		//we allow storage of one string, temporarily (in case we have to look up an index later, then make sure to set stringData to NULL so we only do the look-up once)
+	char			*stringData;		//Effect bolt name for deferred lookup, or custom sound name retained for per-actor playback.
 } animevent_t;
 
 typedef struct bgLoadedAnim_s {
@@ -1750,6 +1756,7 @@ typedef struct saberInfo_s {
 	qhandle_t		skin;									// registered skin id
 	int				soundOn;								// game soundindex for turning on sound
 	int				soundLoop;								// game soundindex for hum/loop sound
+	qboolean		soundLoopCustom;						// hilt uses a non-stock hum or an explicit silent loop
 	int				soundOff;								// game soundindex for turning off sound
 	int				numBlades;
 	bladeInfo_t		blade[MAX_BLADES];						// blade info - like length, trail, origin, dir, etc.
@@ -1871,6 +1878,7 @@ qboolean BG_SaberInKata( int saberMove );
 qboolean BG_InKataAnim(int anim);
 qboolean BG_KickingAnim( int anim );
 int BG_InGrappleMove(int anim);
+qboolean BG_IsGrappleSoundAnim(int anim);
 int BG_BrokenParryForAttack( int move );
 int BG_BrokenParryForParry( int move );
 int BG_KnockawayForParry( int move );
@@ -1878,6 +1886,8 @@ qboolean BG_InRoll( playerState_t *ps, int anim );
 qboolean BG_InDeathAnim( int anim );
 qboolean BG_InSaberLockOld( int anim );
 qboolean BG_InSaberLock( int anim );
+qboolean BG_LightningDeflectBreakPose( const playerState_t *ps, int time );
+qboolean BG_SaberLockMovement( const playerState_t *ps, int time );
 
 void BG_SaberStartTransAnim( int clientNum, int saberAnimLevel, int weapon, int anim, float *animSpeed, int broken );
 

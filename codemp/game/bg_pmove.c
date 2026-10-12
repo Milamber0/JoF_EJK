@@ -277,6 +277,17 @@ static int GetFlipkick(playerState_t *ps) {
 #endif
 }
 
+static qboolean CanFlipkickNPC(playerState_t *ps) {
+#ifdef _GAME
+	return GetFlipkick(ps) > 0;
+#else
+	// JA Pro supports flipkicking NPCs. JA+ (including JoF JA+) only
+	// advertises player flipkicks with JAPLUS_CINFO_FLIPKICK, so predicting
+	// the same move against an NPC makes the client diverge from the server.
+	return cgs.serverMod == SVMOD_JAPRO && GetFlipkick(ps) > 0;
+#endif
+}
+
 static int GetFixRoll(playerState_t *ps) {
 	//If we are dueling saber only and duels are SP damages and FFA is mp damages..
 		//return 0
@@ -3166,7 +3177,7 @@ static qboolean PM_CheckJump( void )
 #endif
 */
 
-							if ((trace.entityNum < MAX_CLIENTS) || (GetFlipkick(pm->ps) && kickedEnt->s.eType == ET_NPC))
+							if ((trace.entityNum < MAX_CLIENTS) || (CanFlipkickNPC(pm->ps) && kickedEnt && kickedEnt->s.eType == ET_NPC))
 
 							{
 								pm->ps->forceKickFlip = trace.entityNum+1; //let the server know that this person gets kicked by this client
@@ -3354,7 +3365,7 @@ static qboolean PM_CheckJump( void )
 				kickedEnt = PM_BGEntForNum(trace.entityNum);
 
 				if (GetFlipkick(pm->ps) >= 1) {
-					if ( trace.fraction < 1.0f && ((trace.entityNum < MAX_CLIENTS) || (kickedEnt->s.eType == ET_NPC)) && (pm->ps->stats[STAT_DASHTIME] <= 0)) //ass
+					if ( trace.fraction < 1.0f && ((trace.entityNum < MAX_CLIENTS) || (CanFlipkickNPC(pm->ps) && kickedEnt && kickedEnt->s.eType == ET_NPC)) && (pm->ps->stats[STAT_DASHTIME] <= 0))
 					//Dont allow frontkicking within 200ms of being frontkicked?
 
 //JAPRO - Serverside + Clientside - Re add flipkick and flipkickable npcs- End
@@ -9071,6 +9082,12 @@ if (pm->ps->duelInProgress)
 
 	if (pm->ps->weapon == WP_SABER)
 	{
+		// Primary fire becomes the tactical-link gesture and alt fire clears all
+		// links while viewing through binoculars with a fully holstered saber.
+		// The server handles both actions; clearing them here also prevents client
+		// prediction from igniting or attacking with the saber.
+		if (pm->ps->zoomMode == 2 && pm->ps->saberHolstered == 2)
+			pm->cmd.buttons &= ~(BUTTON_ATTACK | BUTTON_ALT_ATTACK);
 		//rww - we still need the item stuff, so we won't return immediately
 		PM_WeaponLightsaber();
 		killAfterItem = 1;
@@ -11511,7 +11528,9 @@ void BG_G2PlayerAngles(void *ghoul2, int motionBolt, entityState_t *cent, int ti
 	static vec3_t		ulAngles, llAngles, viewAngles, angles, thoracicAngles = {0,0,0};
 	static vec3_t		headClampMinAngles = {-25,-55,-10}, headClampMaxAngles = {50,50,10};
 
-	if ( cent->m_iVehicleNum || cent->forceFrame || BG_SaberLockBreakAnim(cent->legsAnim) || BG_SaberLockBreakAnim(cent->torsoAnim) )
+	if ( cent->m_iVehicleNum || cent->forceFrame || BG_SaberLockBreakAnim(cent->legsAnim) || (BG_SaberLockBreakAnim(cent->torsoAnim) &&
+		!(cent->weapon == WP_SABER && cent->torsoAnim == BOTH_LK_S_DL_T_SB_1_L &&
+		  (cent->saberMove == LS_NONE || cent->saberMove == LS_READY))) )
 	{ //a vehicle or riding a vehicle - in either case we don't need to be in here
 		vec3_t forcedAngles;
 
@@ -12669,9 +12688,7 @@ void PmoveSingle (pmove_t *pmove) {
 	{
 		stiffenedUp = qtrue;
 	}
-	else if ( BG_SaberLockBreakAnim( pm->ps->legsAnim )
-		|| BG_SaberLockBreakAnim( pm->ps->torsoAnim )
-		|| pm->ps->saberLockTime >= pm->cmd.serverTime )
+	else if ( BG_SaberLockMovement( pm->ps, pm->cmd.serverTime ) )
 	{//can't move or turn
 		stiffenedUp = qtrue;
 		PM_SetPMViewAngle(pm->ps, pm->ps->viewangles, &pm->cmd);

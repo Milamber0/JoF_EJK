@@ -627,6 +627,7 @@ if(BuildMPEngine)
 		"${SharedDir}/sys/sys_public.h"
 		"${SharedDir}/sys/con_local.h"
 		"${SharedDir}/sys/con_log.cpp"
+		"${SharedDir}/sys/sys_crashdump.cpp"
 		)
 
 	if(WIN32)
@@ -845,6 +846,7 @@ if(BuildMPDed)
 			"${SharedDir}/sys/con_local.h"
 			"${SharedDir}/sys/con_log.cpp"
 			"${SharedDir}/sys/con_win32.cpp"
+			"${SharedDir}/sys/sys_crashdump.cpp"
 			)
 		set(MPDedLibraries ${MPDedLibraries} ${CMAKE_DL_LIBS})
 		source_group("sys" FILES ${MPDedSysFiles})
@@ -860,6 +862,7 @@ if(BuildMPDed)
 			"${SharedDir}/sys/con_local.h"
 			"${SharedDir}/sys/con_log.cpp"
 			"${SharedDir}/sys/con_tty.cpp"
+			"${SharedDir}/sys/sys_crashdump.cpp"
 			)
 		set(MPDedLibraries ${MPDedLibraries} ${CMAKE_DL_LIBS})
 		source_group("sys" FILES ${MPDedSysFiles})
@@ -922,10 +925,11 @@ set(GameLibFullPaths)
 		COMPONENT ${JKAMPCoreComponent})
 endif()
 
-# Track menu definitions and icons so edits also rebuild existing asset archives.
+# Track asset groups that are edited in-tree and need to rebuild the archive.
 file(GLOB_RECURSE JAPRO_MENU_FILES CONFIGURE_DEPENDS
 	"${CMAKE_SOURCE_DIR}/assets/japro/ui/*"
-	"${CMAKE_SOURCE_DIR}/assets/japro/gfx/menus/*")
+	"${CMAKE_SOURCE_DIR}/assets/japro/gfx/menus/*"
+	"${CMAKE_SOURCE_DIR}/assets/japro/ext_data/*")
 add_zip_command(japro-assets.pk3
 	FILES *
 	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/assets/japro

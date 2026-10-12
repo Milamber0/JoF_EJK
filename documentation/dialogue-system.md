@@ -56,6 +56,7 @@ dialogue {
     node first_node {
         speaker "NPC name"
         text "Dialogue text. Use \\n for an explicit line break."
+        sound "sound/voice/npc/greeting.mp3"
 
         choice {
             text "Visible answer"
@@ -83,6 +84,7 @@ dialogue {
 Node fields:
 
 - `speaker "text"` and `text "text"` set the presentation.
+- `sound "path"` plays a sound once when the node opens, only for the player in the dialogue. Use a game-relative path such as `sound/voice/npc/greeting.mp3` (under 64 characters), and include the audio in a PK3 loaded by the client. The previous node's audio stops when another node opens or the dialogue closes. Omit this optional field for a silent node; no `target_speaker` or `fire` is needed. Field names are case-insensitive, so `Sound` also works. Playback requires an updated cgame; older clients still display the dialogue without its audio.
 - `choice { ... }` adds a player answer. Up to twelve choices may be visible. The client shows five at a time and scrolls the response list with the current selection.
 - `next node_id` produces an automatic Continue choice when there are no visible explicit choices.
 - `end` produces a Close choice when there are no visible explicit choices.

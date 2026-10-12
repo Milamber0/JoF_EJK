@@ -28,6 +28,7 @@
 			show			setup_background
 			show			video
 			hide			advancedvideo
+			hide			rend2video
 			hide			lighting
 			hide			advancedlighting
 			hide			vidrestart
@@ -35,6 +36,8 @@
 			hide			morevisuals
 			hide			hud
 			hide			sound
+			hide			moresound
+			hide			soundpage_glow
 			hide			options
 			hide			network
 			hide			mods
@@ -53,6 +56,7 @@
 
 			defer				VideoSetup	videowarningMenu
 			hide				highlights
+			hide				soundpage_glow
 			close				ingame_setup
 		}
 
@@ -139,6 +143,7 @@
 				show			setup_background
 				show 			video
 				hide			advancedvideo
+				hide			rend2video
 				hide			lighting
 				hide			advancedlighting
 				hide			vidrestart
@@ -146,6 +151,8 @@
 				hide			morevisuals
 				hide			hud
 				hide			sound
+				hide			moresound
+				hide			soundpage_glow
 				hide			options
 				hide			network
 				hide			mods
@@ -205,6 +212,7 @@
 				show			setup_background
 				hide 			video
 				hide			advancedvideo
+				hide			rend2video
 				show			lighting
 				hide			advancedlighting
 				hide			vidrestart
@@ -212,6 +220,8 @@
 				hide			morevisuals
 				hide			hud
 				hide			sound
+				hide			moresound
+				hide			soundpage_glow
 				hide			options
 				hide			network
 				hide			mods
@@ -271,6 +281,7 @@
 				show			setup_background
 				hide 			video
 				hide			advancedvideo
+				hide			rend2video
 				hide			lighting
 				hide			advancedlighting
 				hide			vidrestart
@@ -278,6 +289,8 @@
 				hide			morevisuals
 				hide			hud
 				hide			sound
+				hide			moresound
+				hide			soundpage_glow
 				hide			options
 				hide			network
 				hide			mods
@@ -337,6 +350,7 @@
 				show			setup_background
 				hide 			video
 				hide			advancedvideo
+				hide			rend2video
 				hide			lighting
 				hide			advancedlighting
 				hide			vidrestart
@@ -344,6 +358,8 @@
 				hide			morevisuals
 				show			hud
 				hide			sound
+				hide			moresound
+				hide			soundpage_glow
 				hide			options
 				hide			network
 				hide			mods
@@ -403,6 +419,7 @@
 				show			setup_background
 				hide 			video
 				hide			advancedvideo
+				hide			rend2video
 				hide			lighting
 				hide			advancedlighting
 				hide			vidrestart
@@ -410,6 +427,8 @@
 				hide			morevisuals
 				hide			hud
 				show			sound
+				hide			moresound
+				hide			soundpage_glow
 				hide			langapply
 				hide			options
 				hide			network
@@ -470,6 +489,7 @@
 				show			setup_background
 				hide 			video
 				hide			advancedvideo
+				hide			rend2video
 				hide			lighting
 				hide			advancedlighting
 				hide			vidrestart
@@ -477,6 +497,8 @@
 				hide			morevisuals
 				hide			hud
 				hide			sound
+				hide			moresound
+				hide			soundpage_glow
 				show			options
 				hide			network
 				hide			mods
@@ -536,6 +558,7 @@
 				show			setup_background
 				hide 			video
 				hide			advancedvideo
+				hide			rend2video
 				hide			lighting
 				hide			advancedlighting
 				hide			vidrestart
@@ -543,6 +566,8 @@
 				hide			morevisuals
 				hide			hud
 				hide			sound
+				hide			moresound
+				hide			soundpage_glow
 				hide			options
 				hide			network
 				hide			mods
@@ -602,6 +627,7 @@
 				show			setup_background
 				hide 			video
 				hide			advancedvideo
+				hide			rend2video
 				hide			lighting
 				hide			advancedlighting
 				hide			vidrestart
@@ -609,6 +635,8 @@
 				hide			morevisuals
 				hide			hud
 				hide			sound
+				hide			moresound
+				hide			soundpage_glow
 				hide			options
 				hide			langapply
 				show			network
@@ -670,6 +698,7 @@
 				show			setup_background
 				hide 			video
 				hide			advancedvideo
+				hide			rend2video
 				hide			lighting
 				hide			advancedlighting
 				hide			vidrestart
@@ -677,6 +706,8 @@
 				hide			morevisuals
 				hide			hud
 				hide			sound
+				hide			moresound
+				hide			soundpage_glow
 				hide			options
 				hide			network
 				hide			mods
@@ -881,7 +912,7 @@
 			name				highlightApplyButton
 			group				highlights
 			style				WINDOW_STYLE_SHADER
-			rect				365 313 120 32
+			rect				365 143 120 32
 			background			"gfx/menus/menu_blendbox"
 			forecolor			1 1 1 1
 			visible			0
@@ -1619,7 +1650,7 @@
 			textaligny			5
 			textalign			ITEM_ALIGN_CENTER
 			textstyle			3
-			forecolor			1 0 0 1
+			forecolor			1 .682 0 1
 			backcolor			0 0 1 0
 			cvarTest			ui_r_modified
 			showCvar			{ 1 }
@@ -1826,6 +1857,44 @@
 			}
 		}
 
+		itemDef
+		{
+			name				rend2videobutton_glow
+			style				WINDOW_STYLE_SHADER
+			rect				260 205 200 16
+			background			"gfx/menus/menu_blendbox"
+			forecolor			1 0.5 0.5 1
+			visible				0
+			decoration
+		}
+
+		itemDef
+		{
+			name				rend2videobutton
+			group				advancedvideo
+			type				ITEM_TYPE_BUTTON
+			text				"Rend2 Advanced Settings"
+			rect				260 203 200 20
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			100
+			font				4
+			textscale			1
+			forecolor			1 .682 0 1
+			visible				0
+			cvarTest			"ui_cl_renderer"
+			showCvar			{ "rd-rend2-etjk" }
+			descText			"Configure advanced Rend2 renderer features."
+			mouseenter			{ show rend2videobutton_glow }
+			mouseexit			{ hide rend2videobutton_glow }
+			action
+			{
+				play			"sound/interface/button1"
+				hide			advancedvideo
+				hide			rend2videobutton_glow
+				show			rend2video
+			}
+		}
+
 
 		itemDef
 		{
@@ -1862,6 +1931,300 @@
 			}
 			mouseenter			{ show donebutton_glow }
 			mouseexit			{ hide donebutton_glow }
+		}
+
+		// Rend2 advanced settings, based on SomaZ's Rend2 Setup UI 1.1.
+		itemDef
+		{
+			name				rend2_hdr
+			group				rend2video
+			type				ITEM_TYPE_MULTI
+			text				"HDR Rendering:"
+			rect				220 43 300 20
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			165
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			cvar				"r_hdr"
+			cvarFloatList		{ @MENUS_OFF 0 @MENUS_ON 1 }
+			visible				0
+			descText			"Render in a high dynamic range color space."
+			mouseenter			{ show highlight1 }
+			mouseexit			{ hide highlight1 }
+			action				{ play "sound/interface/button1" ; setcvar ui_r_modified 1 ; setcvar ui_vidrestart 1 }
+		}
+
+		itemDef
+		{
+			name				rend2_tonemap
+			group				rend2video
+			type				ITEM_TYPE_MULTI
+			text				"Tonemapping:"
+			rect				220 63 300 20
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			165
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			cvar				"r_toneMap"
+			cvarFloatList		{ @MENUS_OFF 0 @MENUS_ON 1 }
+			visible				0
+			descText			"Map HDR lighting into the displayable color range."
+			mouseenter			{ show highlight2 }
+			mouseexit			{ hide highlight2 }
+			action				{ play "sound/interface/button1" ; setcvar ui_r_modified 1 ; setcvar ui_vidrestart 1 }
+		}
+
+		itemDef
+		{
+			name				rend2_autoexposure
+			group				rend2video
+			type				ITEM_TYPE_MULTI
+			text				"Auto Exposure:"
+			rect				220 83 300 20
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			165
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			cvar				"r_autoExposure"
+			cvarFloatList		{ @MENUS_OFF 0 @MENUS_ON 1 }
+			visible				0
+			descText			"Automatically adapt exposure to scene brightness."
+			mouseenter			{ show highlight3 }
+			mouseexit			{ hide highlight3 }
+			action				{ play "sound/interface/button1" }
+		}
+
+		itemDef
+		{
+			name				rend2_floatlightmap
+			group				rend2video
+			type				ITEM_TYPE_MULTI
+			text				"HDR Lightmaps:"
+			rect				220 103 300 20
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			165
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			cvar				"r_floatLightmap"
+			cvarFloatList		{ @MENUS_OFF 0 @MENUS_ON 1 }
+			cvarTest			"r_hdr"
+			hideCvar			{ 0 }
+			visible				0
+			descText			"Load HDR lighting data when supplied by the map."
+			mouseenter			{ show highlight4 }
+			mouseexit			{ hide highlight4 }
+			action				{ play "sound/interface/button1" ; setcvar ui_r_modified 1 ; setcvar ui_vidrestart 1 }
+		}
+
+		itemDef
+		{
+			name				rend2_deluxemapping
+			group				rend2video
+			type				ITEM_TYPE_MULTI
+			text				"Deluxe Mapping:"
+			rect				220 123 300 20
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			165
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			cvar				"r_deluxeMapping"
+			cvarFloatList		{ @MENUS_OFF 0 @MENUS_ON 1 }
+			visible				0
+			descText			"Enable normal and specular mapping on static geometry."
+			mouseenter			{ show highlight5 }
+			mouseexit			{ hide highlight5 }
+			action				{ play "sound/interface/button1" ; setcvar ui_r_modified 1 ; setcvar ui_vidrestart 1 }
+		}
+
+		itemDef
+		{
+			name				rend2_deluxespecular
+			group				rend2video
+			type				ITEM_TYPE_SLIDER
+			text				"Deluxe Specular:"
+			rect				220 143 300 20
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			165
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			cvarFloat			"r_deluxeSpecular" 1 0 1
+			cvarTest			"r_deluxeMapping"
+			hideCvar			{ 0 }
+			visible				0
+			descText			"Scale the specular response from deluxe maps."
+			mouseenter			{ show highlight6 }
+			mouseexit			{ hide highlight6 }
+			action				{ play "sound/interface/button1" ; setcvar ui_r_modified 1 ; setcvar ui_vidrestart 1 }
+		}
+
+		itemDef
+		{
+			name				rend2_cubemapping
+			group				rend2video
+			type				ITEM_TYPE_MULTI
+			text				"Cube Mapping:"
+			rect				220 163 300 20
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			165
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			cvar				"r_cubeMapping"
+			cvarFloatList		{ @MENUS_OFF 0 @MENUS_ON 1 }
+			visible				0
+			descText			"Render cube maps for reflections."
+			mouseenter			{ show highlight7 }
+			mouseexit			{ hide highlight7 }
+			action				{ play "sound/interface/button1" ; setcvar ui_r_modified 1 ; setcvar ui_vidrestart 1 }
+		}
+
+		itemDef
+		{
+			name				rend2_cubebounces
+			group				rend2video
+			type				ITEM_TYPE_MULTI
+			text				"Reflection Bounces:"
+			rect				220 183 300 20
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			165
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			cvar				"r_cubeMappingBounces"
+			cvarFloatList		{ "0" 0 "1" 1 "2" 2 }
+			cvarTest			"r_cubeMapping"
+			hideCvar			{ 0 }
+			visible				0
+			descText			"Choose how many reflection passes cube maps render."
+			mouseenter			{ show highlight8 }
+			mouseexit			{ hide highlight8 }
+			action				{ play "sound/interface/button1" ; setcvar ui_r_modified 1 ; setcvar ui_vidrestart 1 }
+		}
+
+		itemDef
+		{
+			name				rend2_parallax
+			group				rend2video
+			type				ITEM_TYPE_MULTI
+			text				"Parallax Mapping:"
+			rect				220 203 300 20
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			165
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			cvar				"r_parallaxMapping"
+			cvarFloatList		{ @MENUS_OFF 0 @MENUS_ON 1 }
+			visible				0
+			descText			"Enable parallax occlusion mapping for Rend2 materials."
+			mouseenter			{ show highlight9 }
+			mouseexit			{ hide highlight9 }
+			action				{ play "sound/interface/button1" ; setcvar ui_r_modified 1 ; setcvar ui_vidrestart 1 }
+		}
+
+		itemDef
+		{
+			name				rend2_gennormals
+			group				rend2video
+			type				ITEM_TYPE_MULTI
+			text				"Generate Normal Maps:"
+			rect				220 223 300 20
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			165
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			cvar				"r_genNormalMaps"
+			cvarFloatList		{ @MENUS_OFF 0 @MENUS_ON 1 }
+			visible				0
+			descText			"Generate normal maps from diffuse textures."
+			mouseenter			{ show highlight10 }
+			mouseexit			{ hide highlight10 }
+			action				{ play "sound/interface/button1" ; setcvar ui_r_modified 1 ; setcvar ui_vidrestart 1 }
+		}
+
+		itemDef
+		{
+			name				rend2backbutton_glow
+			style				WINDOW_STYLE_SHADER
+			rect				260 285 200 16
+			background			"gfx/menus/menu_blendbox"
+			forecolor			1 0.5 0.5 1
+			visible				0
+			decoration
+		}
+
+		itemDef
+		{
+			name				rend2backbutton
+			group				rend2video
+			type				ITEM_TYPE_BUTTON
+			text				"Back to Advanced Video"
+			rect				260 283 200 20
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			100
+			font				4
+			textscale			1
+			forecolor			1 .682 0 1
+			visible				0
+			descText			"Return to the general advanced video options."
+			mouseenter			{ show rend2backbutton_glow }
+			mouseexit			{ hide rend2backbutton_glow }
+			action
+			{
+				play			"sound/interface/button1"
+				hide			rend2video
+				hide			rend2backbutton_glow
+				show			advancedvideo
+			}
+		}
+
+		itemDef
+		{
+			name				rend2applybutton_glow
+			style				WINDOW_STYLE_SHADER
+			rect				260 335 200 18
+			background			"gfx/menus/menu_blendbox"
+			forecolor			1 0.5 0.5 1
+			visible				0
+			decoration
+		}
+
+		itemDef
+		{
+			name				rend2ApplyChanges
+			group				rend2video
+			text				@MENUS_APPLY_CHANGES
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_EMPTY
+			rect				260 330 200 30
+			font				4
+			textscale			1
+			textalignx			100
+			textaligny			5
+			textalign			ITEM_ALIGN_CENTER
+			textstyle			3
+			forecolor			1 .682 0 1
+			backcolor			0 0 1 0
+			cvarTest			ui_r_modified
+			showCvar			{ 1 }
+			visible				0
+			mouseenter			{ show rend2applybutton_glow }
+			mouseexit			{ hide rend2applybutton_glow }
+			action
+			{
+				play			"sound/interface/button1"
+				show			setup_background
+				show			vidrestart
+				hide			rend2video
+				hide			rend2applybutton_glow
+			}
 		}
 
 		//----------------------------------------------------------------------------------------------
@@ -2990,8 +3353,9 @@
 			cvar				"cg_remaps"
 			cvarFloatList
 			{
+				"Map + Model" 2
+				"Map Only" 1
 				@MENUS_OFF 0
-				@MENUS_ON 1
 			}
 			rect				220 203 300 20
 			textalign			ITEM_ALIGN_RIGHT
@@ -3001,7 +3365,7 @@
 			textscale 			1
 			forecolor			.615 .615 .956 1
 			visible				0
-			descText			"Toggle remaps."
+			descText			"Choose which remaps to apply: map and model, map only, or none."
 			action				{ play "sound/interface/button1" }
 			mouseenter			{ show highlight9 }
 			mouseexit			{ hide highlight9 }
@@ -3869,16 +4233,84 @@
 
 		itemDef
 		{
-			name				text
+			name				moresoundbutton_glow
+			group				soundpage_glow
+			style				WINDOW_STYLE_SHADER
+			rect				260 305 200 16
+			background			"gfx/menus/menu_blendbox"
+			forecolor			1 0.5 0.5 1
+			visible				0
+			decoration
+		}
+
+		itemDef
+		{
+			name				moresoundbutton
 			group				sound
+			type				ITEM_TYPE_BUTTON
+			text				"More Sound Settings"
+			rect				260 303 200 20
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			100
+			textaligny			0
+			font 				4
+			textscale 			1
+			forecolor			1 .682 0 1
+			visible				0
+			descText			"Configure saber hum and language settings."
+			action
+			{
+				play 			"sound/interface/button1"
+				hide			sound
+				hide			soundpage_glow
+				hide			highlights
+				show			moresound
+				hide			langapply
+			}
+			mouseenter			{ show moresoundbutton_glow }
+			mouseexit			{ hide moresoundbutton_glow }
+		}
+
+		//----------------------------------------------------------------------------------------------
+		//
+		//	MORE SOUND SETTINGS
+		//
+		//----------------------------------------------------------------------------------------------
+
+		itemDef
+		{
+			name				saber_hum
+			group				moresound
+			type				ITEM_TYPE_MULTI
+			text				"Saber Hum:"
+			cvar				"cg_saberHum"
+			cvarFloatList		{ "Random (default)" 0 "Hum 1" 1 "Hum 2" 2 "Hum 3" 3 "Hum 4" 4 "Hum 5" 5 "Hilt" 6 }
+			rect				220 63 300 20
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			120
+			textaligny			0
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			visible				0
+			descText			"Stock hums change instantly. Hilt uses the hilt's hum; custom hums are kept."
+			action				{ play "sound/interface/button1" }
+			mouseenter			{ show highlight2 }
+			mouseexit			{ hide highlight2 }
+		}
+
+		itemDef
+		{
+			name				text
+			group				moresound
 		  	type				ITEM_TYPE_MULTI
 			text				@MENUS_TEXT
 			cvar				"se_language"
 			feeder				40
 			cvarStrList			feeder
-			rect				220 263 300 20
+			rect				220 83 300 20
 				textalign			ITEM_ALIGN_RIGHT
-			textalignx			165
+			textalignx			120
 			textaligny			0
 			font 				4
 			textscale 			1
@@ -3891,14 +4323,14 @@
 				show			langapply
 			}
 
-			mouseenter			{ show	highlight12 }
-			mouseexit			{ hide	highlight12 }
+			mouseenter			{ show	highlight3 }
+			mouseexit			{ hide	highlight3 }
 		}
 
 		itemDef
 		{
 			name				voice
-			group				sound
+			group				moresound
 		  	type				ITEM_TYPE_MULTI
 			text				@MENUS_VOICE
 			cvar				"s_language"
@@ -3909,9 +4341,9 @@
 				Deutsch				deutsch
 				"Espa�ol" 			espanol
 			}
-			rect				220 283 300 20
+			rect				220 103 300 20
 				textalign			ITEM_ALIGN_RIGHT
-			textalignx			165
+			textalignx			120
 			textaligny			0
 			font 				4
 			textscale 			1
@@ -3926,24 +4358,23 @@
 			}
 			mouseenter
 			{
-				show			highlight13
+				show			highlight4
 			}
 			mouseexit
 			{
-				hide			highlight13
+				hide			highlight4
 			}
 		}
-
 
 		// APPLY CHANGES button
 		itemDef
 		{
 			name				langapply
-			group				sound
+			group				moresound
 			text				@MENUS_SET_LANGUAGE
 			type				ITEM_TYPE_BUTTON
 			style				WINDOW_STYLE_EMPTY
-			rect				365 313 120 32
+			rect				365 143 120 32
 			font				2
 			textscale			1
 			textalign			ITEM_ALIGN_CENTER
@@ -3959,6 +4390,7 @@
 				play		"sound/interface/button1"
 				exec		"ui_load ; snd_restart"
 				hide			langapply
+				hide			highlightApplyButton
 			}
 			mouseEnter
 			{
@@ -3968,6 +4400,45 @@
 			{
 				hide			highlightApplyButton
 			}
+		}
+
+		itemDef
+		{
+			name				sounddonebutton_glow
+			group				soundpage_glow
+			style				WINDOW_STYLE_SHADER
+			rect				260 305 200 16
+			background			"gfx/menus/menu_blendbox"
+			forecolor			1 0.5 0.5 1
+			visible				0
+			decoration
+		}
+
+		itemDef
+		{
+			name				sounddonebutton
+			group				moresound
+			type				ITEM_TYPE_BUTTON
+			text				"Done"
+			rect				260 303 200 20
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			100
+			textaligny			0
+			font 				4
+			textscale 			1
+			forecolor			1 .682 0 1
+			visible				0
+			descText			"Return to sound settings."
+			action
+			{
+				play 			"sound/interface/button1"
+				hide			moresound
+				hide			soundpage_glow
+				hide			highlights
+				show			sound
+			}
+			mouseenter			{ show sounddonebutton_glow }
+			mouseexit			{ hide sounddonebutton_glow }
 		}
 
 		//----------------------------------------------------------------------------------------------

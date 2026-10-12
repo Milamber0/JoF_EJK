@@ -1,0 +1,41 @@
+MartialArtist
+{
+	playerModel	reborn_twin
+	weapon		WP_MELEE
+	health		350
+	FP_HEAL		0
+	FP_LEVITATION	3
+	FP_SPEED		2
+	FP_PUSH		0
+	FP_PULL		0
+	FP_TELEPATHY	0
+	FP_GRIP		0
+	FP_LIGHTNING	0
+	FP_RAGE		0
+	FP_PROTECT	0
+	FP_ABSORB	0
+	FP_DRAIN		0
+	FP_SEE		0
+	FP_SABERTHROW	0
+	FP_SABER_DEFENSE	0
+	FP_SABER_OFFENSE	0
+	forcePowerMax	100
+	rank		captain
+	reactions	5
+	aim		5
+	move		5
+	aggression	5
+	evasion		5
+	intelligence	5
+	hfov		160
+	vfov		120
+	playerTeam	TEAM_ENEMY
+	enemyTeam	TEAM_PLAYER
+	class		CLASS_MARTIALARTIST
+	snd		kothos
+	sndcombat	kothos
+	sndjedi		kothos
+	yawSpeed	180
+	walkSpeed	70
+	runSpeed	220
+}

@@ -617,6 +617,11 @@ void Field_Paste( field_t *edit ) {
 	Z_Free( cbd );
 }
 
+// Same boundary set as the ctrl-backspace word-delete below, for consistency.
+static qboolean Field_IsWordBoundary( char c ) {
+	return ( c == ' ' || c == '/' || c == '_' || c == '-' ) ? qtrue : qfalse;
+}
+
 /*
 =================
 Field_KeyDownEvent
@@ -675,13 +680,25 @@ void Field_KeyDownEvent( field_t *edit, int key ) {
 			break;
 
 		case A_CURSOR_RIGHT:
-			if ( edit->cursor < len ) {
+			if ( kg.keys[A_CTRL].down ) {
+				// Skip the rest of the current word, then any separators after it.
+				while ( edit->cursor < len && !Field_IsWordBoundary( edit->buffer[edit->cursor] ) )
+					edit->cursor++;
+				while ( edit->cursor < len && Field_IsWordBoundary( edit->buffer[edit->cursor] ) )
+					edit->cursor++;
+			} else if ( edit->cursor < len ) {
 				edit->cursor++;
 			}
 			break;
 
 		case A_CURSOR_LEFT:
-			if ( edit->cursor > 0 ) {
+			if ( kg.keys[A_CTRL].down ) {
+				// Skip separators immediately to the left, then the word behind them.
+				while ( edit->cursor > 0 && Field_IsWordBoundary( edit->buffer[edit->cursor - 1] ) )
+					edit->cursor--;
+				while ( edit->cursor > 0 && !Field_IsWordBoundary( edit->buffer[edit->cursor - 1] ) )
+					edit->cursor--;
+			} else if ( edit->cursor > 0 ) {
 				edit->cursor--;
 			}
 			break;

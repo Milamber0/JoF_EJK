@@ -1,0 +1,122 @@
+// DEMP2 wall impact function - small version, used for lightning nest strikes
+
+OrientedParticle
+{
+    count 3
+
+    life   350
+
+    flags  setShaderTime
+
+    rotation 0 360
+
+    rotationDelta -8 8
+
+    size
+    {
+       start  3 4.5
+       end    7 9
+       flags linear
+    }
+
+    shaders
+    [
+       gfx/exp/demp2
+    ]
+}
+
+OrientedParticle
+{
+    count 0
+
+    life   350
+
+    flags  setShaderTime
+
+    size
+    {
+       start  4.5
+    }
+
+    rotation 90
+
+    shaders
+    [
+       gfx/exp/demp2
+    ]
+}
+
+OrientedParticle
+{
+    count  0
+
+    flags  setShaderTime
+
+    delay  0 50
+    life   250
+
+    origin 0 -2 -2    0 2 2
+
+    size
+    {
+       start  1.5
+       end    2 3
+       flags  linear
+    }
+
+    rotation   90
+
+    shaders
+    [
+       gfx/exp/demp2
+    ]
+}
+
+Particle
+{
+    count 0
+
+    life   300
+
+    size
+    {
+       start  1  1.5
+       end    3 4
+       flags  random linear
+    }
+
+    rgb
+    {
+       start 0.6 0.6 1.0
+    }
+
+    alpha
+    {
+       end 0.0
+       parm 40
+       flags nonlinear
+    }
+
+    rotation   0 360
+    rotationdelta  -20 20
+
+    shaders
+    [
+       gfx/misc/lightningFlash
+    ]
+}
+
+Decal
+{
+    count 2
+
+    size
+    {
+       start  2.75    3.75
+    }
+
+    shader
+    [
+       gfx/damage/burnmark4
+    ]
+}

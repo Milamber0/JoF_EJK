@@ -90,13 +90,64 @@ extern qboolean NPC_SomeoneLookingAtMe(gentity_t *ent);
 extern int WP_GetVelocityForForceJump( gentity_t *self, vec3_t jumpVel, usercmd_t *ucmd );
 
 extern void G_TestLine(vec3_t start, vec3_t end, int color, int time);
+extern void G_UcmdMoveForDir( gentity_t *self, usercmd_t *cmd, vec3_t dir );
 
 static void Jedi_Aggression( gentity_t *self, int change );
 qboolean Jedi_WaitingAmbush( gentity_t *self );
+evasionType_t Jedi_CheckFlipEvasions( gentity_t *self, float rightdot, float zdiff );
+static qboolean Jedi_Strafe( int strafeTimeMin, int strafeTimeMax,
+	int nextStrafeTimeMin, int nextStrafeTimeMax, qboolean walking );
 
 extern int bg_parryDebounce[];
 
 static int	jediSpeechDebounceTime[TEAM_NUM_TEAMS];//used to stop several jedi from speaking all at once
+
+#define JEDI_MELEE_ATTACK_RANGE 16
+#define JEDI_MELEE_KATA_RANGE   32
+#define JEDI_MELEE_KATA_WINDUP  400
+
+typedef enum
+{
+	MARTIAL_APPROACH,
+	MARTIAL_PROBE,
+	MARTIAL_PRESSURE,
+	MARTIAL_EVADE,
+	MARTIAL_PUNISH,
+	MARTIAL_RESET,
+	MARTIAL_KATA
+} martialTactic_t;
+
+typedef struct
+{
+	martialTactic_t tactic;
+	int nextDecisionTime;
+	int nextObservationTime;
+	int nextProgressCheckTime;
+	int stalledChecks;
+	int enemyAttackTendency;
+	int enemyRetreatTendency;
+	int lastAttack;
+	int orbitDirection;
+	float lastEnemyDist;
+	vec3_t lastOrigin;
+} martialTactics_t;
+
+static martialTactics_t martialTactics[MAX_GENTITIES];
+
+static const char *MartialArtist_TacticName( martialTactic_t tactic )
+{
+	switch ( tactic )
+	{
+	case MARTIAL_APPROACH: return "approach";
+	case MARTIAL_PROBE: return "probe";
+	case MARTIAL_PRESSURE: return "pressure";
+	case MARTIAL_EVADE: return "evade";
+	case MARTIAL_PUNISH: return "punish";
+	case MARTIAL_RESET: return "reset";
+	case MARTIAL_KATA: return "kata";
+	default: return "unknown";
+	}
+}
 //Local state enums
 enum
 {
@@ -114,6 +165,13 @@ void NPC_ShadowTrooper_Precache( void )
 
 void Jedi_ClearTimers( gentity_t *ent )
 {
+	if ( ent->s.number >= 0 && ent->s.number < MAX_GENTITIES )
+	{
+		memset( &martialTactics[ent->s.number], 0, sizeof( martialTactics[0] ) );
+		martialTactics[ent->s.number].lastEnemyDist = Q3_INFINITE;
+		VectorCopy( ent->r.currentOrigin, martialTactics[ent->s.number].lastOrigin );
+	}
+
 	TIMER_Set( ent, "roamTime", 0 );
 	TIMER_Set( ent, "chatter", 0 );
 	TIMER_Set( ent, "strafeLeft", 0 );
@@ -137,6 +195,10 @@ void Jedi_ClearTimers( gentity_t *ent )
 	TIMER_Set( ent, "gripping", 0 );
 	TIMER_Set( ent, "draining", 0 );
 	TIMER_Set( ent, "noturn", 0 );
+	TIMER_Set( ent, "martialAcrobatics", 0 );
+	TIMER_Set( ent, "martialFeint", 0 );
+	TIMER_Set( ent, "martialFeintDebounce", 0 );
+	TIMER_Set( ent, "meleeKataDecision", 0 );
 }
 
 void Jedi_PlayBlockedPushSound( gentity_t *self )
@@ -1328,6 +1390,487 @@ static void Jedi_Advance( void )
 	//TIMER_Set( NPC, "duck", 0 );
 }
 
+static void MartialArtist_Advance( void )
+{
+	vec3_t direct;
+
+	NPCS.NPCInfo->combatMove = qtrue;
+	NPCS.NPCInfo->goalEntity = NPCS.NPC->enemy;
+	NPC_MoveToGoal( qtrue );
+
+	// Navigation can return success without producing a command (for example when
+	// its animation guard fires), while moveDir still contains last frame's value.
+	// Treat the command as authoritative and recover with a direct, safe pursuit.
+	if ( !NPCS.ucmd.forwardmove && !NPCS.ucmd.rightmove )
+	{
+		VectorSubtract( NPCS.NPC->enemy->r.currentOrigin,
+			NPCS.NPC->r.currentOrigin, direct );
+		direct[2] = 0;
+		if ( VectorNormalize( direct ) > 1.0f )
+		{
+			G_UcmdMoveForDir( NPCS.NPC, &NPCS.ucmd, direct );
+			if ( !NPC_MoveDirClear( NPCS.ucmd.forwardmove,
+				NPCS.ucmd.rightmove, qfalse ) )
+			{
+				NPCS.ucmd.forwardmove = 0;
+				NPCS.ucmd.rightmove = 0;
+				VectorClear( NPCS.NPC->client->ps.moveDir );
+			}
+		}
+	}
+}
+
+static qboolean MartialArtist_TryAcrobatics( int enemy_dist )
+{
+	qboolean enemyAttacking;
+
+	if ( !TIMER_Done( NPCS.NPC, "martialAcrobatics" ) ||
+		(NPCS.NPCInfo->scriptFlags&SCF_NO_ACROBATICS) ||
+		NPCS.NPC->client->ps.weaponTime > 0 ||
+		NPCS.NPC->client->ps.groundEntityNum == ENTITYNUM_NONE ||
+		PM_InKnockDown( &NPCS.NPC->client->ps ) ||
+		BG_InRoll( &NPCS.NPC->client->ps, NPCS.NPC->client->ps.legsAnim ) )
+	{
+		return qfalse;
+	}
+
+	enemyAttacking = NPCS.NPC->enemy->client &&
+		NPCS.NPC->enemy->client->ps.weaponTime > 0;
+
+	// Slip across an incoming attack instead of repeatedly backing out of range.
+	if ( enemyAttacking && enemy_dist < 96 && !Q_irand( 0, 2 ) )
+	{
+		TIMER_Set( NPCS.NPC, "martialAcrobatics", Q_irand( 1800, 3200 ) );
+		if ( Jedi_CheckFlipEvasions( NPCS.NPC,
+			Q_irand( 0, 1 ) ? 1.0f : -1.0f, 0 ) != EVASION_NONE )
+		{
+			TIMER_Set( NPCS.NPC, "strafeLeft", 0 );
+			TIMER_Set( NPCS.NPC, "strafeRight", 0 );
+			return qtrue;
+		}
+	}
+
+	// Occasionally turn a long approach into a forward force flip. The normal
+	// movement code chooses the animation and preserves collision handling.
+	if ( enemy_dist >= 96 && enemy_dist <= 224 &&
+		NPCS.NPC->enemy->client &&
+		NPCS.NPC->enemy->client->ps.groundEntityNum != ENTITYNUM_NONE &&
+		fabs( NPCS.NPC->enemy->r.currentOrigin[2] - NPCS.NPC->r.currentOrigin[2] ) < 48 &&
+		!Q_irand( 0, 3 ) && NPC_MoveDirClear( 127, 0, qfalse ) )
+	{
+		NPCS.ucmd.forwardmove = 127;
+		NPCS.NPC->client->ps.fd.forceJumpCharge = 280;
+		TIMER_Set( NPCS.NPC, "martialAcrobatics", Q_irand( 2500, 4500 ) );
+		TIMER_Set( NPCS.NPC, "strafeLeft", 0 );
+		TIMER_Set( NPCS.NPC, "strafeRight", 0 );
+		return qtrue;
+	}
+
+	return qfalse;
+}
+
+static martialTactics_t *MartialArtist_Tactics( void )
+{
+	if ( NPCS.NPC->s.number < 0 || NPCS.NPC->s.number >= MAX_GENTITIES )
+	{
+		return NULL;
+	}
+	return &martialTactics[NPCS.NPC->s.number];
+}
+
+static void MartialArtist_SetTactic( martialTactics_t *tactics,
+	martialTactic_t tactic, int holdMin, int holdMax )
+{
+	if ( tactics->tactic != tactic && d_JediAI.integer )
+	{
+		Com_Printf( S_COLOR_CYAN"%s martial tactic: %s -> %s\n",
+			NPCS.NPC->NPC_type ? NPCS.NPC->NPC_type : "NPC",
+			MartialArtist_TacticName( tactics->tactic ),
+			MartialArtist_TacticName( tactic ) );
+	}
+	tactics->tactic = tactic;
+	tactics->nextDecisionTime = level.time + Q_irand( holdMin, holdMax );
+}
+
+static void MartialArtist_UpdateTactic( martialTactics_t *tactics, int enemy_dist,
+	qboolean enemyDown, qboolean enemyAttacking, qboolean enemyRetreating, qboolean hurt )
+{
+	if ( tactics->nextObservationTime <= level.time )
+	{
+		if ( enemyAttacking )
+		{
+			if ( tactics->enemyAttackTendency < 6 )
+			{
+				tactics->enemyAttackTendency++;
+			}
+		}
+		else if ( tactics->enemyAttackTendency > 0 )
+		{
+			tactics->enemyAttackTendency--;
+		}
+
+		if ( enemyRetreating )
+		{
+			if ( tactics->enemyRetreatTendency < 6 )
+			{
+				tactics->enemyRetreatTendency++;
+			}
+		}
+		else if ( tactics->enemyRetreatTendency > 0 )
+		{
+			tactics->enemyRetreatTendency--;
+		}
+		tactics->nextObservationTime = level.time + 250;
+	}
+
+	// Urgent opportunities override the normal decision cadence.
+	if ( enemyDown || enemyRetreating )
+	{
+		MartialArtist_SetTactic( tactics, MARTIAL_PUNISH, 300, 600 );
+		return;
+	}
+	if ( enemyAttacking && (enemy_dist < 72 ||
+		(tactics->enemyAttackTendency >= 3 && enemy_dist < 112)) )
+	{
+		MartialArtist_SetTactic( tactics, MARTIAL_EVADE, 250, 500 );
+		return;
+	}
+	if ( tactics->nextDecisionTime > level.time )
+	{
+		return;
+	}
+
+	if ( enemy_dist > 96 )
+	{
+		MartialArtist_SetTactic( tactics, MARTIAL_APPROACH, 350, 650 );
+	}
+	else if ( enemy_dist > 24 )
+	{
+		MartialArtist_SetTactic( tactics, MARTIAL_PROBE, 450, 800 );
+	}
+	else if ( enemy_dist < -10 || (hurt && enemy_dist < 28 && !Q_irand( 0, 2 )) )
+	{
+		MartialArtist_SetTactic( tactics, MARTIAL_RESET, 250, 450 );
+	}
+	else
+	{
+		MartialArtist_SetTactic( tactics, MARTIAL_PRESSURE, 400, 750 );
+	}
+}
+
+static void MartialArtist_CheckProgress( martialTactics_t *tactics, int enemy_dist )
+{
+	float movedSq;
+
+	if ( tactics->nextProgressCheckTime > level.time )
+	{
+		return;
+	}
+	if ( !tactics->nextProgressCheckTime )
+	{
+		VectorCopy( NPCS.NPC->r.currentOrigin, tactics->lastOrigin );
+		tactics->lastEnemyDist = enemy_dist;
+		tactics->nextProgressCheckTime = level.time + 500;
+		return;
+	}
+
+	movedSq = DistanceSquared( NPCS.NPC->r.currentOrigin, tactics->lastOrigin );
+	if ( enemy_dist <= JEDI_MELEE_ATTACK_RANGE || movedSq > 256 ||
+		enemy_dist < tactics->lastEnemyDist - 10 )
+	{
+		tactics->stalledChecks = 0;
+	}
+	else
+	{
+		tactics->stalledChecks++;
+	}
+
+	if ( tactics->stalledChecks >= 2 )
+	{
+		TIMER_Set( NPCS.NPC, "strafeLeft", 0 );
+		TIMER_Set( NPCS.NPC, "strafeRight", 0 );
+		TIMER_Set( NPCS.NPC, "martialFeint", 0 );
+		NPCS.NPC->client->ps.fd.forceJumpCharge = 0;
+		NPCS.NPCInfo->goalEntity = NPCS.NPC->enemy;
+		MartialArtist_SetTactic( tactics, MARTIAL_APPROACH, 400, 650 );
+		if ( d_JediAI.integer )
+		{
+			Com_Printf( S_COLOR_YELLOW"%s martial stall recovery at distance %d\n",
+				NPCS.NPC->NPC_type ? NPCS.NPC->NPC_type : "NPC", enemy_dist );
+		}
+		tactics->stalledChecks = 0;
+	}
+
+	VectorCopy( NPCS.NPC->r.currentOrigin, tactics->lastOrigin );
+	tactics->lastEnemyDist = enemy_dist;
+	tactics->nextProgressCheckTime = level.time + 500;
+}
+
+static qboolean MartialArtist_Strafe( martialTactics_t *tactics,
+	int strafeTimeMin, int strafeTimeMax )
+{
+	vec3_t right;
+	float enemyLateralSpeed = 0;
+	int direction;
+	int strafeTime;
+
+	if ( !TIMER_Done( NPCS.NPC, "strafeLeft" ) ||
+		!TIMER_Done( NPCS.NPC, "strafeRight" ) )
+	{
+		return qtrue;
+	}
+
+	if ( NPCS.NPC->enemy->client )
+	{
+		AngleVectors( NPCS.NPC->client->ps.viewangles, NULL, right, NULL );
+		enemyLateralSpeed = DotProduct( NPCS.NPC->enemy->client->ps.velocity, right );
+	}
+
+	if ( fabs( enemyLateralSpeed ) > 60 )
+	{
+		// Mirror lateral movement to cut off the escape side.
+		direction = enemyLateralSpeed > 0 ? 127 : -127;
+	}
+	else if ( tactics->orbitDirection )
+	{
+		direction = tactics->orbitDirection;
+	}
+	else
+	{
+		direction = Q_irand( 0, 1 ) ? 127 : -127;
+	}
+
+	if ( !NPC_MoveDirClear( NPCS.ucmd.forwardmove, direction, qfalse ) )
+	{
+		direction = -direction;
+		if ( !NPC_MoveDirClear( NPCS.ucmd.forwardmove, direction, qfalse ) )
+		{
+			tactics->orbitDirection = 0;
+			return qfalse;
+		}
+	}
+
+	strafeTime = Q_irand( strafeTimeMin, strafeTimeMax );
+	TIMER_Set( NPCS.NPC, direction > 0 ? "strafeRight" : "strafeLeft", strafeTime );
+	TIMER_Set( NPCS.NPC, direction > 0 ? "strafeLeft" : "strafeRight", 0 );
+	tactics->orbitDirection = direction;
+	return qtrue;
+}
+
+static qboolean MartialArtist_KickActive( void )
+{
+	return (BG_KickingAnim( NPCS.NPC->client->ps.legsAnim ) &&
+		NPCS.NPC->client->ps.legsTimer > 0) ||
+		(BG_KickingAnim( NPCS.NPC->client->ps.torsoAnim ) &&
+		NPCS.NPC->client->ps.torsoTimer > 0);
+}
+
+static qboolean MartialArtist_EscapeEnemyHead( void )
+{
+	martialTactics_t *tactics;
+	qboolean onEnemy;
+	int direction;
+
+	if ( !NPCS.NPC->enemy )
+	{
+		return qfalse;
+	}
+
+	onEnemy = NPCS.NPC->client->ps.groundEntityNum == NPCS.NPC->enemy->s.number;
+	if ( onEnemy && TIMER_Done( NPCS.NPC, "martialHeadEscape" ) )
+	{
+		tactics = MartialArtist_Tactics();
+		direction = Q_irand( 0, 1 ) ? 127 : -127;
+		if ( tactics )
+		{
+			tactics->orbitDirection = direction;
+		}
+		TIMER_Set( NPCS.NPC, "martialHeadEscape", Q_irand( 450, 650 ) );
+	}
+
+	if ( TIMER_Done( NPCS.NPC, "martialHeadEscape" ) )
+	{
+		return qfalse;
+	}
+
+	tactics = MartialArtist_Tactics();
+	direction = tactics && tactics->orbitDirection ?
+		tactics->orbitDirection : (NPCS.NPC->s.number & 1 ? 127 : -127);
+	TIMER_Set( NPCS.NPC, "strafeLeft", 0 );
+	TIMER_Set( NPCS.NPC, "strafeRight", 0 );
+	NPCS.ucmd.forwardmove = -96;
+	NPCS.ucmd.rightmove = direction;
+	if ( onEnemy )
+	{
+		NPCS.ucmd.upmove = 127;
+	}
+	VectorClear( NPCS.NPC->client->ps.moveDir );
+	NPC_FaceEnemy( qtrue );
+	return qtrue;
+}
+
+static void MartialArtist_CombatMovement( int enemy_dist )
+{
+	vec3_t toEnemy;
+	float enemyRadialSpeed = 0;
+	martialTactics_t *tactics = MartialArtist_Tactics();
+	qboolean enemyDown = qfalse;
+	qboolean enemyAttacking = qfalse;
+	qboolean enemyRetreating = qfalse;
+	qboolean hurt = NPCS.NPC->health < NPCS.NPC->client->pers.maxHealth * 0.4f;
+	qboolean orbiting;
+
+	if ( !TIMER_Done( NPCS.NPC, "taunting" ) )
+	{
+		if ( enemy_dist <= 64 )
+		{
+			TIMER_Set( NPCS.NPC, "taunting", -level.time );
+			NPCS.NPC->client->ps.forceHandExtend = HANDEXTEND_NONE;
+			NPCS.NPC->client->ps.forceHandExtendTime = 0;
+		}
+		else
+		{
+			NPCS.ucmd.forwardmove = 0;
+			NPCS.ucmd.rightmove = 0;
+			VectorClear( NPCS.NPC->client->ps.moveDir );
+			return;
+		}
+	}
+
+	// Animation processing can leave either the kick animation or saber move
+	// behind. PMove treats both as movement locking, so clear the complete state
+	// before issuing pursuit commands.
+	if ( (BG_KickMove( NPCS.NPC->client->ps.saberMove ) ||
+		BG_KickingAnim( NPCS.NPC->client->ps.legsAnim ) ||
+		BG_KickingAnim( NPCS.NPC->client->ps.torsoAnim )) &&
+		!MartialArtist_KickActive() )
+	{
+		NPCS.NPC->client->ps.saberMove = LS_READY;
+		NPCS.NPC->client->ps.weaponTime = 0;
+		NPC_SetAnim( NPCS.NPC, SETANIM_BOTH, BOTH_STAND1,
+			SETANIM_FLAG_OVERRIDE );
+	}
+
+	// Paired animations and active full-body kicks must own the actor completely.
+	// weaponTime alone is not enough: ordinary punches and acrobatic recovery
+	// also set it, and freezing here made the NPC stare until those timers ended.
+	if ( NPCS.NPC->client->grappleState ||
+		TIMER_Exists( NPCS.NPC, "meleeKataWindup" ) ||
+		MartialArtist_KickActive() )
+	{
+		NPCS.ucmd.forwardmove = 0;
+		NPCS.ucmd.rightmove = 0;
+		VectorClear( NPCS.NPC->client->ps.moveDir );
+		return;
+	}
+
+	NPCS.ucmd.buttons &= ~BUTTON_WALKING;
+	TIMER_Set( NPCS.NPC, "walking", -level.time );
+
+	if ( NPCS.NPC->enemy->client )
+	{
+		VectorSubtract( NPCS.NPC->enemy->r.currentOrigin,
+			NPCS.NPC->r.currentOrigin, toEnemy );
+		toEnemy[2] = 0;
+		VectorNormalize( toEnemy );
+		enemyRadialSpeed = DotProduct( NPCS.NPC->enemy->client->ps.velocity, toEnemy );
+		enemyRetreating = enemyRadialSpeed > 90;
+		enemyDown = PM_InKnockDown( &NPCS.NPC->enemy->client->ps );
+		enemyAttacking = NPCS.NPC->enemy->client->ps.weaponTime > 0;
+	}
+
+	if ( !tactics )
+	{
+		MartialArtist_Advance();
+		return;
+	}
+
+	MartialArtist_UpdateTactic( tactics, enemy_dist, enemyDown,
+		enemyAttacking, enemyRetreating, hurt );
+	MartialArtist_CheckProgress( tactics, enemy_dist );
+
+	switch ( tactics->tactic )
+	{
+	case MARTIAL_PUNISH:
+		// Chase recoveries and retreating opponents without decorative movement.
+		TIMER_Set( NPCS.NPC, "strafeLeft", 0 );
+		TIMER_Set( NPCS.NPC, "strafeRight", 0 );
+		if ( enemy_dist > 5 )
+		{
+			MartialArtist_Advance();
+		}
+		break;
+
+	case MARTIAL_EVADE:
+		if ( MartialArtist_TryAcrobatics( enemy_dist ) )
+		{
+			return;
+		}
+		if ( enemy_dist < 8 )
+		{
+			Jedi_Retreat();
+		}
+		else if ( TIMER_Done( NPCS.NPC, "strafeLeft" ) &&
+			TIMER_Done( NPCS.NPC, "strafeRight" ) )
+		{
+			MartialArtist_Strafe( tactics, 450, 750 );
+		}
+		break;
+
+	case MARTIAL_RESET:
+		Jedi_Retreat();
+		break;
+
+	case MARTIAL_APPROACH:
+		if ( MartialArtist_TryAcrobatics( enemy_dist ) )
+		{
+			return;
+		}
+		if ( enemy_dist > 160 )
+		{
+			TIMER_Set( NPCS.NPC, "strafeLeft", 0 );
+			TIMER_Set( NPCS.NPC, "strafeRight", 0 );
+			MartialArtist_Advance();
+			break;
+		}
+		MartialArtist_Advance();
+		if ( TIMER_Done( NPCS.NPC, "strafeLeft" ) &&
+			TIMER_Done( NPCS.NPC, "strafeRight" ) )
+		{
+			MartialArtist_Strafe( tactics, 350, 650 );
+		}
+		break;
+
+	case MARTIAL_PROBE:
+		MartialArtist_Advance();
+		if ( TIMER_Done( NPCS.NPC, "strafeLeft" ) &&
+			TIMER_Done( NPCS.NPC, "strafeRight" ) )
+		{
+			MartialArtist_Strafe( tactics, 500, 900 );
+		}
+		break;
+
+	case MARTIAL_PRESSURE:
+		orbiting = qtrue;
+		if ( TIMER_Done( NPCS.NPC, "strafeLeft" ) &&
+			TIMER_Done( NPCS.NPC, "strafeRight" ) )
+		{
+			orbiting = MartialArtist_Strafe( tactics, 400, 750 );
+		}
+		if ( enemy_dist > 5 || !orbiting )
+		{
+			MartialArtist_Advance();
+		}
+		break;
+
+	case MARTIAL_KATA:
+		NPCS.ucmd.forwardmove = 0;
+		NPCS.ucmd.rightmove = 0;
+		VectorClear( NPCS.NPC->client->ps.moveDir );
+		break;
+	}
+}
+
 static void Jedi_AdjustSaberAnimLevel( gentity_t *self, int newLevel )
 {
 	if ( !self || !self->client )
@@ -1444,6 +1987,12 @@ static void Jedi_CombatDistance( int enemy_dist )
 	{//stopped draining, clear timers just in case
 		TIMER_Set( NPCS.NPC, "draining", -level.time );
 		TIMER_Set( NPCS.NPC, "attackDelay", Q_irand( 0, 1000 ) );
+	}
+
+	if ( NPCS.NPC->client->NPC_class == CLASS_MARTIALARTIST )
+	{
+		MartialArtist_CombatMovement( enemy_dist );
+		return;
 	}
 
 	if ( NPCS.NPC->client->NPC_class == CLASS_BOBAFETT )
@@ -3720,6 +4269,10 @@ static void Jedi_SetEnemyInfo( vec3_t enemy_dest, vec3_t enemy_dir, float *enemy
 		VectorSubtract( enemy_dest, NPCS.NPC->r.currentOrigin, enemy_dir );
 		//FIXME: enemy_dist calc needs to include all blade lengths, and include distance from hand to start of blade....
 		*enemy_dist = VectorNormalize( enemy_dir );// - (NPC->client->ps.saberLengthMax + NPC->r.maxs[0]*1.5 + 16);
+		if ( NPCS.NPC->client->ps.weapon == WP_MELEE )
+		{
+			*enemy_dist -= NPCS.NPC->r.maxs[0] + NPCS.NPC->enemy->r.maxs[0];
+		}
 	}
 	else
 	{//see where enemy is headed
@@ -3730,7 +4283,15 @@ static void Jedi_SetEnemyInfo( vec3_t enemy_dest, vec3_t enemy_dir, float *enemy
 		//figure out what dir the enemy's estimated position is from me and how far from the tip of my saber he is
 		VectorSubtract( enemy_dest, NPCS.NPC->r.currentOrigin, enemy_dir );//NPC->client->renderInfo.muzzlePoint
 		//FIXME: enemy_dist calc needs to include all blade lengths, and include distance from hand to start of blade....
-		*enemy_dist = VectorNormalize( enemy_dir ) - (NPCS.NPC->client->saber[0].blade[0].lengthMax + NPCS.NPC->r.maxs[0]*1.5 + 16); //just use the blade 0 len I guess
+		*enemy_dist = VectorNormalize( enemy_dir );
+		if ( NPCS.NPC->client->ps.weapon == WP_MELEE )
+		{
+			*enemy_dist -= NPCS.NPC->r.maxs[0] + NPCS.NPC->enemy->r.maxs[0];
+		}
+		else
+		{
+			*enemy_dist -= NPCS.NPC->client->saber[0].blade[0].lengthMax + NPCS.NPC->r.maxs[0]*1.5 + 16;
+		}
 		//FIXME: keep a group of enemies around me and use that info to make decisions...
 		//		For instance, if there are multiple enemies, evade more, push them away
 		//		and use medium attacks.  If enemies are using blasters, switch to fast.
@@ -3978,7 +4539,13 @@ static void Jedi_TimersApply( void )
 		}
 	}
 
-	Jedi_DebounceDirectionChanges();
+	// Martial artists already debounce orbit, feint, and approach changes in
+	// their movement controller. The generic Jedi debounce inserts a 1-2 second
+	// stop whenever a feint reverses back into an advance.
+	if ( NPCS.NPC->client->NPC_class != CLASS_MARTIALARTIST )
+	{
+		Jedi_DebounceDirectionChanges();
+	}
 
 	//use careful anim/slower movement if not already moving
 	if ( !NPCS.ucmd.forwardmove && !TIMER_Done( NPCS.NPC, "walking" ) )
@@ -4073,7 +4640,8 @@ static void Jedi_CombatTimersUpdate( int enemy_dist )
 		}
 	}
 
-	if ( TIMER_Done( NPCS.NPC, "noStrafe" ) && TIMER_Done( NPCS.NPC, "strafeLeft" ) && TIMER_Done( NPCS.NPC, "strafeRight" ) )
+	if ( NPCS.NPC->client->NPC_class != CLASS_MARTIALARTIST &&
+		TIMER_Done( NPCS.NPC, "noStrafe" ) && TIMER_Done( NPCS.NPC, "strafeLeft" ) && TIMER_Done( NPCS.NPC, "strafeRight" ) )
 	{
 		//FIXME: Maybe more likely to do this if aggression higher?  Or some other stat?
 		if ( !Q_irand( 0, 4 ) )
@@ -4251,6 +4819,18 @@ static void Jedi_CombatIdle( int enemy_dist )
 		{
 			if ( TIMER_Done( NPCS.NPC, "chatter" ) && NPCS.NPC->client->ps.forceHandExtend == HANDEXTEND_NONE )
 			{//FIXME: add more taunt behaviors
+				if ( NPCS.NPC->client->NPC_class == CLASS_MARTIALARTIST &&
+					BG_HasAnimation( NPCS.NPC->localAnimIndex, BOTH_GESTURE1 ) )
+				{
+					int tauntTime = BG_AnimLength( NPCS.NPC->localAnimIndex, BOTH_GESTURE1 );
+
+					NPCS.NPC->client->ps.forceHandExtend = HANDEXTEND_JEDITAUNT;
+					NPCS.NPC->client->ps.forceHandExtendTime = level.time + tauntTime;
+					TIMER_Set( NPCS.NPC, "taunting", tauntTime );
+					TIMER_Set( NPCS.NPC, "chatter", Q_irand( 5000, 10000 ) );
+					Jedi_BattleTaunt();
+					return;
+				}
 				//FIXME: sometimes he turns it off, then turns it right back on again???
 				if ( enemy_dist > 200
 					&& NPCS.NPC->client->NPC_class != CLASS_BOBAFETT
@@ -4286,6 +4866,200 @@ static void Jedi_CombatIdle( int enemy_dist )
 	}
 }
 
+extern qboolean G_JediMeleeKata( gentity_t *self, gentity_t *target );
+
+static qboolean Jedi_MeleeKataWindup( void )
+{
+	if ( !TIMER_Exists( NPCS.NPC, "meleeKataWindup" ) )
+	{
+		return qfalse;
+	}
+
+	NPCS.ucmd.forwardmove = 0;
+	NPCS.ucmd.rightmove = 0;
+	VectorClear( NPCS.NPC->client->ps.moveDir );
+	if ( NPCS.NPC->client->ps.torsoAnim != BOTH_KYLE_GRAB ||
+		NPCS.NPC->client->ps.legsAnim != BOTH_KYLE_GRAB )
+	{
+		TIMER_Remove( NPCS.NPC, "meleeKataWindup" );
+		return qfalse;
+	}
+	if ( !TIMER_Done( NPCS.NPC, "meleeKataWindup" ) )
+	{
+		return qtrue;
+	}
+
+	TIMER_Remove( NPCS.NPC, "meleeKataWindup" );
+	if ( NPCS.NPC->enemy && G_JediMeleeKata( NPCS.NPC, NPCS.NPC->enemy ) )
+	{
+		return qtrue;
+	}
+
+	// The target moved away or the grab was interrupted. Finish visibly as a miss.
+	NPC_SetAnim( NPCS.NPC, SETANIM_BOTH, BOTH_KYLE_MISS,
+		SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
+	if ( NPCS.NPC->client->ps.torsoAnim == BOTH_KYLE_MISS )
+	{
+		NPCS.NPC->client->ps.weaponTime = NPCS.NPC->client->ps.torsoTimer;
+	}
+	return qtrue;
+}
+
+static qboolean Jedi_MeleeAttackDecide( int enemy_dist )
+{
+	martialTactics_t *tactics = NULL;
+	qboolean enemyDown = qfalse;
+	qboolean enemyActivelyAttacking = qfalse;
+	qboolean kataCounterOpportunity = qfalse;
+	qboolean useKick = qfalse;
+	float enemyRadialSpeed = 0;
+	vec3_t toEnemy;
+
+	NPCS.ucmd.buttons &= ~(BUTTON_ATTACK|BUTTON_ALT_ATTACK);
+
+	if ( !TIMER_Exists( NPCS.NPC, "meleeKataCooldown" ) )
+	{
+		TIMER_Set( NPCS.NPC, "meleeKataCooldown", Q_irand( 4000, 7000 ) );
+	}
+
+	if ( NPCS.NPCInfo->scriptFlags&SCF_DONT_FIRE )
+	{
+		return qfalse;
+	}
+
+	if ( NPCS.NPC->client->grappleState ||
+		NPCS.NPC->client->ps.weaponTime > 0 ||
+		MartialArtist_KickActive() )
+	{
+		return qtrue;
+	}
+
+	if ( NPCS.NPC->client->NPC_class == CLASS_MARTIALARTIST )
+	{
+		tactics = MartialArtist_Tactics();
+		if ( NPCS.NPC->enemy->client )
+		{
+			VectorSubtract( NPCS.NPC->enemy->r.currentOrigin,
+				NPCS.NPC->r.currentOrigin, toEnemy );
+			toEnemy[2] = 0;
+			VectorNormalize( toEnemy );
+			enemyRadialSpeed = DotProduct( NPCS.NPC->enemy->client->ps.velocity, toEnemy );
+			enemyDown = PM_InKnockDown( &NPCS.NPC->enemy->client->ps );
+			enemyActivelyAttacking =
+				(NPCS.NPC->enemy->client->pers.cmd.buttons&(BUTTON_ATTACK|BUTTON_ALT_ATTACK)) ||
+				BG_SaberInAttack( NPCS.NPC->enemy->client->ps.saberMove ) ||
+				PM_SaberInStart( NPCS.NPC->enemy->client->ps.saberMove );
+			kataCounterOpportunity = enemyActivelyAttacking || enemyRadialSpeed < -90;
+		}
+	}
+
+	if ( enemy_dist <= JEDI_MELEE_KATA_RANGE &&
+		TIMER_Done( NPCS.NPC, "meleeKataCooldown" ) &&
+		(!tactics || (TIMER_Done( NPCS.NPC, "meleeKataDecision" ) &&
+			!enemyDown &&
+			InFront( NPCS.NPC->enemy->r.currentOrigin, NPCS.NPC->r.currentOrigin,
+				NPCS.NPC->client->ps.viewangles, 0.3f ) &&
+			!Q_irand( 0, kataCounterOpportunity ? 1 : 2 ))) )
+	{
+		if ( tactics )
+		{
+			TIMER_Set( NPCS.NPC, "meleeKataDecision", Q_irand( 600, 1000 ) );
+		}
+		if ( BG_HasAnimation( NPCS.NPC->localAnimIndex, BOTH_KYLE_GRAB ) )
+		{
+			NPC_SetAnim( NPCS.NPC, SETANIM_BOTH, BOTH_KYLE_GRAB,
+				SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD|SETANIM_FLAG_RESTART );
+			if ( NPCS.NPC->client->ps.torsoAnim == BOTH_KYLE_GRAB &&
+				NPCS.NPC->client->ps.legsAnim == BOTH_KYLE_GRAB )
+			{
+				NPCS.NPC->client->ps.torsoTimer += 500;
+				NPCS.NPC->client->ps.legsTimer = NPCS.NPC->client->ps.torsoTimer;
+				NPCS.NPC->client->ps.weaponTime = NPCS.NPC->client->ps.torsoTimer;
+				TIMER_Set( NPCS.NPC, "meleeKataWindup", JEDI_MELEE_KATA_WINDUP );
+				TIMER_Set( NPCS.NPC, "meleeKataCooldown", Q_irand( 6000, 10000 ) );
+				if ( tactics )
+				{
+					MartialArtist_SetTactic( tactics, MARTIAL_KATA,
+						JEDI_MELEE_KATA_WINDUP, JEDI_MELEE_KATA_WINDUP );
+				}
+				NPCS.ucmd.forwardmove = 0;
+				NPCS.ucmd.rightmove = 0;
+				VectorClear( NPCS.NPC->client->ps.moveDir );
+				return qtrue;
+			}
+		}
+	}
+	else if ( tactics && TIMER_Done( NPCS.NPC, "meleeKataCooldown" ) &&
+		TIMER_Done( NPCS.NPC, "meleeKataDecision" ) )
+	{
+		// A rejected grab is a complete tactical decision, not another RNG roll
+		// on the next server frame.
+		TIMER_Set( NPCS.NPC, "meleeKataDecision", Q_irand( 600, 1000 ) );
+	}
+
+	if ( enemy_dist > JEDI_MELEE_ATTACK_RANGE ||
+		!TIMER_Done( NPCS.NPC, "meleeAttackDelay" ) )
+	{
+		return qfalse;
+	}
+
+	if ( tactics )
+	{
+		if ( tactics->lastAttack != 2 )
+		{
+			useKick = enemyDown || enemyRadialSpeed < -100 ||
+				(!enemyActivelyAttacking && !Q_irand( 0, 3 ));
+		}
+	}
+	else
+	{
+		useKick = !Q_irand( 0, 2 );
+	}
+
+	if ( !useKick )
+	{
+		NPCS.ucmd.buttons |= BUTTON_ATTACK;
+		if ( tactics )
+		{
+			tactics->lastAttack = 1;
+		}
+	}
+	else
+	{
+		NPC_SetAnim( NPCS.NPC, SETANIM_BOTH, BOTH_A7_KICK_F,
+			SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD|SETANIM_FLAG_RESTART );
+		if ( NPCS.NPC->client->ps.legsAnim == BOTH_A7_KICK_F )
+		{
+			NPCS.NPC->client->ps.saberMove = LS_KICK_F;
+			NPCS.NPC->client->ps.weaponTime = NPCS.NPC->client->ps.legsTimer;
+			NPCS.ucmd.forwardmove = 0;
+			NPCS.ucmd.rightmove = 0;
+			VectorClear( NPCS.NPC->client->ps.moveDir );
+			if ( tactics )
+			{
+				tactics->lastAttack = 2;
+			}
+		}
+		else
+		{
+			NPCS.ucmd.buttons |= BUTTON_ATTACK;
+			if ( tactics )
+			{
+				tactics->lastAttack = 1;
+			}
+		}
+	}
+	if ( tactics && tactics->tactic == MARTIAL_PRESSURE && !useKick )
+	{
+		TIMER_Set( NPCS.NPC, "meleeAttackDelay", Q_irand( 180, 380 ) );
+	}
+	else
+	{
+		TIMER_Set( NPCS.NPC, "meleeAttackDelay", Q_irand( 350, 700 ) );
+	}
+	return qtrue;
+}
+
 static qboolean Jedi_AttackDecide( int enemy_dist )
 {
 	// Begin fixed cultist_destroyer AI
@@ -4308,6 +5082,11 @@ static qboolean Jedi_AttackDecide( int enemy_dist )
 			return qtrue;
 		}
 		return qfalse;
+	}
+
+	if ( NPCS.NPC->client->ps.weapon == WP_MELEE )
+	{
+		return Jedi_MeleeAttackDecide( enemy_dist );
 	}
 
 	if ( NPCS.NPC->enemy->client
@@ -4885,7 +5664,6 @@ static qboolean Jedi_Jumping( gentity_t *goal )
 	return qfalse;
 }
 
-extern void G_UcmdMoveForDir( gentity_t *self, usercmd_t *cmd, vec3_t dir );
 static void Jedi_CheckEnemyMovement( float enemy_dist )
 {
 	if ( !NPCS.NPC->enemy || !NPCS.NPC->enemy->client )
@@ -5129,6 +5907,12 @@ static void Jedi_Combat( void )
 	//See where enemy will be 300 ms from now
 	Jedi_SetEnemyInfo( enemy_dest, enemy_dir, &enemy_dist, enemy_movedir, &enemy_movespeed, 300 );
 
+	if ( NPCS.NPC->client->NPC_class == CLASS_MARTIALARTIST &&
+		MartialArtist_EscapeEnemyHead() )
+	{
+		return;
+	}
+
 	if ( Jedi_Jumping( NPCS.NPC->enemy ) )
 	{//I'm in the middle of a jump, so just see if I should attack
 		Jedi_AttackDecide( enemy_dist );
@@ -5138,7 +5922,9 @@ static void Jedi_Combat( void )
 	if ( !(NPCS.NPC->client->ps.fd.forcePowersActive&(1<<FP_GRIP)) || NPCS.NPC->client->ps.fd.forcePowerLevel[FP_GRIP] < FORCE_LEVEL_2 )
 	{//not gripping
 		//If we can't get straight at him
-		if ( !Jedi_ClearPathToSpot( enemy_dest, NPCS.NPC->enemy->s.number ) )
+		if ( !Jedi_ClearPathToSpot( enemy_dest, NPCS.NPC->enemy->s.number ) &&
+			(NPCS.NPC->client->NPC_class != CLASS_MARTIALARTIST ||
+			!NPC_ClearLOS4( NPCS.NPC->enemy )) )
 		{//hunt him down
 			//Com_Printf( "No Clear Path\n" );
 			if ( (NPC_ClearLOS4( NPCS.NPC->enemy )||NPCS.NPCInfo->enemyLastSeenTime>level.time-500) && NPC_FaceEnemy( qtrue ) )//( NPCInfo->rank == RANK_CREWMAN || NPCInfo->rank > RANK_LT_JG ) &&
@@ -5389,7 +6175,12 @@ void NPC_Jedi_Pain(gentity_t *self, gentity_t *attacker, int damage)
 	WP_ForcePowerStop( self, FP_GRIP );
 
 	//NPC_Pain( self, inflictor, other, point, damage, mod );
-	NPC_Pain(self, attacker, damage);
+	NPC_Pain( self, attacker,
+		self->client->NPC_class == CLASS_MARTIALARTIST ? -1 : damage );
+	if ( self->client->NPC_class == CLASS_MARTIALARTIST )
+	{
+		self->painDebounceTime = 0;
+	}
 
 	if ( !damage && self->health > 0 )
 	{//FIXME: better way to know I was pushed
@@ -6266,6 +7057,10 @@ extern void NPC_BSST_Patrol( void );
 extern void NPC_BSSniper_Default( void );
 void NPC_BSJedi_Default( void )
 {
+	if ( Jedi_MeleeKataWindup() )
+	{
+		return;
+	}
 	if ( Jedi_InSpecialMove() )
 	{
 		return;

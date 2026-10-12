@@ -251,7 +251,35 @@ static struct {
 	float		lastYaw;
 	int			lastTime;
 	float		lastTimeFrac;
+	qboolean	meleeCarry;
 } cam;
+
+static float CG_ThirdPersonCameraDeltaTime(void)
+{
+	const playerState_t *ps = &cg.predictedPlayerState;
+	qboolean meleeCarry = ps->stats[STAT_HEALTH] > 0 &&
+		(ps->forceHandExtend == HANDEXTEND_PRETHROWN ||
+			(ps->heldByClient > 0 && ps->heldByClient <= ENTITYNUM_WORLD));
+
+	// The NPC positions its victim on the server's clock. The victim's
+	// command clock can stall or step while its interpolated origin/angles
+	// still move. Damping against that clock freezes, then jumps the camera.
+	if (meleeCarry != cam.meleeCarry)
+	{
+		cam.lastTime = 0;
+		cam.meleeCarry = meleeCarry;
+	}
+	if (meleeCarry)
+		return (float)(cg.time - cam.lastTime);
+
+	return (float)(ps->commandTime - cam.lastTime) + cg.predictedTimeFrac - cam.lastTimeFrac;
+}
+
+static void CG_SaveThirdPersonCameraTime(void)
+{
+	cam.lastTime = cam.meleeCarry ? cg.time : cg.predictedPlayerState.commandTime;
+	cam.lastTimeFrac = cam.meleeCarry ? 0.0f : cg.predictedTimeFrac;
+}
 
 /*
 ===============
@@ -373,6 +401,8 @@ CG_CalcTargetThirdPersonViewLocation
 
 ===============
 */
+static float CG_EndDuelCameraEnvelope( void );
+
 static void CG_CalcIdealThirdPersonViewLocation(void)
 {
 #ifndef TOURNAMENT_CLIENT
@@ -451,6 +481,7 @@ static void CG_CalcIdealThirdPersonViewLocation(void)
 		newThirdPersonRange = 120.0f;
 	}
 
+	newThirdPersonRange += 80.0f * CG_EndDuelCameraEnvelope();
 	VectorMA(cam.target.ideal, -(newThirdPersonRange), cam.fwd, cam.loc.ideal);
 }
 
@@ -507,8 +538,8 @@ void CG_ClearThirdPersonDamp(void)
 	VectorCopy(oldLoc, cam.loc.prevIdeal);
 	VectorCopy(oldTarget, cam.target.prevIdeal);
 
-	cam.lastTime = cg.predictedPlayerState.commandTime;
-	cam.lastTimeFrac = cg.predictedTimeFrac;
+	CG_ThirdPersonCameraDeltaTime();
+	CG_SaveThirdPersonCameraTime();
 }
 
 static void CG_DampPosition(dampPos_t *pos, float dampfactor, float dtime)
@@ -745,6 +776,50 @@ CG_OffsetThirdPersonView
 ===============
 */
 extern qboolean BG_UnrestrainedPitchRoll( playerState_t *ps, Vehicle_t *pVeh );
+
+// OpenJK SP CG_MatrixEffect's default kill-camera duration (game milliseconds).
+#define END_DUEL_CAMERA_DURATION 1000
+
+static qboolean CG_EndDuelCameraActive( void ) {
+	return cgs.serverMod == SVMOD_JAPLUS &&
+		(cp_pluginDisable.integer & JAPRO_PLUGIN_ENDDUELROTATION) &&
+		cg.endDuelCameraTime > 0 &&
+		cg.time >= cg.endDuelCameraTime &&
+		cg.time - cg.endDuelCameraTime < END_DUEL_CAMERA_DURATION &&
+		cg.predictedPlayerState.clientNum == cg.clientNum &&
+		cg.predictedPlayerState.persistant[PERS_TEAM] != TEAM_SPECTATOR &&
+		cg.predictedPlayerState.stats[STAT_HEALTH] > 0 &&
+		cg.predictedPlayerState.persistant[PERS_SPAWN_COUNT] == cg.endDuelCameraSpawnCount &&
+		!(cg.predictedPlayerState.pm_flags & PMF_FOLLOW);
+}
+
+static float CG_EndDuelCameraAngle( void ) {
+	float progress;
+
+	if (!CG_EndDuelCameraActive()) {
+		return 0.0f;
+	}
+	progress = (float)(cg.time - cg.endDuelCameraTime) / END_DUEL_CAMERA_DURATION;
+	return 360.0f * progress;
+}
+
+// SP ramps pitch/range in over the first 33%, holds through 66%, then returns.
+static float CG_EndDuelCameraEnvelope( void ) {
+	float progress;
+
+	if (!CG_EndDuelCameraActive()) {
+		return 0.0f;
+	}
+	progress = (float)(cg.time - cg.endDuelCameraTime) / END_DUEL_CAMERA_DURATION;
+	if (progress < 0.33f) {
+		return progress / 0.33f;
+	}
+	if (progress > 0.66f) {
+		return (1.0f - progress) / 0.33f;
+	}
+	return 1.0f;
+}
+
 static void CG_OffsetThirdPersonView( void )
 {
 	vec3_t	target, location, diff;
@@ -807,6 +882,11 @@ static void CG_OffsetThirdPersonView( void )
 		}
 		else {
 			focusAngles[YAW] += cg_thirdPersonAngle.value;
+		}
+		if (CG_EndDuelCameraActive()) {
+			// SP's matrix angle replaces the configured third-person angle.
+			focusAngles[YAW] = cg.refdef.viewangles[YAW] + CG_EndDuelCameraAngle();
+			pitchOffset -= 30.0f * CG_EndDuelCameraEnvelope();
 		}
 
 		if (cg.snap && cg.snap->ps.m_iVehicleNum)
@@ -878,8 +958,7 @@ static void CG_OffsetThirdPersonView( void )
 
 	// The next thing to do is to see if we need to calculate a new camera target location.
 
-	dtime = cg.predictedPlayerState.commandTime - cam.lastTime;
-	dtime += cg.predictedTimeFrac - cam.lastTimeFrac;
+	dtime = CG_ThirdPersonCameraDeltaTime();
 
 	// If we went back in time for some reason, or if we just started, reset the sample.
 	if (cam.lastTime == 0 || dtime < 0.0f || cg.thisFrameTeleport)
@@ -961,8 +1040,7 @@ static void CG_OffsetThirdPersonView( void )
 	// ...and of course we should copy the new view location to the proper spot too.
 	VectorCopy(location, cg.refdef.vieworg);
 
-	cam.lastTime = cg.predictedPlayerState.commandTime;
-	cam.lastTimeFrac = cg.predictedTimeFrac;
+	CG_SaveThirdPersonCameraTime();
 	cam.lastYaw = focusAngles[YAW];
 }
 
@@ -1866,7 +1944,7 @@ static int CG_CalcViewValues( void ) {
 		else if ( cg.renderingThirdPerson ) { // loda
 			// back away from character
 #ifndef TOURNAMENT_CLIENT
-			if (cg_thirdPersonSpecialCam.integer &&
+			if (cg_thirdPersonSpecialCam.integer && !CG_EndDuelCameraActive() &&
 				BG_SaberInSpecial(cg.snap->ps.saberMove))
 			{ //the action cam
 				if (!CG_ThirdPersonActionCam())
@@ -2968,13 +3046,16 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView, qboolean demo
 
 	// Pseudo-slots (stasis=18, repulse=19, dash=20) must never reach the server as forcesel.
 	// Fall back to the last real networked selection when any is centered.
-	if ( cg.forceSelect == STASIS_WHEEL_SLOT || cg.forceSelect == REPULSE_WHEEL_SLOT || cg.forceSelect == DASH_WHEEL_SLOT )
+	if (cg.forceSelect == DESTRUCTION_WHEEL_SLOT && !CG_HasDestruction())
+		cg.forceSelect = cg.snap ? cg.snap->ps.fd.forcePowerSelected : 0;
+	if ( cg.forceSelect >= NUM_FORCE_POWERS || cg.forceSelect < 0 )
 		fpSel = cg.snap ? cg.snap->ps.fd.forcePowerSelected : 0;
 	else
 		fpSel = cg.forceSelect;
 	trap->Cvar_Set( "cl_stasisSelected",  (cg.forceSelect == STASIS_WHEEL_SLOT  && CG_HasStasis())  ? "1" : "0" );
 	trap->Cvar_Set( "cl_repulseSelected", (cg.forceSelect == REPULSE_WHEEL_SLOT && CG_HasRepulse()) ? "1" : "0" );
 	trap->Cvar_Set( "cl_dashSelected",    (cg.forceSelect == DASH_WHEEL_SLOT    && CG_HasDash())    ? "1" : "0" );
+	trap->Cvar_Set("cl_destructionSelected", (cg.forceSelect == DESTRUCTION_WHEEL_SLOT && CG_HasDestruction()) ? "1" : "0");
 
 	// let the client system know what our weapon and zoom settings are
 	if (cg.snap && cg.snap->ps.saberLockTime > cg.time)
@@ -3088,6 +3169,10 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView, qboolean demo
 	if (cg.predictedPlayerState.persistant[PERS_TEAM] == TEAM_SPECTATOR)
 	{
 		cg.renderingThirdPerson = qfalse;
+	}
+	else if (CG_EndDuelCameraActive() && !cg.predictedPlayerState.zoomMode)
+	{
+		cg.renderingThirdPerson = qtrue;
 	}
 
 	// build cg.refdef

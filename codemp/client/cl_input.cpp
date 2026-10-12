@@ -74,6 +74,9 @@ kbutton_t	in_strafe, in_speed;
 kbutton_t	in_up, in_down;
 kbutton_t	in_radialmenu;
 
+static qboolean radialMenuAttackDown;
+static qboolean radialMenuAltAttackDown;
+
 #define MAX_KBUTTONS 16
 
 kbutton_t	in_buttons[MAX_KBUTTONS];
@@ -772,6 +775,8 @@ void IN_RadialMenuDown( void ) {
 		cl.radialMenuActive = qtrue;
 		cl.radialMenuX = 0.0f;
 		cl.radialMenuY = 0.0f;
+		radialMenuAttackDown = in_buttons[0].active;
+		radialMenuAltAttackDown = in_buttons[7].active;
 	}
 }
 
@@ -788,6 +793,16 @@ void IN_Button0Down(void) {IN_KeyDown(&in_buttons[0]);}
 #else
 void IN_Button0Down(void)
 {
+	if ( cl.radialMenuActive ) {
+		if ( !radialMenuAttackDown ) {
+			if ( cl.radialMenuPage > 0 ) {
+				cl.radialMenuPage--;
+			}
+			radialMenuAttackDown = qtrue;
+		}
+		return;
+	}
+
 	if (!clc.demoplaying && cl.snap.valid && cl.snap.ps.pm_type == PM_SPECTATOR)
 	{
 		int targetId = CGVM_CrosshairPlayer();
@@ -801,7 +816,7 @@ void IN_Button0Down(void)
 	IN_KeyDown(&in_buttons[0]);
 }
 #endif
-void IN_Button0Up(void) {IN_KeyUp(&in_buttons[0]);}
+void IN_Button0Up(void) {radialMenuAttackDown = qfalse; IN_KeyUp(&in_buttons[0]);}
 void IN_Button1Down(void) {IN_KeyDown(&in_buttons[1]);}
 void IN_Button1Up(void) {IN_KeyUp(&in_buttons[1]);}
 void IN_Button2Down(void) {IN_KeyDown(&in_buttons[2]);}
@@ -824,8 +839,19 @@ void IN_Button5Down(void) //use key
 void IN_Button5Up(void) {IN_KeyUp(&in_buttons[5]);}
 void IN_Button6Down(void) {IN_KeyDown(&in_buttons[6]);}
 void IN_Button6Up(void) {IN_KeyUp(&in_buttons[6]);}
-void IN_Button7Down(void) {IN_KeyDown(&in_buttons[7]);}
-void IN_Button7Up(void){IN_KeyUp(&in_buttons[7]);}
+void IN_Button7Down(void) {
+	if ( cl.radialMenuActive ) {
+		if ( !radialMenuAltAttackDown ) {
+			if ( cl.radialMenuPage < RADIAL_MENU_PAGE_COUNT - 1 ) {
+				cl.radialMenuPage++;
+			}
+			radialMenuAltAttackDown = qtrue;
+		}
+		return;
+	}
+	IN_KeyDown(&in_buttons[7]);
+}
+void IN_Button7Up(void) {radialMenuAltAttackDown = qfalse; IN_KeyUp(&in_buttons[7]);}
 void IN_Button8Down(void) {IN_KeyDown(&in_buttons[8]);}
 void IN_Button8Up(void) {IN_KeyUp(&in_buttons[8]);}
 void IN_Button9Down(void) {IN_KeyDown(&in_buttons[9]);}
@@ -1656,7 +1682,8 @@ void CL_CmdButtons( usercmd_t *cmd ) {
 	// less than a frame
 	//
 	for (i = 0 ; i < MAX_KBUTTONS ; i++) {
-		if ( in_buttons[i].active || in_buttons[i].wasPressed ) {
+		if ( ( in_buttons[i].active || in_buttons[i].wasPressed ) &&
+			!( cl.radialMenuActive && ( i == 0 || i == 7 ) ) ) {
 			cmd->buttons |= 1 << i;
 		}
 		in_buttons[i].wasPressed = qfalse;
@@ -1679,6 +1706,9 @@ void CL_CmdButtons( usercmd_t *cmd ) {
 		static cvar_t *cl_stasisSelected  = NULL;
 		static cvar_t *cl_repulseSelected = NULL;
 		static cvar_t *cl_dashSelected    = NULL;
+		static cvar_t *cl_destructionSelected = NULL;
+		static qboolean s_destructionWasDown = qfalse;
+		qboolean forceDown = (cmd->buttons & BUTTON_FORCEPOWER) ? qtrue : qfalse;
 		static qboolean s_repulseWasDown  = qfalse;
 		static qboolean s_dashWasDown     = qfalse;
 		if ( !cl_stasisSelected )
@@ -1687,8 +1717,18 @@ void CL_CmdButtons( usercmd_t *cmd ) {
 			cl_repulseSelected = Cvar_Get( "cl_repulseSelected", "0", CVAR_ROM );
 		if ( !cl_dashSelected )
 			cl_dashSelected    = Cvar_Get( "cl_dashSelected",    "0", CVAR_ROM );
+		if (!cl_destructionSelected)
+			cl_destructionSelected = Cvar_Get("cl_destructionSelected", "0", CVAR_ROM);
 
-		if ( (cmd->buttons & BUTTON_FORCEPOWER) && cl_stasisSelected->integer ) {
+		if (cl_destructionSelected->integer) {
+			cmd->buttons &= ~BUTTON_FORCEPOWER;
+			if (forceDown && !s_destructionWasDown && !Key_GetCatcher() &&
+				cl.snap.valid && cl.snap.ps.pm_type != PM_SPECTATOR && cl.snap.ps.pm_type != PM_DEAD &&
+				!(cl.snap.ps.pm_flags & PMF_FOLLOW) && cl.snap.ps.stats[STAT_HEALTH] > 0 &&
+				(cl.snap.ps.fd.forcePowersKnown & DESTRUCTION_KNOWN_FLAG))
+				Cbuf_AddText("force_destruction\n");
+			s_repulseWasDown = s_dashWasDown = qfalse;
+		} else if ( (cmd->buttons & BUTTON_FORCEPOWER) && cl_stasisSelected->integer ) {
 			cmd->buttons &= ~BUTTON_FORCEPOWER;
 			cmd->buttons |= (1 << STASIS_ENGAGE_BTN);
 			s_repulseWasDown = qfalse;
@@ -1711,6 +1751,9 @@ void CL_CmdButtons( usercmd_t *cmd ) {
 			s_repulseWasDown = qfalse;
 			s_dashWasDown = qfalse;
 		}
+		// Track the physical press even off this slot: selecting it while holding
+		// Use Force must not launch an unsolicited blast.
+		s_destructionWasDown = forceDown;
 	}
 
 	if (cmd->buttons & BUTTON_FORCEPOWER)

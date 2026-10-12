@@ -842,6 +842,10 @@ static void CL_GetRadialMenuState( qboolean *active, float *x, float *y ) {
 	}
 }
 
+static int CL_GetRadialMenuPage( void ) {
+	return cl.radialMenuPage;
+}
+
 static void CGVM_Cvar_Set( const char *var_name, const char *value ) {
 	Cvar_VM_Set( var_name, value, VM_CGAME );
 }
@@ -1839,6 +1843,7 @@ void CL_BindCGame( void ) {
 		cgi.SetClientForceAngle					= CL_SetClientForceAngle;
 		cgi.SetUserCmdValue						= _CL_SetUserCmdValue;
 		cgi.GetRadialMenuState					= CL_GetRadialMenuState;
+		cgi.GetRadialMenuPage					= CL_GetRadialMenuPage;
 		cgi.Key_GetCatcher						= Key_GetCatcher;
 		cgi.Key_GetKey							= Key_GetKey;
 		cgi.Key_IsDown							= Key_IsDown;

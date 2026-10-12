@@ -1,0 +1,25 @@
+// Same as lightning.efx but without the origin flash particle - used for lightning nest strikes
+
+Electricity
+{
+	count	1
+	life	75
+
+	spawnflags	org2fromTrace
+
+	flags	useModel useBBox usePhysics
+
+	intensity	0.8	2.0
+
+	size
+	{
+		start	5.0	11.0
+		end 	1.5
+		flags	linear
+	}
+
+	shaders
+	[
+		gfx/misc/blueLine
+	]
+}

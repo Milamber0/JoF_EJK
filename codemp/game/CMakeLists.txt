@@ -57,6 +57,7 @@ set(MPGameGameFiles
 	"${MPDir}/game/g_dialogue.c"
 	"${MPDir}/game/g_dialogue.h"
 	"${MPDir}/game/g_exphysics.c"
+	"${MPDir}/game/g_force_destruction.c"
 	"${MPDir}/game/g_ICARUScb.c"
 	"${MPDir}/game/g_items.c"
 	"${MPDir}/game/g_log.c"
