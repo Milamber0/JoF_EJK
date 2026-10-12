@@ -693,6 +693,7 @@ CL_ShutdonwCGame
 */
 void CL_ShutdownCGame( void ) {
 	Key_SetCatcher( Key_GetCatcher( ) & ~KEYCATCH_CGAME );
+	CL_VideoStop();
 
 	if ( !cls.cgameStarted )
 		return;

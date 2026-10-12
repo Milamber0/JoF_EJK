@@ -63,6 +63,8 @@ set(MPCGameCgameFiles
 	"${MPDir}/cgame/cg_cvar.c"
 	"${MPDir}/cgame/cg_dialogue.c"
 	"${MPDir}/cgame/cg_dialogue.h"
+	"${MPDir}/cgame/cg_video.c"
+	"${MPDir}/cgame/cg_video.h"
 	"${MPDir}/cgame/cg_draw.c"
 	"${MPDir}/cgame/cg_drawtools.c"
 	"${MPDir}/cgame/cg_effects.c"

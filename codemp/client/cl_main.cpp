@@ -3043,6 +3043,7 @@ void CL_Frame ( int msec ) {
 
 	// advance local effects for next frame
 	SCR_RunCinematic();
+	CL_VideoFrame();
 
 	Con_RunConsole();
 
@@ -3994,6 +3995,7 @@ void CL_Init( void ) {
 	cls.realtime = 0;
 
 	CL_InitInput ();
+	CL_VideoInit();
 
 	//
 	// register our variables
@@ -4268,6 +4270,7 @@ void CL_Shutdown( void ) {
 	// RJ: added the shutdown all to close down the cgame (to free up some memory, such as in the fx system)
 	CL_ShutdownAll( qtrue );
 
+	CL_VideoShutdown();
 	S_Shutdown();
 	//CL_ShutdownUI();
 

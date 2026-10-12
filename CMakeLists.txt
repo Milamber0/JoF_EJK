@@ -42,6 +42,7 @@ option(BuildMPCGame "Whether to create projects for the MP clientside gamecode (
 option(BuildMPUI "Whether to create projects for the MP UI code (uix86.dll)" ON)
 
 option(BuildDiscordRichPresence "Whether to build with Discord Rich Presence integration" ON)
+option(UseFFmpegVideo "Non-Windows: play cutscene videos with the system FFmpeg libraries, if pkg-config finds them" ON)
 
 option(BuildMPRend2 "Whether to create projects for the EXPERIMENTAL MP rend2 renderer (rd-rend2-etjk_x86.dll)" ON)
 

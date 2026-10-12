@@ -443,6 +443,23 @@ if(BuildMPEngine)
 		find_package(OpenGL REQUIRED)
 		set(MPEngineIncludeDirectories ${MPEngineIncludeDirectories} ${OPENGL_INCLUDE_DIR})
 		set(MPEngineLibraries ${MPEngineLibraries} ${OPENGL_LIBRARIES})
+
+		# Cutscene videos (cl_video_ffmpeg.cpp). FFmpeg is never bundled: it is used when the
+		# system has it, and without it the client builds fine and reports cl_video 0.
+		if(UseFFmpegVideo)
+			find_package(PkgConfig)
+			if(PKG_CONFIG_FOUND)
+				pkg_check_modules(FFMPEG IMPORTED_TARGET libavformat libavcodec libswscale libswresample libavutil)
+			endif()
+			if(FFMPEG_FOUND)
+				message(STATUS "Cutscene videos: FFmpeg ${FFMPEG_libavformat_VERSION}")
+				set(MPEngineDefines ${MPEngineDefines} "USE_FFMPEG")
+				set(MPEngineIncludeDirectories ${MPEngineIncludeDirectories} ${FFMPEG_INCLUDE_DIRS})
+				set(MPEngineLibraries ${MPEngineLibraries} PkgConfig::FFMPEG)
+			else()
+				message(STATUS "Cutscene videos: FFmpeg development libraries not found, video playback disabled")
+			endif()
+		endif()
 		
 		# Discord Rich Presence
 		if(BuildDiscordRichPresence)
@@ -473,6 +490,12 @@ if(BuildMPEngine)
 			set(MPEngineIncludeDirectories ${MPEngineIncludeDirectories} ${OPENAL_INCLUDE_DIR})
 			set(MPEngineLibraries ${MPEngineLibraries} ${OPENAL_LIBRARY})
 		endif(UseInternalOpenAL)
+	endif()
+
+	if(WIN32)
+		# Cutscene videos (cl_video_mf.cpp): Media Foundation's DLLs are loaded at runtime,
+		# only its GUID constants are linked.
+		set(MPEngineLibraries ${MPEngineLibraries} "mfuuid" "ole32")
 	endif()
 
 	if(MSVC AND BuildDiscordRichPresence)
@@ -541,6 +564,10 @@ if(BuildMPEngine)
 		"${MPDir}/client/cl_ui.cpp"
 		"${MPDir}/client/cl_uiapi.cpp"
 		"${MPDir}/client/cl_uiapi.h"
+		"${MPDir}/client/cl_video.cpp"
+		"${MPDir}/client/cl_video.h"
+		"${MPDir}/client/cl_video_ffmpeg.cpp"
+		"${MPDir}/client/cl_video_mf.cpp"
 		"${MPDir}/client/FXExport.cpp"
 		"${MPDir}/client/FXExport.h"
 		"${MPDir}/client/FxPrimitives.cpp"

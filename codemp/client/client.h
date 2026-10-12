@@ -678,6 +678,18 @@ extern qboolean con_alert;
 #endif
 
 //
+// cl_video.cpp
+//
+void CL_VideoInit( void );
+void CL_VideoShutdown( void );
+void CL_VideoFrame( void );
+qboolean CL_VideoPlay( const char *name );
+void CL_VideoStop( void );
+videoStatus_t CL_VideoStatus( void );
+void CL_VideoGetSize( int *width, int *height );
+void CL_VideoDraw( float x, float y, float w, float h );
+
+//
 // cl_scrn.c
 //
 void	SCR_Init (void);

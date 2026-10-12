@@ -1939,6 +1939,11 @@ void CL_BindCGame( void ) {
 		cgi.G2API_GetSurfaceName				= CL_G2API_GetSurfaceName;
 
 		cgi.ext.R_Font_StrLenPixels				= re->ext.Font_StrLenPixels;
+		cgi.ext.Video_Play						= CL_VideoPlay;
+		cgi.ext.Video_Stop						= CL_VideoStop;
+		cgi.ext.Video_Status					= CL_VideoStatus;
+		cgi.ext.Video_GetSize					= CL_VideoGetSize;
+		cgi.ext.Video_Draw						= CL_VideoDraw;
 
 		GetCGameAPI = (GetCGameAPI_t)cgvm->GetModuleAPI;
 		ret = GetCGameAPI( CGAME_API_VERSION, &cgi );

@@ -26,6 +26,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 // executed by a key binding
 
 #include "cg_local.h"
+#include "cg_video.h"
 #include "game/bg_saga.h"
 #include "ui/ui_shared.h"
 
@@ -2975,6 +2976,7 @@ static consoleCommand_t	commands[] = {
 	{ "chatlog",					CG_ChatLogSettings_f },
 
 	{ "clientlistInfo",				CG_UserInfoList_f },
+	{ "cutscene",					CG_Cutscene_f },
 
 	{ "addSpeedsound",				CG_AddSpeedpoint_f },
 	{ "listSpeedsounds",			CG_ListSpeedpoints_f },

@@ -64,8 +64,17 @@ typedef enum cgameEvent_e {
 	CGAME_EVENT_SCOREBOARD,
 	CGAME_EVENT_EDITHUD,
 	CGAME_EVENT_RADIALMENU,
-	CGAME_EVENT_DIALOGUE
+	CGAME_EVENT_DIALOGUE,
+	CGAME_EVENT_VIDEO
 } cgameEvent_t;
+
+// Cutscene video playback (EJK engine extension, see client/cl_video.cpp)
+typedef enum videoStatus_e {
+	VIDEOSTATUS_IDLE = 0,
+	VIDEOSTATUS_PLAYING,
+	VIDEOSTATUS_FINISHED,
+	VIDEOSTATUS_ERROR
+} videoStatus_t;
 
 typedef struct autoMapInput_s {
 	float		up;
@@ -722,6 +731,12 @@ typedef struct cgameImport_s {
 	void			(*GetRadialMenuState)					( qboolean *active, float *x, float *y );
 	struct {
 		float		(*R_Font_StrLenPixels)					( const char *text, const int iFontIndex, const float scale );
+		// Only valid when the "cl_video" cvar is non-zero: older engines end the table before these.
+		qboolean	(*Video_Play)							( const char *name );
+		void		(*Video_Stop)							( void );
+		videoStatus_t	(*Video_Status)						( void );
+		void		(*Video_GetSize)						( int *width, int *height );
+		void		(*Video_Draw)							( float x, float y, float w, float h );
 	} ext;
 	int				(*GetRadialMenuPage)					( void );
 
