@@ -3589,7 +3589,7 @@
 		{
 			name				visuals3done_glow
 			style				WINDOW_STYLE_SHADER
-			rect				260 325 200 16
+			rect				260 305 200 16
 			background			"gfx/menus/menu_blendbox"
 			forecolor			1 0.5 0.5 1
 			visible				0
@@ -3602,10 +3602,10 @@
 			group				visuals3
 			type				ITEM_TYPE_BUTTON
 			text				"Done"
-			rect				260 323 200 20
+			rect				260 303 200 20
 			textalign			ITEM_ALIGN_CENTER
 			textalignx			100
-			textaligny			2
+			textaligny			0
 			font				4
 			textscale			1
 			forecolor			1 .682 0 1
