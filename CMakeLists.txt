@@ -213,7 +213,35 @@ if(MSVC)
 	set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} /SAFESEH:NO")
 	set(CMAKE_SHARED_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} /SAFESEH:NO")
 	set(CMAKE_MODULE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} /SAFESEH:NO")
-	
+
+	# Release: full debug info in separate .pdb files so crash dumps can be
+	# opened at the source line. /Zi doesn't change code generation. /DEBUG on
+	# its own switches the linker to /OPT:NOREF /OPT:NOICF /INCREMENTAL, so the
+	# release defaults are restated explicitly - shipped code stays identical.
+	set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /Zi")
+	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /Zi")
+	foreach(kind EXE SHARED MODULE)
+		set(CMAKE_${kind}_LINKER_FLAGS_RELEASE "${CMAKE_${kind}_LINKER_FLAGS_RELEASE} /DEBUG /OPT:REF /OPT:ICF /INCREMENTAL:NO")
+	endforeach()
+
+	# Source Link: lets Visual Studio fetch the exact source for this build
+	# from GitHub when opening a crash dump - no local checkout needed.
+	# CI passes the commit as -DGIT_SHA; local builds fall back to GIT_SHA1
+	# from get_git_head_revision() above. Skipped if neither is a commit hash.
+	set(JOF_SOURCELINK_SHA "${GIT_SHA}")
+	if(NOT JOF_SOURCELINK_SHA MATCHES "^[0-9a-f]+$")
+		set(JOF_SOURCELINK_SHA "${GIT_SHA1}")
+	endif()
+	if(JOF_SOURCELINK_SHA MATCHES "^[0-9a-f]+$")
+		file(TO_NATIVE_PATH "${CMAKE_SOURCE_DIR}/" JOF_SOURCE_ROOT)
+		string(REPLACE "\\" "\\\\" JOF_SOURCE_ROOT "${JOF_SOURCE_ROOT}")
+		file(WRITE "${CMAKE_BINARY_DIR}/sourcelink.json"
+			"{\"documents\": {\"${JOF_SOURCE_ROOT}*\":\"https://raw.githubusercontent.com/JediofFreedom/JoF_EJK/${JOF_SOURCELINK_SHA}/*\"}}")
+		foreach(kind EXE SHARED MODULE)
+			set(CMAKE_${kind}_LINKER_FLAGS_RELEASE "${CMAKE_${kind}_LINKER_FLAGS_RELEASE} /SOURCELINK:\"${CMAKE_BINARY_DIR}/sourcelink.json\"")
+		endforeach()
+	endif()
+
 	# Configure MSVC Runtime
 	include(MSVCRuntime)
 	if(NOT DEFINED MSVC_RUNTIME)
