@@ -601,6 +601,8 @@ static rserr_t GLimp_CreateOpenGLWindow(
 	return RSERR_OK;
 }
 
+const char *WIN_VK_LibraryPath(void);
+
 /*
 ===============
 GLimp_SetMode
@@ -632,6 +634,18 @@ static rserr_t GLimp_SetMode(
 			// SDL_Vulkan_CreateSurface() then fails, taking WIN_VK_createSurfaceImpl
 			// into Com_Error( ERR_FATAL ) during renderer init.
 			flags |= SDL_WINDOW_VULKAN;
+
+			// SDL_CreateWindow() with SDL_WINDOW_VULKAN calls
+			// SDL_Vulkan_LoadLibrary(NULL) itself, which only tries bare library
+			// names and so cannot see the MoltenVK we bundle inside the .app.  That
+			// made every window attempt fail with "Failed to load Vulkan Portability
+			// library" before the renderer got a chance to pass the real path in
+			// WIN_VK_GetInstanceProcAddress().  Load it here first; SDL refcounts
+			// repeat loads of the same path, so the later call is a no-op.
+			if ( SDL_Vulkan_LoadLibrary( WIN_VK_LibraryPath() ) < 0 )
+			{
+				Com_Printf( S_COLOR_YELLOW "SDL_Vulkan_LoadLibrary failed: %s\n", SDL_GetError() );
+			}
 			break;
 		default:
 			break;
