@@ -3330,8 +3330,8 @@ Ghoul2 Insert End
 
 	// get the rendering configuration from the client system
 	trap->GetGlconfig( &cgs.glconfig );
-	cgs.screenXScale = cgs.glconfig.vidWidth / SCREEN_WIDTH;
-	cgs.screenYScale = cgs.glconfig.vidHeight / SCREEN_HEIGHT;
+	cgs.screenXScale = (float)cgs.glconfig.vidWidth / SCREEN_WIDTH;
+	cgs.screenYScale = (float)cgs.glconfig.vidHeight / SCREEN_HEIGHT;
 	UI_Set2DRatio();
 
 	// get the gamestate from the client system

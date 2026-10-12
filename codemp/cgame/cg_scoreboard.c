@@ -88,6 +88,75 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 static qboolean localClient; // true if local client has been displayed
 
+#define SB_FLAG_POWERUPS ( (1<<PW_REDFLAG) | (1<<PW_BLUEFLAG) | (1<<PW_NEUTRALFLAG) )
+
+/*
+=================
+CG_LiveFlagPowerups
+
+Flag powerups straight from the current snapshot, or -1 if this client
+isn't in it (outside our PVS).
+=================
+*/
+static int CG_LiveFlagPowerups( int clientNum ) {
+	int powerups = 0, pw;
+
+	if ( !cg.snap )
+		return -1;
+
+	if ( clientNum == cg.snap->ps.clientNum ) {
+		for ( pw = PW_REDFLAG; pw <= PW_NEUTRALFLAG; pw++ ) {
+			if ( cg.snap->ps.powerups[pw] )
+				powerups |= (1<<pw);
+		}
+		return powerups;
+	}
+
+	if ( cg_entities[clientNum].currentValid )
+		return cg_entities[clientNum].currentState.powerups & SB_FLAG_POWERUPS;
+
+	return -1;
+}
+
+/*
+=================
+CG_ScoreboardFlagPowerups
+
+ci->powerups only changes when the server sends "scores" (when the
+scoreboard is opened) or "tinfo" (teammates only), so it is usually stale
+by the time a flag changes hands. Prefer what the snapshot says, and never
+show a flag that isn't taken or that someone we can see is carrying.
+=================
+*/
+static int CG_ScoreboardFlagPowerups( int clientNum ) {
+	int powerups = CG_LiveFlagPowerups( clientNum );
+	int i;
+
+	if ( powerups != -1 )
+		return powerups;
+
+	powerups = cgs.clientinfo[clientNum].powerups & SB_FLAG_POWERUPS;
+	if ( !powerups || ( cgs.gametype != GT_CTF && cgs.gametype != GT_CTY ) )
+		return powerups;
+
+	if ( cgs.redflag != FLAG_TAKEN )
+		powerups &= ~(1<<PW_REDFLAG);
+	if ( cgs.blueflag != FLAG_TAKEN )
+		powerups &= ~(1<<PW_BLUEFLAG);
+
+	for ( i = 0; i < MAX_CLIENTS && powerups; i++ ) {
+		int live;
+
+		if ( i == clientNum )
+			continue;
+		live = CG_LiveFlagPowerups( i );
+		if ( live > 0 )
+			powerups &= ~live;
+	}
+
+	return powerups;
+}
+
 /*
 =================
 CG_DrawScoreboard
@@ -97,6 +166,8 @@ static void CG_DrawClientScore( int y, score_t *score, float *color, float fade,
 {
 	//vec3_t	headAngles;
 	clientInfo_t	*ci;
+	int				flagPowerups;
+	float			flagx;
 	int				iconx = SB_BOTICON_X + (SB_RATING_WIDTH / 2);
 	float			scale = largeFormat && !cg_smallScoreboard.integer && cgs.gametype != GT_CTF ? 1.0f : maxClientScoreboard ? 0.65f : 0.75f,
 					iconSize = largeFormat && !cg_smallScoreboard.integer && cgs.gametype != GT_CTF ? SB_NORMAL_HEIGHT : maxClientScoreboard ? 12.0f : SB_INTER_HEIGHT;
@@ -107,21 +178,24 @@ static void CG_DrawClientScore( int y, score_t *score, float *color, float fade,
 	}
 
 	ci = &cgs.clientinfo[score->client];
+	flagPowerups = CG_ScoreboardFlagPowerups( score->client );
+	// right next to the row, not out at the far left edge with the bot/class icons
+	flagx = SB_SCORELINE_X - 7 - iconSize;
 
 	// draw the handicap or bot skill marker (unless player has flag)
-	if ( ci->powerups & (1<<PW_NEUTRALFLAG) )
+	if ( flagPowerups & (1<<PW_NEUTRALFLAG) )
 	{
 		if ( largeFormat && (!cg_smallScoreboard.integer && cgs.gametype != GT_CTF))//JAPRO - Clientside - Small Scoreboard
-			CG_DrawFlagModel( iconx, y - (32 - BIGCHAR_HEIGHT) / 2, iconSize, iconSize, TEAM_FREE, qfalse );
+			CG_DrawFlagModel( flagx, y - (32 - BIGCHAR_HEIGHT) / 2, iconSize, iconSize, TEAM_FREE, qfalse );
 		else
-			CG_DrawFlagModel( iconx, y, iconSize, iconSize, TEAM_FREE, qfalse );
+			CG_DrawFlagModel( flagx, y + 2, iconSize, iconSize, TEAM_FREE, qfalse );
 	}
 
-	else if ( ci->powerups & ( 1 << PW_REDFLAG ) )
-		CG_DrawFlagModel( iconx, y, iconSize, iconSize, TEAM_RED, qfalse );
+	else if ( flagPowerups & ( 1 << PW_REDFLAG ) )
+		CG_DrawFlagModel( flagx, y + 2, iconSize, iconSize, TEAM_RED, qfalse );
 
-	else if ( ci->powerups & ( 1 << PW_BLUEFLAG ) )
-		CG_DrawFlagModel( iconx, y, iconSize, iconSize, TEAM_BLUE, qfalse );
+	else if ( flagPowerups & ( 1 << PW_BLUEFLAG ) )
+		CG_DrawFlagModel( flagx, y + 2, iconSize, iconSize, TEAM_BLUE, qfalse );
 
 	else if ( cgs.gametype == GT_POWERDUEL && (ci->duelTeam == DUELTEAM_LONE || ci->duelTeam == DUELTEAM_DOUBLE) )
 	{
@@ -271,6 +345,8 @@ static void CG_DrawClientScore2( int y, score_t *score, float *color, float fade
 {
 	//vec3_t	headAngles;
 	clientInfo_t	*ci;
+	int				flagPowerups;
+	float			flagx;
 	int				iconx = SB_BOTICON_X + (SB_RATING_WIDTH / 2);
 	float			scale = /*(largeFormat && (!cg_smallScoreboard.integer && cgs.gametype != GT_CTF)) ? 1.0f :*/ 0.75f,
 					iconSize = SB_INTER_HEIGHT_NEW;
@@ -288,21 +364,24 @@ static void CG_DrawClientScore2( int y, score_t *score, float *color, float fade
 	}
 
 	ci = &cgs.clientinfo[score->client];
+	flagPowerups = CG_ScoreboardFlagPowerups( score->client );
+	// right next to the row, not out at the far left edge with the bot/class icons
+	flagx = SB_SCORELINE_X - 7 - iconSize;
 
 	// draw the handicap or bot skill marker (unless player has flag)
-	if ( ci->powerups & (1<<PW_NEUTRALFLAG) )
+	if ( flagPowerups & (1<<PW_NEUTRALFLAG) )
 	{
 		/*if ( largeFormat && (!cg_smallScoreboard.integer && cgs.gametype != GT_CTF))//JAPRO - Clientside - Small Scoreboard.
-			CG_DrawFlagModel( iconx, y - (32 - BIGCHAR_HEIGHT) / 2, iconSize, iconSize, TEAM_FREE, qfalse );
+			CG_DrawFlagModel( flagx, y - (32 - BIGCHAR_HEIGHT) / 2, iconSize, iconSize, TEAM_FREE, qfalse );
 		else*/
-			CG_DrawFlagModel( iconx, y, iconSize, iconSize, TEAM_FREE, qfalse );
+			CG_DrawFlagModel( flagx, y + 2, iconSize, iconSize, TEAM_FREE, qfalse );
 	}
 
-	else if ( ci->powerups & ( 1 << PW_REDFLAG ) )
-		CG_DrawFlagModel( iconx, y, iconSize, iconSize, TEAM_RED, qfalse );
+	else if ( flagPowerups & ( 1 << PW_REDFLAG ) )
+		CG_DrawFlagModel( flagx, y + 2, iconSize, iconSize, TEAM_RED, qfalse );
 
-	else if ( ci->powerups & ( 1 << PW_BLUEFLAG ) )
-		CG_DrawFlagModel( iconx, y, iconSize, iconSize, TEAM_BLUE, qfalse );
+	else if ( flagPowerups & ( 1 << PW_BLUEFLAG ) )
+		CG_DrawFlagModel( flagx, y + 2, iconSize, iconSize, TEAM_BLUE, qfalse );
 
 	else if ( cgs.gametype == GT_POWERDUEL && (ci->duelTeam == DUELTEAM_LONE || ci->duelTeam == DUELTEAM_DOUBLE) )
 	{
@@ -791,6 +870,13 @@ qboolean CG_DrawOldScoreboard( void ) {
 		 cg.predictedPlayerState.pm_type == PM_INTERMISSION ) {
 		fade = 1.0;
 		fadeColor = colorWhite;
+
+		// CG_ScoresDown_f only asks once per keypress, keep scores (and the
+		// flag carriers out of our PVS) fresh while the scoreboard stays up
+		if ( cg.showScores && !cg.demoPlayback && cg.scoresRequestTime + 2000 < cg.time ) {
+			cg.scoresRequestTime = cg.time;
+			trap->SendClientCommand( "score" );
+		}
 	} else {
 		fadeColor = CG_FadeColor( cg.scoreFadeTime, FADE_TIME );
 

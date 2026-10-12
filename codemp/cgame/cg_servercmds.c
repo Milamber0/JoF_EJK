@@ -40,14 +40,22 @@ CG_ParseScores
 */
 static void CG_ParseScores( void ) {
 	int		i, powerups, readScores, scoreOffset;//JAPRO - Clientside - Scoreboard Deaths
-	
+	qboolean hasDeaths, weIdentifyAsJapro;
+
 	int argc = trap->Cmd_Argc();
 
-	if (cgs.serverMod == SVMOD_JAPLUS || cgs.serverMod == SVMOD_JAPRO)
-		scoreOffset = 15;
-	else
-		scoreOffset = 14;
-	
+	// Per-client stride, computed once and used for every CG_Argv() index.
+	// Only JAPRO-derived game modules append the deaths field, and only for
+	// clients whose cjp_client userinfo they recognize (g_client.c, g_cmds.c).
+	// Our own server advertises gamename "japro" (GAMEVERSION) and is detected
+	// as SVMOD_JAPRO. Basejka, OpenJK base and unknown mods always send 14
+	// fields, so they must not be treated as 15 based on cjp_client alone -
+	// cjp_client is ROM and always holds one of the recognized strings.
+	weIdentifyAsJapro = ( !Q_stricmp( cjp_client.string, "1.4JAPRO" ) ) || ( !Q_stricmp( cjp_client.string, JOFCLIENTVERSION ) );
+	hasDeaths = ( cgs.serverMod == SVMOD_JAPLUS && weIdentifyAsJapro )
+		|| cgs.serverMod == SVMOD_JAPRO;
+	scoreOffset = hasDeaths ? 15 : 14;
+
 	int actualSent = (argc - 4) / scoreOffset;
 
 	if (actualSent < 0)
@@ -70,12 +78,9 @@ static void CG_ParseScores( void ) {
 	memset( cg.scores, 0, sizeof( cg.scores ) );
 	for ( i=0; i<readScores; i++ ) {
 //JAPRO - Clientside - Scoreboard Deaths - Start
-		if (cgs.serverMod == SVMOD_JAPLUS && ((!Q_stricmp(cjp_client.string, "1.4JAPRO")) || (!Q_stricmp(cjp_client.string, JOFCLIENTVERSION))) || cgs.serverMod == SVMOD_JAPRO) {
-			scoreOffset = 15;
+		if (hasDeaths) {
 			cg.scores[i].deaths = atoi(CG_Argv(i * scoreOffset + 18));
 		}
-		else
-			scoreOffset = 14;
 
 		cg.scores[i].client = atoi( CG_Argv( i * scoreOffset + 4 ) );
 		cg.scores[i].score = atoi( CG_Argv( i * scoreOffset + 5 ) );
