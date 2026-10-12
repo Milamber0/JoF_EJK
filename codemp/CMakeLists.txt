@@ -775,6 +775,50 @@ if(BuildMPEngine)
 		endif()
 	endif(MakeApplicationBundles)
 
+	# Sunny's prebuilt Vulkan renderer (rd-vulkan) and, on macOS, the MoltenVK
+	# that backs it.  Neither is built from source here -- this repo carries only
+	# the Vulkan headers the engine itself needs -- so CI fetches them and hands
+	# us the paths.  See .github/workflows/build.yml.
+	#
+	# Declared after the engine install above so these land in a bundle that
+	# already exists rather than relying on install-order merge behaviour.
+	if(NOT DEFINED EXTERNAL_RD_VULKAN_MODULE AND DEFINED EXTERNAL_RD_VULKAN_DLL)
+		# Backwards compatibility: the option was Windows-only, hence "DLL".
+		set(EXTERNAL_RD_VULKAN_MODULE "${EXTERNAL_RD_VULKAN_DLL}")
+	endif()
+
+	if(MakeApplicationBundles)
+		set(RDVulkanDestination "${JKAInstallDir}/${MPEngine}.app/Contents/MacOS")
+		set(MoltenVKDestination "${JKAInstallDir}/${MPEngine}.app/Contents/Frameworks")
+	else()
+		set(RDVulkanDestination "${JKAInstallDir}")
+		set(MoltenVKDestination "${JKAInstallDir}")
+	endif()
+
+	if(DEFINED EXTERNAL_RD_VULKAN_MODULE)
+		if(NOT EXISTS "${EXTERNAL_RD_VULKAN_MODULE}")
+			message(FATAL_ERROR
+				"EXTERNAL_RD_VULKAN_MODULE does not exist: ${EXTERNAL_RD_VULKAN_MODULE}")
+		endif()
+		# PROGRAMS rather than FILES so the module keeps its executable bit,
+		# matching the renderers that go through install(TARGETS ...).
+		install(PROGRAMS ${EXTERNAL_RD_VULKAN_MODULE}
+			DESTINATION ${RDVulkanDestination}
+			COMPONENT ${JKAMPClientComponent})
+		message(STATUS "Bundling prebuilt Vulkan renderer: ${EXTERNAL_RD_VULKAN_MODULE}")
+	endif()
+
+	if(DEFINED EXTERNAL_MOLTENVK_LIBRARY)
+		if(NOT EXISTS "${EXTERNAL_MOLTENVK_LIBRARY}")
+			message(FATAL_ERROR
+				"EXTERNAL_MOLTENVK_LIBRARY does not exist: ${EXTERNAL_MOLTENVK_LIBRARY}")
+		endif()
+		install(PROGRAMS ${EXTERNAL_MOLTENVK_LIBRARY}
+			DESTINATION ${MoltenVKDestination}
+			COMPONENT ${JKAMPClientComponent})
+		message(STATUS "Bundling MoltenVK: ${EXTERNAL_MOLTENVK_LIBRARY}")
+	endif()
+
 	set_target_properties(${MPEngine} PROPERTIES COMPILE_DEFINITIONS "${MPEngineDefines}")
 
 	# Hide symbols not explicitly marked public.
@@ -943,12 +987,14 @@ file(GLOB_RECURSE JAPRO_MENU_FILES CONFIGURE_DEPENDS
 	"${CMAKE_SOURCE_DIR}/assets/japro/gfx/menus/*"
 	"${CMAKE_SOURCE_DIR}/assets/japro/ext_data/*")
 add_zip_command(japro-assets.pk3
-	FILES ${CMAKE_SOURCE_DIR}/assets/japro/*
+	FILES *
+	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/assets/japro
 	DEPENDS ${JAPRO_MENU_FILES})
 file(GLOB_RECURSE JOFCLIENT_ASSET_FILES CONFIGURE_DEPENDS
 	"${CMAKE_SOURCE_DIR}/assets/jofclient/*")
 add_zip_command(jofclient-assets.pk3
-	FILES ${CMAKE_SOURCE_DIR}/assets/jofclient/*
+	FILES *
+	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/assets/jofclient
 	DEPENDS ${JOFCLIENT_ASSET_FILES})
 add_custom_target(Assets
 	ALL

@@ -961,6 +961,51 @@
 			forecolor		.615 .615 .956 1
 			cvarStrList			{  "Default Mode (Vanilla)" , "rd-eternaljk" , "Performance Mode (Vulkan)", "rd-vulkan" , "Quality Mode (Rend2)", "rd-rend2-etjk" }
 			descText			"Change the renderer library to use. (Vulkan only supported on newer GPUs and Rend2 is highly experimental)"
+			cvarTest			"ui_vulkan_supported"
+			showCvar
+			{
+				"1"
+			}
+			cvar				"ui_cl_renderer"
+			visible				1
+			mouseenter
+			{
+				show			highlight1
+			}
+			mouseexit
+			{
+				hide			highlight1
+			}
+			action
+			{
+				play			"sound/interface/button1"
+				uiScript 		update "ui_r_glCustom"
+				setcvar			ui_r_modified	1
+				setcvar			ui_vidrestart	1
+			}
+		}
+
+        itemDef
+		{
+			name				renderer_novk
+			group 			    video
+			text				"Renderer:"
+				type 			ITEM_TYPE_MULTI
+			rect			220 43 300 20
+				textalign		ITEM_ALIGN_RIGHT
+			textalignx		165
+			textaligny		0
+			font 			4
+			textscale 		1
+			style			WINDOW_STYLE_FILLED
+			forecolor		.615 .615 .956 1
+			cvarStrList			{  "Default Mode (Vanilla)" , "rd-eternaljk" , "Quality Mode (Rend2)", "rd-rend2-etjk" }
+			descText			"Change the renderer library to use. (Rend2 is highly experimental)"
+			cvarTest			"ui_vulkan_supported"
+			showCvar
+			{
+				"0"
+			}
 			cvar				"ui_cl_renderer"
 			visible				1
 			mouseenter
