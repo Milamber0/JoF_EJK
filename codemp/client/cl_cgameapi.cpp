@@ -1939,8 +1939,8 @@ void CL_BindCGame( void ) {
 		cgi.G2API_GetSurfaceName				= CL_G2API_GetSurfaceName;
 
 		cgi.ext.R_Font_StrLenPixels				= re->ext.Font_StrLenPixels;
-		cgi.ext.S_GetSampleLengthMs				= S_GetSampleLengthMs;
-		// cgame checks this before calling ext.S_GetSampleLengthMs - an engine that never
+		cgi.S_GetSampleLengthMs					= S_GetSampleLengthMs;
+		// cgame checks this before calling S_GetSampleLengthMs - an engine that never
 		// registered it ends the import table before that slot.
 		Cvar_Get( "cl_soundLength", "1", CVAR_ROM, "Sound length query supported by this client (0 = none)" );
 

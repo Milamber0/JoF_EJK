@@ -798,7 +798,7 @@ typedef struct {
 static voiceLineTimer_t cg_voiceLineTimer[MAX_CLIENTS][NUM_VOICE_LINES];
 
 // Engines older than the sound length extension end the import table before
-// trap->ext.S_GetSampleLengthMs, so the cvar they never registered is the only safe way to tell.
+// trap->S_GetSampleLengthMs, so the cvar they never registered is the only safe way to tell.
 static int CG_SoundLengthMs( sfxHandle_t sfx ) {
 	char value[8];
 
@@ -806,10 +806,10 @@ static int CG_SoundLengthMs( sfxHandle_t sfx ) {
 		return 0;
 
 	trap->Cvar_VariableStringBuffer( "cl_soundLength", value, sizeof( value ) );
-	if ( atoi( value ) <= 0 || !trap->ext.S_GetSampleLengthMs )
+	if ( atoi( value ) <= 0 || !trap->S_GetSampleLengthMs )
 		return 0;
 
-	return trap->ext.S_GetSampleLengthMs( sfx );
+	return trap->S_GetSampleLengthMs( sfx );
 }
 
 // Returns qtrue (suppress the voice line) if this player's last line of this class is still
