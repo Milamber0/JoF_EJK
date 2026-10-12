@@ -44,32 +44,16 @@ static void CG_ParseScores( void ) {
 
 	int argc = trap->Cmd_Argc();
 
-	// Single source of truth for the per-client stride: this used to be
-	// computed twice with two different conditions (once here, once again
-	// inside the loop below) - if serverMod flipped to SVMOD_JAPLUS before
-	// the VM-side cjp_client cvar cache caught up with the Cvar_Set in
-	// CG_ParseServerinfo, the two conditions could disagree, misaligning
-	// every CG_Argv() index for every client (including powerups, which is
-	// why the scoreboard's flag-holder icon could end up reading garbage).
-	//
-	// DeathmatchScoreboardMessage() on the server picks the 15-field format
-	// (with deaths) whenever *we* (the client requesting the scoreboard,
-	// not each scored player) are seen as JAPRO-compatible - g_cmds.c
-	// checks the requester's own pers.isJAPRO, which is set from our own
-	// cjp_client userinfo (default JOFCLIENTVERSION). That happens for our
-	// own server too, which never sets "gamename" and so falls through to
-	// the SVMOD_BASEJKA default - not SVMOD_JAPLUS/SVMOD_JAPRO - so this
-	// used to always assume the 14-field format there while the server was
-	// actually sending 15, misaligning every field including powerups.
-	// !legacyProtocol rules out real 1.00 vanilla servers, which also land
-	// on SVMOD_BASEJKA but never send the extra field. Checked against both
-	// strings server-side accepts (g_client.c) - cjp_client can still read
-	// "1.4JAPRO" here if we were on a JAPRO server earlier this session and
-	// haven't reconnected since, so JOFCLIENTVERSION alone isn't enough.
+	// Per-client stride, computed once and used for every CG_Argv() index.
+	// Only JAPRO-derived game modules append the deaths field, and only for
+	// clients whose cjp_client userinfo they recognize (g_client.c, g_cmds.c).
+	// Our own server advertises gamename "japro" (GAMEVERSION) and is detected
+	// as SVMOD_JAPRO. Basejka, OpenJK base and unknown mods always send 14
+	// fields, so they must not be treated as 15 based on cjp_client alone -
+	// cjp_client is ROM and always holds one of the recognized strings.
 	weIdentifyAsJapro = ( !Q_stricmp( cjp_client.string, "1.4JAPRO" ) ) || ( !Q_stricmp( cjp_client.string, JOFCLIENTVERSION ) );
 	hasDeaths = ( cgs.serverMod == SVMOD_JAPLUS && weIdentifyAsJapro )
-		|| cgs.serverMod == SVMOD_JAPRO
-		|| ( cgs.serverMod == SVMOD_BASEJKA && !cgs.legacyProtocol && weIdentifyAsJapro );
+		|| cgs.serverMod == SVMOD_JAPRO;
 	scoreOffset = hasDeaths ? 15 : 14;
 
 	int actualSent = (argc - 4) / scoreOffset;
