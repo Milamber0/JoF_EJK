@@ -10280,8 +10280,14 @@ static void CG_VehicleHeatEffect( vec3_t org, centity_t *cent )
 
 static int lastFlyBySound[MAX_GENTITIES] = {0};
 #define	FLYBYSOUNDTIME 2000
-static int lastEngineStartSound[MAX_GENTITIES] = {0};
-#define	ENGINESTARTSOUNDTIME 3000
+// Engine-start rev: played when a vehicle pulls away after having really come to rest.
+// Compared frame to frame on currentState.speed, which is the predicted state for the vehicle we
+// ride and the interpolated snapshot for everyone else's - so it fires on pull-away for both.
+static int engineLastSpeed[MAX_GENTITIES] = {0};
+static int engineLastSeen[MAX_GENTITIES] = {0};
+static int engineStoppedSince[MAX_GENTITIES] = {0};
+#define	ENGINESTARTRESTTIME 1000//must have been stopped this long, so tapping forward doesn't re-rev
+#define	ENGINESTARTSEENGAP 500//not seen for this long (left PVS, new map): forget its last speed
 int	cg_lastHyperSpaceEffectTime = 0;
 static QINLINE void CG_VehicleEffects(centity_t *cent)
 {
@@ -10352,14 +10358,35 @@ static QINLINE void CG_VehicleEffects(centity_t *cent)
 		}
 	}
 
-	if ( !cent->currentState.speed//was stopped
-		&& cent->nextState.speed > 0//now moving forward
-		&& cent->m_pVehicle->m_pVehicleInfo->soundEngineStart
-		&& ( lastEngineStartSound[cent->currentState.clientNum]+ENGINESTARTSOUNDTIME < cg.time
-			|| lastEngineStartSound[cent->currentState.clientNum] > cg.time ) )//not spammed by tapping forward; stamp from a previous map/server (cg.time restarted) is stale
-	{//engines rev up for the first time
-		trap->S_StartSound(NULL, cent->currentState.clientNum, CHAN_LESS_ATTEN, cent->m_pVehicle->m_pVehicleInfo->soundEngineStart );
-		lastEngineStartSound[cent->currentState.clientNum] = cg.time;
+	{
+		const int	num = cent->currentState.number;
+		const int	speed = cent->currentState.speed;
+		int			prevSpeed = engineLastSpeed[num];
+
+		if ( engineLastSeen[num] > cg.time || cg.time - engineLastSeen[num] > ENGINESTARTSEENGAP )
+		{//don't know what it was doing before this frame
+			prevSpeed = -1;
+			engineStoppedSince[num] = 0;
+		}
+
+		if ( speed <= 0 )
+		{
+			if ( prevSpeed > 0 )
+			{
+				engineStoppedSince[num] = cg.time;
+			}
+		}
+		else if ( prevSpeed == 0//was stopped
+			&& cent->m_pVehicle->m_pVehicleInfo->soundEngineStart
+			&& ( !engineStoppedSince[num]
+				|| engineStoppedSince[num] > cg.time
+				|| cg.time - engineStoppedSince[num] >= ENGINESTARTRESTTIME ) )//not spammed by tapping forward
+		{//engines rev up for the first time
+			trap->S_StartSound(NULL, cent->currentState.clientNum, CHAN_LESS_ATTEN, cent->m_pVehicle->m_pVehicleInfo->soundEngineStart );
+		}
+
+		engineLastSpeed[num] = speed > 0 ? speed : 0;
+		engineLastSeen[num] = cg.time;
 	}
 	// Animals don't exude any effects...
 	if ( pVehNPC->m_pVehicleInfo->type != VH_ANIMAL )
