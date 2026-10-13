@@ -239,7 +239,7 @@ void RE_AddRefEntityToScene( const refEntity_t *ent ) {
 	}
 #endif
 
-	if ( (int)ent->reType < 0 || ent->reType >= RT_MAX_REF_ENTITY_TYPE ) {
+	if ( (int)ent->reType < 0 || ent->reType >= RT_MAX_MP_REF_ENTITY_TYPE ) {
 		Com_Error( ERR_DROP, "RE_AddRefEntityToScene: bad reType %i", ent->reType );
 	}
 
@@ -310,7 +310,7 @@ void RE_AddMiniRefEntityToScene( const miniRefEntity_t *ent )
 	RE_AddRefEntityToScene(&tempEnt);
 #else
 
-	if ( ent->reType < 0 || ent->reType >= RT_MAX_REF_ENTITY_TYPE )
+	if ( ent->reType < 0 || ent->reType >= RT_MAX_MP_REF_ENTITY_TYPE )
 	{
 		Com_Error( ERR_DROP, "RE_AddMiniRefEntityToScene: bad reType %i", ent->reType );
 	}
