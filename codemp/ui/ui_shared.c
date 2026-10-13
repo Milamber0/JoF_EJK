@@ -8459,6 +8459,8 @@ static const char *UI_LanguageDisplayName(const char *language)
 	// Keep the language choices readable with fonts that lack accented glyphs.
 	if (!Q_stricmp(language, "english"))
 		return "English";
+	if (!Q_stricmp(language, "russian"))
+		return "Russian";
 	if (!Q_stricmp(language, "french"))
 		return "Francais";
 	if (!Q_stricmp(language, "german"))
@@ -8466,6 +8468,44 @@ static const char *UI_LanguageDisplayName(const char *language)
 	if (!Q_stricmp(language, "spanish"))
 		return "Espanol";
 	return language;
+}
+
+// Fixed order for the Text language selector. The engine reports languages in
+// whatever order it finds their strings folders, which depends on pk3 load
+// order, so known languages are put in this order and any others follow in
+// the order they were found.
+static int UI_LanguageSortRank(const char *language)
+{
+	static const char *languageOrder[] = { "english", "russian", "french", "german", "spanish" };
+	int i;
+
+	for (i = 0; i < (int)ARRAY_LEN(languageOrder); i++)
+	{
+		if (!Q_stricmp(language, languageOrder[i]))
+			return i;
+	}
+	return (int)ARRAY_LEN(languageOrder);
+}
+
+static void UI_SortLanguageOptions(multiDef_t *multiPtr)
+{
+	int i, j;
+
+	// Stable insertion sort so unknown languages keep their discovery order.
+	for (i = 1; i < multiPtr->count; i++)
+	{
+		const char *label = multiPtr->cvarList[i];
+		const char *value = multiPtr->cvarStr[i];
+		const int rank = UI_LanguageSortRank(value);
+
+		for (j = i - 1; j >= 0 && UI_LanguageSortRank(multiPtr->cvarStr[j]) > rank; j--)
+		{
+			multiPtr->cvarList[j + 1] = multiPtr->cvarList[j];
+			multiPtr->cvarStr[j + 1] = multiPtr->cvarStr[j];
+		}
+		multiPtr->cvarList[j + 1] = label;
+		multiPtr->cvarStr[j + 1] = value;
+	}
 }
 #endif
 
@@ -8505,6 +8545,7 @@ qboolean ItemParse_cvarStrList( itemDef_t *item, int handle ) {
 		{
 #ifdef UI_BUILD
 			int languageIndex;
+			int existingIndex;
 			char language[128];
 
 			// English is the default language and must always be selectable.
@@ -8514,13 +8555,24 @@ qboolean ItemParse_cvarStrList( itemDef_t *item, int handle ) {
 			for (languageIndex = 0; languageIndex < uiInfo.languageCount && multiPtr->count < MAX_MULTI_CVARS; languageIndex++)
 			{
 				trap->SE_GetLanguageName(languageIndex, language);
-				if (!language[0] || !Q_stricmp(language, "english"))
+				if (!language[0])
+					continue;
+
+				// Selection matches cvars without regard to case. Duplicate values
+				// would send cycling back to the first match before it wraps to English.
+				for (existingIndex = 0; existingIndex < multiPtr->count; existingIndex++)
+				{
+					if (!Q_stricmp(language, multiPtr->cvarStr[existingIndex]))
+						break;
+				}
+				if (existingIndex < multiPtr->count)
 					continue;
 
 				multiPtr->cvarList[multiPtr->count] = String_Alloc(UI_LanguageDisplayName(language));
 				multiPtr->cvarStr[multiPtr->count] = String_Alloc(language);
 				multiPtr->count++;
 			}
+			UI_SortLanguageOptions(multiPtr);
 #endif
 			return qtrue;
 		}

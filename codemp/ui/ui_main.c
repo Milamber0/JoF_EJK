@@ -12553,6 +12553,8 @@ qboolean UI_FeederSelection(float feederFloat, int index, itemDef_t *item)
 	}
 	else if (feederID == FEEDER_LANGUAGES)
 	{
+		// Position in the sorted Text selector, not an engine language index,
+		// so don't pass it to SE_GetLanguageName.
 		uiInfo.languageCountIndex = index;
 	}
 	else if (feederID == FEEDER_SCREEN_RESOLUTIONS)
