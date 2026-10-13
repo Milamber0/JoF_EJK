@@ -89,7 +89,7 @@ static void FX_ForceLightningReference(centity_t *cent, vec3_t origin, matrix3_t
 		if (cent->lightningReferenceSoundTime[i] < cg.time) {
 			cent->lightningReferenceSoundTime[i] = cg.time + Q_irand(500, 750);
 			trap->S_StartSound(end, cent->currentState.number, CHAN_AUTO,
-				cgs.media.forceLightningEnvironmentSounds[Q_irand(0, ARRAY_LEN(cgs.media.forceLightningEnvironmentSounds) - 1)]);
+				cgs.media.forceLightningEnvironmentArcSounds[Q_irand(0, ARRAY_LEN(cgs.media.forceLightningEnvironmentArcSounds) - 1)]);
 		}
 	}
 }
@@ -160,14 +160,14 @@ static void FX_LightningImpactSound(centity_t *cent, const trace_t *hit) {
 	if (lightningSounds >= LIGHTNING_SOUND_BUDGET)
 		return;
 
-	sound = (cg.time / LIGHTNING_INTERVAL + cent->currentState.number) % ARRAY_LEN(cgs.media.forceLightningEnvironmentSounds);
+	sound = (cg.time / LIGHTNING_INTERVAL + cent->currentState.number) % ARRAY_LEN(cgs.media.forceLightningEnvironmentArcSounds);
 	cent->lightningImpactSoundTime = cg.time + LIGHTNING_SOUND_INTERVAL + (sound % 3) * 30;
-	if (!cgs.media.forceLightningEnvironmentSounds[sound])
+	if (!cgs.media.forceLightningEnvironmentArcSounds[sound])
 		return;
 
 	lightningSounds++;
 	VectorMA(hit->endpos, 2.0f, hit->plane.normal, contact);
-	trap->S_StartSound(contact, ENTITYNUM_WORLD, CHAN_AUTO, cgs.media.forceLightningEnvironmentSounds[sound]);
+	trap->S_StartSound(contact, ENTITYNUM_WORLD, CHAN_AUTO, cgs.media.forceLightningEnvironmentArcSounds[sound]);
 }
 
 // CG_DoSaberShockEffects in the supplied MBII cgamei386.so, 0x872a0.
