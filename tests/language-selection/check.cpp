@@ -79,6 +79,22 @@ static void checkCycle(itemDef_t *item, const char *start, int key) {
     require(!Q_stricmp(selected.c_str(), start), "full language cycle returns to starting choice");
 }
 
+static void checkSequence(itemDef_t *item, int key, const char *const *expected, int count) {
+    // Two full laps from the first entry, so the wrap-around is checked both times.
+    selected = expected[0];
+    item->window.rect = {0, 0, 100, 20};
+    item->window.flags = WINDOW_HASFOCUS;
+    context.cursorx = 10;
+    context.cursory = 10;
+    for (int step = 1; step <= count * 2; ++step) {
+        const int forward = step % count;
+        const int backward = ((count - step) % count + count) % count;
+        require(Item_Multi_HandleKey(item, key) == qtrue, "language click handled");
+        const bool next = key == A_MOUSE1 || key == A_ENTER || key == A_MWHEELUP;
+        require(!Q_stricmp(selected.c_str(), expected[next ? forward : backward]), "language click order");
+    }
+}
+
 static void checkOptions(itemDef_t *item, const char *const *values, const char *const *labels, int count) {
     require(item->typeData.multi->count == count, "option count");
     for (int i = 0; i < count; ++i) {
@@ -120,6 +136,17 @@ int main(int argc, char **argv) {
     const char *duplicateValues[] = {"english", "Russian", "french", "german", "spanish"};
     const char *duplicateLabels[] = {"English", "Russian", "Francais", "Deutsch", "Espanol"};
     checkOptions(&textItem, duplicateValues, duplicateLabels, 5);
+    // Discovery order depends on pk3 load order; the selector must still read
+    // English -> Russian -> Francais -> Deutsch -> Espanol -> English.
+    languages = {"spanish", "French", "Russian", "german", "english", "french", "Spanish", "RUSSIAN"};
+    uiInfo.languageCount = (int)languages.size(); parseFeeder(&textItem, "feeder.fixture");
+    const char *orderedValues[] = {"english", "Russian", "French", "german", "spanish"};
+    const char *orderedLabels[] = {"English", "Russian", "Francais", "Deutsch", "Espanol"};
+    checkOptions(&textItem, orderedValues, orderedLabels, 5);
+    checkSequence(&textItem, A_MOUSE1, orderedValues, 5);
+    checkSequence(&textItem, A_MOUSE2, orderedValues, 5);
+    checkSequence(&textItem, A_MWHEELUP, orderedValues, 5);
+    checkSequence(&textItem, A_MWHEELDOWN, orderedValues, 5);
     languages = {"French", "ENGLISH", "German", "Spanish", "Custom"};
     uiInfo.languageCount = (int)languages.size(); parseFeeder(&textItem, "feeder.fixture");
     checkOptions(&textItem, textValues, textLabels, 5);
