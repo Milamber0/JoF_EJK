@@ -3178,7 +3178,13 @@ void PM_WeaponLightsaber(void)
 		if ( pm->ps->weaponTime <= 0 )
 		{
 			pm->ps->weaponTime = 0;
-			pm->ps->weaponstate = WEAPON_READY;
+			// Don't clobber an in-progress weapon switch: PM_BeginWeaponChange sets
+			// WEAPON_DROPPING and relies on it surviving until PM_FinishWeaponChange
+			// runs below. Resetting it here restarted the switch every 200ms forever.
+			if ( pm->ps->weaponstate != WEAPON_DROPPING )
+			{
+				pm->ps->weaponstate = WEAPON_READY;
+			}
 		}
 
 		checkOnlyWeap = qtrue;
