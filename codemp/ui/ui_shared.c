@@ -8459,6 +8459,8 @@ static const char *UI_LanguageDisplayName(const char *language)
 	// Keep the language choices readable with fonts that lack accented glyphs.
 	if (!Q_stricmp(language, "english"))
 		return "English";
+	if (!Q_stricmp(language, "russian"))
+		return "Russian";
 	if (!Q_stricmp(language, "french"))
 		return "Francais";
 	if (!Q_stricmp(language, "german"))

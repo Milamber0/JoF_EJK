@@ -130,10 +130,11 @@ int main(int argc, char **argv) {
     multiDef_t textMulti = {}; itemDef_t textItem = {};
     textItem.cvar = "se_language"; textItem.special = FEEDER_LANGUAGES; textItem.typeData.multi = &textMulti;
     // Match the case-variant language directories observed in the live in-game UI.
-    languages = {"Russian", "french", "german", "spanish", "French", "German", "Spanish"};
+    // A lowercase folder name must still be labelled "Russian".
+    languages = {"russian", "french", "german", "spanish", "Russian", "French", "German", "Spanish"};
     uiInfo.languageCount = (int)languages.size(); parseFeeder(&textItem, "feeder.fixture");
     checkCycle(&textItem, "german", A_MOUSE1);
-    const char *duplicateValues[] = {"english", "Russian", "french", "german", "spanish"};
+    const char *duplicateValues[] = {"english", "russian", "french", "german", "spanish"};
     const char *duplicateLabels[] = {"English", "Russian", "Francais", "Deutsch", "Espanol"};
     checkOptions(&textItem, duplicateValues, duplicateLabels, 5);
     // Discovery order depends on pk3 load order; the selector must still read

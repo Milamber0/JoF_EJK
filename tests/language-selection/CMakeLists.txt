@@ -32,6 +32,8 @@ if(MSVC)
   target_compile_options(language_selection PRIVATE /Gy /Gw)
   target_link_options(language_selection PRIVATE /OPT:REF)
 else()
+  # The engine headers expect the build system to name the architecture.
+  target_compile_definitions(language_selection PRIVATE ARCH_STRING="test")
   target_compile_options(language_selection PRIVATE -ffunction-sections -fdata-sections)
   if(APPLE)
     target_link_options(language_selection PRIVATE -Wl,-dead_strip)
