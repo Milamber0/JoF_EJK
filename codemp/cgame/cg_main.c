@@ -1490,7 +1490,6 @@ static void CG_RegisterGraphics( void )
 	cgs.effects.forceLightningReference = CG_RegisterOptionalLightningEffect("effects/mp/lightning_reference/lightning.efx");
 	cgs.effects.forceLightningReferenceWide = CG_RegisterOptionalLightningEffect("effects/mp/lightning_reference/lightningwide.efx");
 	cgs.effects.forceLightningReferenceArc = CG_RegisterOptionalLightningEffect("effects/mp/lightning_reference/lightning_arc.efx");
-	cgs.media.forceLightningArcShader = trap->R_RegisterShader("gfx/misc/blueLine");
 	cgs.media.forceLightningFlashShader = trap->R_RegisterShader("gfx/misc/lightningFlash");
 	cgs.effects.forceDrain		= trap->FX_RegisterEffect( "effects/mp/drain.efx" );
 	cgs.effects.forceDrainWide	= trap->FX_RegisterEffect( "effects/mp/drainwide.efx" );

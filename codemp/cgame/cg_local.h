@@ -1973,7 +1973,6 @@ typedef struct cgMedia_s {
 	sfxHandle_t	noAmmoSound;
 
 	qhandle_t	lightningShader; // japro loda
-	qhandle_t	forceLightningArcShader;
 	qhandle_t	forceLightningFlashShader;
 		sfxHandle_t	forceLightningImpactSounds[3];
 		sfxHandle_t	forceLightningEnvironmentSounds[6];
