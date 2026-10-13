@@ -254,7 +254,7 @@ XCVAR_DEF( cg_strafeTrailGhost,					"1",	NULL,					CVAR_ARCHIVE )
 
 XCVAR_DEF( cg_drainFX,							"1",	NULL,					CVAR_ARCHIVE )
 
-XCVAR_DEF( cg_lightningEnvironment,				"2",	NULL,					CVAR_ARCHIVE ) // 0: vanilla, 1: environmental nests, 2: reference lightning arcs
+XCVAR_DEF( cg_lightningEnvironment,				"2",	NULL,					CVAR_ARCHIVE ) // 0: off (vanilla), 1: contained (spark at beam contact), 2: erratic (reference lightning arcs)
 XCVAR_DEF( cg_lightningEnvironmentAngle,		"220", NULL,					CVAR_ARCHIVE ) // Mode 2 total forward arc in degrees, clamped 0-360; 360 restores unrestricted directions
 
 //Make maxpackets userinfo maybe idk

@@ -8454,19 +8454,8 @@ qboolean ItemParse_cvarFloat( itemDef_t *item, int handle ) {
 }
 
 #ifdef UI_BUILD
-static const char *UI_LanguageDisplayName(const char *language)
-{
-	// Keep the language choices readable with fonts that lack accented glyphs.
-	if (!Q_stricmp(language, "english"))
-		return "English";
-	if (!Q_stricmp(language, "french"))
-		return "Francais";
-	if (!Q_stricmp(language, "german"))
-		return "Deutsch";
-	if (!Q_stricmp(language, "spanish"))
-		return "Espanol";
-	return language;
-}
+char currLanguage[32][128];
+static const char languageString[32] = "@MENUS_MYLANGUAGE";
 #endif
 
 qboolean ItemParse_cvarStrList( itemDef_t *item, int handle ) {
@@ -8504,22 +8493,14 @@ qboolean ItemParse_cvarStrList( itemDef_t *item, int handle ) {
 		if (item->special == FEEDER_LANGUAGES)
 		{
 #ifdef UI_BUILD
-			int languageIndex;
-			char language[128];
-
-			// English is the default language and must always be selectable.
-			multiPtr->cvarList[0] = "English";
-			multiPtr->cvarStr[0] = "english";
-			multiPtr->count = 1;
-			for (languageIndex = 0; languageIndex < uiInfo.languageCount && multiPtr->count < MAX_MULTI_CVARS; languageIndex++)
+			for (; multiPtr->count < uiInfo.languageCount; multiPtr->count++)
 			{
-				trap->SE_GetLanguageName(languageIndex, language);
-				if (!language[0] || !Q_stricmp(language, "english"))
-					continue;
-
-				multiPtr->cvarList[multiPtr->count] = String_Alloc(UI_LanguageDisplayName(language));
-				multiPtr->cvarStr[multiPtr->count] = String_Alloc(language);
-				multiPtr->count++;
+				// The displayed text
+				trap->SE_GetLanguageName( (const int) multiPtr->count,(char *) currLanguage[multiPtr->count]  );	// eg "English"
+				multiPtr->cvarList[multiPtr->count] = languageString;
+				// The cvar value that goes into se_language
+				trap->SE_GetLanguageName( (const int) multiPtr->count,(char *) currLanguage[multiPtr->count] );
+				multiPtr->cvarStr[multiPtr->count] = currLanguage[multiPtr->count];
 			}
 #endif
 			return qtrue;

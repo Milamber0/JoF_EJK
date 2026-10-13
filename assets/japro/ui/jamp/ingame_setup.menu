@@ -3936,10 +3936,10 @@
 			cvar				"s_language"
 			cvarStrList
 			{
-				"English"			english
-				"Francais"			francais
-				"Deutsch"			deutsch
-				"Espanol"			espanol
+				English  			english
+				@MENUS_LANG_FRENCH  francais
+				Deutsch				deutsch
+				"Espa�ol" 			espanol
 			}
 			rect				220 283 300 20
 				textalign			ITEM_ALIGN_RIGHT
