@@ -1840,6 +1840,20 @@ float S_GetSampleLengthInMilliSeconds( sfxHandle_t sfxHandle)
 	return (f * 1000);
 }
 
+// cgame's view of the same length: 0 whenever it isn't really known - no sound system, or the
+// placeholder a missing file registers as - so the caller falls back on its own guess instead of
+// taking the 512 second stand-in above.
+int S_GetSampleLengthMs( sfxHandle_t sfxHandle )
+{
+	if ( !s_soundStarted || sfxHandle <= 0 || sfxHandle >= s_numSfx )
+		return 0;
+
+	if ( s_knownSfx[ sfxHandle ].bDefaultSound )
+		return 0;
+
+	return (int)S_GetSampleLengthInMilliSeconds( sfxHandle );
+}
+
 
 /*
 ==================
