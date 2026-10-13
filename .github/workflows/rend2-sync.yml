@@ -24,13 +24,16 @@ jobs:
     name: Port new rend2 commits from SomaZ/OpenJK
     runs-on: ubuntu-latest
     env:
+      # rend2 work lands on beta first; the sync script and its state file
+      # only exist there, so the job must check out and target beta.
+      BASE_BRANCH: beta
       SYNC_BRANCH: automation/rend2-sync
       GH_TOKEN: ${{ secrets.GH_PAT }}
     steps:
-      - name: Checkout master
+      - name: Checkout ${{ env.BASE_BRANCH }}
         uses: actions/checkout@v4
         with:
-          ref: master
+          ref: ${{ env.BASE_BRANCH }}
           fetch-depth: 0
           token: ${{ secrets.GH_PAT }}
 
@@ -55,7 +58,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -B "$SYNC_BRANCH"
           SUMMARY_FILE=/tmp/rend2-sync-summary.md bash scripts/rend2-sync/rend2-sync.sh
-          echo "changes=$(git rev-list --count origin/master..HEAD)" >> $GITHUB_OUTPUT
+          echo "changes=$(git rev-list --count "origin/$BASE_BRANCH..HEAD")" >> $GITHUB_OUTPUT
 
       - name: Fail visibly if blocked on a conflict with nothing applied
         if: steps.guard.outputs.proceed == 'true' && steps.sync.outputs.changes == '0' && steps.sync.outputs.conflict != ''
@@ -74,7 +77,7 @@ jobs:
             title="$title (stopped at conflict)"
           fi
           gh pr create \
-            --base master \
+            --base "$BASE_BRANCH" \
             --head "$SYNC_BRANCH" \
             --title "$title" \
             --body-file /tmp/rend2-sync-summary.md
