@@ -4291,10 +4291,10 @@
 			cvar				"s_language"
 			cvarStrList
 			{
-				English  			english
-				@MENUS_LANG_FRENCH  francais
-				Deutsch				deutsch
-				"Espa�ol" 			espanol
+				"English"			english
+				"Francais"			francais
+				"Deutsch"			deutsch
+				"Espanol"			espanol
 			}
 			rect				220 103 300 20
 				textalign			ITEM_ALIGN_RIGHT
