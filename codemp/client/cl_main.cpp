@@ -3264,22 +3264,63 @@ static IHeapAllocator *GetG2VertSpaceServer( void ) {
 	return G2VertSpaceServer;
 }
 
+/*
+============
+CL_UpdateVulkanAvailability
+
+Records whether a Vulkan loader can be reached, for the renderer menu and for
+CL_InitRef's preflight.
+
+This runs from CL_Init, long before any window exists, so it must not use
+SDL_Vulkan_LoadLibrary: that needs an initialised video subsystem and this early
+always fails with "Video subsystem has not been initialized", which would report
+Vulkan as missing on every machine.  SDL_LoadObject carries no such requirement,
+so probe the same library names SDL's own Vulkan loader would try.
+============
+*/
 static void CL_UpdateVulkanAvailability(void)
 {
 	ui_vulkan_supported = Cvar_Get("ui_vulkan_supported", "0", CVAR_ROM);
 
 #ifdef SDL_VIDEO_VULKAN
-	const int result = SDL_Vulkan_LoadLibrary(NULL);
-	if (result == 0)
+	const char *candidates[] = {
+#if defined(MACOS_X)
+		// Our bundled MoltenVK first (NULL when there is no bundled copy),
+		// then whatever the system happens to provide.
+		WIN_VK_LibraryPath(),
+		"libvulkan.1.dylib",
+		"vulkan.framework/vulkan",
+		"MoltenVK.framework/MoltenVK",
+		"libMoltenVK.dylib",
+#elif defined(WIN32)
+		"vulkan-1.dll",
+#else
+		"libvulkan.so.1",
+		"libvulkan.so",
+#endif
+	};
+	size_t i;
+
+	Cvar_Set("ui_vulkan_supported", "0");
+
+	for ( i = 0; i < sizeof(candidates) / sizeof(candidates[0]); i++ )
 	{
-		Cvar_Set("ui_vulkan_supported", "1");
-		SDL_Vulkan_UnloadLibrary();
+		void *lib;
+
+		if ( !candidates[i] )
+			continue;
+
+		lib = SDL_LoadObject( candidates[i] );
+		if ( lib )
+		{
+			SDL_UnloadObject( lib );
+			Cvar_Set("ui_vulkan_supported", "1");
+			return;
+		}
 	}
-	else
-	{
-		Com_Printf("SDL_Vulkan_LoadLibrary failed: %s\n", SDL_GetError());
-		Cvar_Set("ui_vulkan_supported", "0");
-	}
+
+	SDL_ClearError();
+	Com_Printf( "No Vulkan loader found; the Vulkan renderer will be unavailable\n" );
 #else
 	Cvar_Set("ui_vulkan_supported", "0");
 #endif
@@ -3297,6 +3338,19 @@ void CL_InitRef( void ) {
 	Com_Printf( "---------- Initializing Renderer ---------\n" );
 
 	cl_renderer = Cvar_Get( "cl_renderer", DEFAULT_RENDER_LIBRARY, CVAR_ARCHIVE|CVAR_LATCH, "Which renderer library to use" );
+
+	// rd-vulkan is a prebuilt module that calls Com_Error( ERR_FATAL ) if it
+	// cannot reach a Vulkan loader (an ICD on Linux, MoltenVK on macOS).  That
+	// happens during renderer init, long after the module has loaded, so the
+	// load-failure fallback below cannot catch it.  Refuse it up front instead,
+	// using the availability probe CL_UpdateVulkanAvailability() ran earlier.
+	if ( !Q_stricmp( cl_renderer->string, "rd-vulkan" )
+		&& ui_vulkan_supported && !ui_vulkan_supported->integer )
+	{
+		Com_Printf( S_COLOR_YELLOW "Vulkan is not available on this system, falling back to "
+			DEFAULT_RENDER_LIBRARY "\n" );
+		Cvar_ForceReset( "cl_renderer" );
+	}
 
 	Com_sprintf( dllName, sizeof( dllName ), "%s_" ARCH_STRING DLL_EXT, cl_renderer->string );
 
