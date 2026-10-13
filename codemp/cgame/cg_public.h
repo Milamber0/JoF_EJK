@@ -731,16 +731,20 @@ typedef struct cgameImport_s {
 	void			(*GetRadialMenuState)					( qboolean *active, float *x, float *y );
 	struct {
 		float		(*R_Font_StrLenPixels)					( const char *text, const int iFontIndex, const float scale );
-		// Only valid when the "cl_video" cvar is non-zero: older engines end the table before these.
-		qboolean	(*Video_Play)							( const char *name );
-		void		(*Video_Stop)							( void );
-		videoStatus_t	(*Video_Status)						( void );
-		void		(*Video_GetSize)						( int *width, int *height );
-		void		(*Video_Draw)							( float x, float y, float w, float h );
-		// Only valid when the "cl_soundLength" cvar is non-zero: older engines end the table before this.
-		int			(*S_GetSampleLengthMs)					( sfxHandle_t sfx );
 	} ext;
 	int				(*GetRadialMenuPage)					( void );
+
+	// New imports go at the very end, never inside ext or in front of an existing member:
+	// a cgame and an engine built from different commits only agree on the slots before the
+	// first change, so anything that moves shifts every slot after it.
+	// Only valid when the "cl_soundLength" cvar is non-zero: older engines end the table before this.
+	int				(*S_GetSampleLengthMs)					( sfxHandle_t sfx );
+	// Only valid when the "cl_video" cvar is non-zero: older engines end the table before these.
+	qboolean		(*Video_Play)							( const char *name );
+	void			(*Video_Stop)							( void );
+	videoStatus_t	(*Video_Status)							( void );
+	void			(*Video_GetSize)						( int *width, int *height );
+	void			(*Video_Draw)							( float x, float y, float w, float h );
 
 } cgameImport_t;
 

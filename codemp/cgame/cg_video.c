@@ -30,13 +30,13 @@ typedef struct {
 
 static cgVideo_t s_video;
 
-// Engines older than the video extension end the import table before trap->ext.Video_*,
+// Engines older than the video extension end the import table before trap->Video_*,
 // so the cvar they never registered is the only safe way to tell.
 static qboolean CG_VideoSupported( void ) {
 	char value[8];
 
 	trap->Cvar_VariableStringBuffer( "cl_video", value, sizeof( value ) );
-	return ( atoi( value ) > 0 && trap->ext.Video_Play ) ? qtrue : qfalse;
+	return ( atoi( value ) > 0 && trap->Video_Play ) ? qtrue : qfalse;
 }
 
 static void CG_VideoReply( unsigned int serial, const char *reason ) {
@@ -50,7 +50,7 @@ static void CG_VideoFinish( const char *reason ) {
 		return;
 	}
 	memset( &s_video, 0, sizeof( s_video ) );
-	trap->ext.Video_Stop();
+	trap->Video_Stop();
 
 	// Set directly rather than through CG_EventHandling: this may be running inside it.
 	if ( cgs.eventHandling == CGAME_EVENT_VIDEO ) {
@@ -78,7 +78,7 @@ static void CG_VideoStart( const char *path, qboolean fromServer, unsigned int s
 		}
 		return;
 	}
-	if ( !trap->ext.Video_Play( path ) ) {
+	if ( !trap->Video_Play( path ) ) {
 		if ( fromServer ) {
 			CG_VideoReply( serial, "error" );
 		}
@@ -177,7 +177,7 @@ void CG_VideoDraw( void ) {
 		return;
 	}
 
-	status = trap->ext.Video_Status();
+	status = trap->Video_Status();
 	if ( status == VIDEOSTATUS_FINISHED ) {
 		CG_VideoFinish( "end" );
 		return;
@@ -190,7 +190,7 @@ void CG_VideoDraw( void ) {
 	CG_FillRect( 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, black );
 
 	// Letterbox to the real window shape; the 640x480 virtual screen stretches with it.
-	trap->ext.Video_GetSize( &videoWidth, &videoHeight );
+	trap->Video_GetSize( &videoWidth, &videoHeight );
 	if ( videoWidth > 0 && videoHeight > 0 && cgs.glconfig.vidWidth > 0 && cgs.glconfig.vidHeight > 0 ) {
 		screenAspect = (float)cgs.glconfig.vidWidth / cgs.glconfig.vidHeight;
 		videoAspect = (float)videoWidth / videoHeight;
@@ -201,7 +201,7 @@ void CG_VideoDraw( void ) {
 			w = SCREEN_WIDTH * videoAspect / screenAspect;
 			h = SCREEN_HEIGHT;
 		}
-		trap->ext.Video_Draw( ( SCREEN_WIDTH - w ) * 0.5f, ( SCREEN_HEIGHT - h ) * 0.5f, w, h );
+		trap->Video_Draw( ( SCREEN_WIDTH - w ) * 0.5f, ( SCREEN_HEIGHT - h ) * 0.5f, w, h );
 	}
 
 	if ( s_video.skippable ) {
