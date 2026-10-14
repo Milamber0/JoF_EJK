@@ -75,7 +75,10 @@ for c in $COMMITS; do
     # path rewriting is needed.
     patch=$(git show --binary "$c" -- $PORT_PATHS)
 
-    if ! printf '%s\n' "$patch" | grep -q '^diff --git'; then
+    # Feed grep from a here-string, not a pipe: with pipefail, grep -q exiting
+    # on the first match SIGPIPEs printf on large patches (>64 KB) and the
+    # commit would be misreported as SP-only and silently skipped.
+    if ! grep -q '^diff --git' <<<"$patch"; then
         echo "SKIP (SP-only)  $subject"
         sp_only+=("$subject")
         new_state="$c"
