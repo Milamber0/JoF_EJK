@@ -1991,8 +1991,10 @@
 			forecolor			.615 .615 .956 1
 			cvar				"r_toneMap"
 			cvarFloatList		{ @MENUS_OFF 0 @MENUS_ON 1 }
+			cvarTest			"r_hdr"
+			hideCvar			{ 0 }
 			visible				0
-			descText			"Map HDR lighting into the displayable color range."
+			descText			"Map HDR lighting into the displayable color range. Requires HDR Rendering."
 			mouseenter			{ show highlight2 }
 			mouseexit			{ hide highlight2 }
 			action				{ play "sound/interface/button1" ; setcvar ui_r_modified 1 ; setcvar ui_vidrestart 1 }
@@ -2012,8 +2014,10 @@
 			forecolor			.615 .615 .956 1
 			cvar				"r_autoExposure"
 			cvarFloatList		{ @MENUS_OFF 0 @MENUS_ON 1 }
+			cvarTest			"r_hdr"
+			hideCvar			{ 0 }
 			visible				0
-			descText			"Automatically adapt exposure to scene brightness."
+			descText			"Automatically adapt exposure to scene brightness. Requires HDR Rendering and Tonemapping."
 			mouseenter			{ show highlight3 }
 			mouseexit			{ hide highlight3 }
 			action				{ play "sound/interface/button1" }
@@ -2057,7 +2061,7 @@
 			cvar				"r_deluxeMapping"
 			cvarFloatList		{ @MENUS_OFF 0 @MENUS_ON 1 }
 			visible				0
-			descText			"Enable normal and specular mapping on static geometry."
+			descText			"Use the light direction stored in deluxemaps for per-pixel lighting on map surfaces."
 			mouseenter			{ show highlight5 }
 			mouseexit			{ hide highlight5 }
 			action				{ play "sound/interface/button1" ; setcvar ui_r_modified 1 ; setcvar ui_vidrestart 1 }
@@ -2147,7 +2151,7 @@
 			descText			"Enable parallax occlusion mapping for Rend2 materials."
 			mouseenter			{ show highlight9 }
 			mouseexit			{ hide highlight9 }
-			action				{ play "sound/interface/button1" ; setcvar ui_r_modified 1 ; setcvar ui_vidrestart 1 }
+			action				{ play "sound/interface/button1" }
 		}
 
 		itemDef
@@ -2173,9 +2177,74 @@
 
 		itemDef
 		{
+			name				rend2_ssao
+			group				rend2video
+			type				ITEM_TYPE_MULTI
+			text				"Ambient Occlusion:"
+			rect				220 243 300 20
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			165
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			cvar				"r_ssao"
+			cvarFloatList		{ @MENUS_OFF 0 @MENUS_ON 1 }
+			visible				0
+			descText			"Screen-space ambient occlusion: darkens corners and creases. Costs performance."
+			mouseenter			{ show highlight11 }
+			mouseexit			{ hide highlight11 }
+			action				{ play "sound/interface/button1" ; setcvar ui_r_modified 1 ; setcvar ui_vidrestart 1 }
+		}
+
+		itemDef
+		{
+			name				rend2_smaa
+			group				rend2video
+			type				ITEM_TYPE_MULTI
+			text				"SMAA:"
+			rect				220 263 300 20
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			165
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			cvar				"r_smaa"
+			cvarFloatList		{ @MENUS_OFF 0 "SMAA 1x" 1 "SMAA T2x" 2 }
+			visible				0
+			descText			"Post-process anti-aliasing. T2x adds temporal filtering for steadier edges in motion."
+			mouseenter			{ show highlight12 }
+			mouseexit			{ hide highlight12 }
+			action				{ play "sound/interface/button1" ; setcvar ui_r_modified 1 ; setcvar ui_vidrestart 1 }
+		}
+
+		itemDef
+		{
+			name				rend2_smaaquality
+			group				rend2video
+			type				ITEM_TYPE_MULTI
+			text				"SMAA Quality:"
+			rect				220 283 300 20
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			165
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			cvar				"r_smaa_quality"
+			cvarFloatList		{ @MENUS_LOW 0 @MENUS_MEDIUM 1 @MENUS_HIGH 2 "Ultra" 3 }
+			cvarTest			"r_smaa"
+			hideCvar			{ 0 }
+			visible				0
+			descText			"Edge detection quality used by SMAA."
+			mouseenter			{ show highlight13 }
+			mouseexit			{ hide highlight13 }
+			action				{ play "sound/interface/button1" ; setcvar ui_r_modified 1 ; setcvar ui_vidrestart 1 }
+		}
+
+		itemDef
+		{
 			name				rend2backbutton_glow
 			style				WINDOW_STYLE_SHADER
-			rect				260 285 200 16
+			rect				260 305 200 16
 			background			"gfx/menus/menu_blendbox"
 			forecolor			1 0.5 0.5 1
 			visible				0
@@ -2188,7 +2257,7 @@
 			group				rend2video
 			type				ITEM_TYPE_BUTTON
 			text				"Back to Advanced Video"
-			rect				260 283 200 20
+			rect				260 303 200 20
 			textalign			ITEM_ALIGN_CENTER
 			textalignx			100
 			font				4
