@@ -13,6 +13,13 @@
 # SP-specific code inside shared/rd-rend2 is guarded by REND2_SP and is
 # carried along unchanged.
 #
+# Only upstream's first-parent history (SomaZ's own commits and his merge
+# commits) is walked. When he merges JACoders/OpenJK master in, the merged-in
+# commits still use the old codemp/rd-rend2/tr_*.cpp layout and can never
+# apply here; instead each merge is ported as one patch: its net change
+# against the first parent, which upstream already resolved into the new
+# layout.
+#
 # State: scripts/rend2-sync/last-synced-commit holds the last upstream commit
 # that was processed. Commits are applied oldest-first; the script stops at
 # the first conflict so later commits are never applied out of order. Fix the
@@ -32,8 +39,21 @@ STATE_FILE="scripts/rend2-sync/last-synced-commit"
 PORT_PATHS="shared/rd-rend2 codemp/rd-rend2 shared/KHR"
 SUMMARY_FILE="${SUMMARY_FILE:-}"
 # Files a ported commit touches outside PORT_PATHS are not ported; SP-only
-# code/ paths are dropped on purpose and not reported.
-OUTSIDE_RE="^($(printf '%s' "$PORT_PATHS" | tr ' ' '|')|code)/"
+# code/ and codeJK2/ paths are dropped on purpose and not reported.
+OUTSIDE_RE="^($(printf '%s' "$PORT_PATHS" | tr ' ' '|')|code|codeJK2)/"
+
+# First-parent upstream commits after $1 whose net change (against their first
+# parent) touches PORT_PATHS, oldest first. A merge commit's net change is the
+# merged-in work as upstream resolved it, so merges are handled like any
+# other commit.
+list_commits() {
+    local c
+    for c in $(git rev-list --reverse --first-parent "$1..$UPSTREAM_HEAD"); do
+        if ! git diff --quiet "$c^1" "$c" -- $PORT_PATHS; then
+            echo "$c"
+        fi
+    done
+}
 
 cd "$(git rev-parse --show-toplevel)"
 
@@ -58,7 +78,7 @@ if ! git merge-base --is-ancestor "$LAST" "$UPSTREAM_HEAD"; then
     exit 1
 fi
 
-COMMITS=$(git rev-list --reverse "$LAST..$UPSTREAM_HEAD" -- $PORT_PATHS)
+COMMITS=$(list_commits "$LAST")
 
 if [ -z "$COMMITS" ]; then
     echo "Up to date with upstream ($UPSTREAM_HEAD); nothing to do."
@@ -83,11 +103,12 @@ for c in $COMMITS; do
     subject=$(git log -1 --format='%h %s' "$c")
     # Engine-side files (e.g. shared/sdl, codemp/rd-common) this commit also
     # changes. They are not ported, so list them for a human to port by hand.
-    others=$(git show --format= --name-only "$c" | grep -v -E "$OUTSIDE_RE" | tr '\n' ' ' || true)
+    others=$(git diff --name-only "$c^1" "$c" | grep -v -E "$OUTSIDE_RE" | tr '\n' ' ' || true)
 
-    # Patch limited to the paths we port; layout matches upstream, so no
-    # path rewriting is needed.
-    patch=$(git show --binary "$c" -- $PORT_PATHS)
+    # Net change against the first parent, limited to the paths we port. For
+    # an ordinary commit this is its own diff; for a merge it is everything
+    # the merge brought in. Layout matches upstream, so no path rewriting.
+    patch=$(git diff --binary "$c^1" "$c" -- $PORT_PATHS)
 
     # Feed grep from a here-string, not a pipe: with pipefail, grep -q exiting
     # on the first match SIGPIPEs printf on large patches (>64 KB) and the
@@ -110,9 +131,18 @@ for c in $COMMITS; do
             new_state="$c"
             continue
         fi
+        extra_msg=()
+        if git rev-parse --quiet --verify "$c^2" >/dev/null; then
+            # Merge: list the merged-in commits that touched rend2.
+            merged=$(git log --format='- %h %s' "$c^1..$c^2" -- $PORT_PATHS || true)
+            if [ -n "$merged" ]; then
+                extra_msg=(-m "Includes:"$'\n'"$merged")
+            fi
+        fi
         git commit --quiet \
             --author "$(git log -1 --format='%an <%ae>' "$c")" \
             -m "$(git log -1 --format=%B "$c")" \
+            "${extra_msg[@]}" \
             -m "(ported from SomaZ/OpenJK $c)"
         echo "APPLIED         $subject"
         applied+=("$subject")
@@ -144,7 +174,7 @@ fi
 
 remaining=0
 if [ -n "$conflict" ]; then
-    remaining=$(git rev-list --count "$new_state..$UPSTREAM_HEAD" -- $PORT_PATHS)
+    remaining=$(list_commits "$new_state" | wc -l | tr -d " ")
 fi
 
 echo
