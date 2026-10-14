@@ -31,6 +31,9 @@ STATE_FILE="scripts/rend2-sync/last-synced-commit"
 # Paths ported from upstream (shared/KHR holds the khrplatform.h glext.h needs).
 PORT_PATHS="shared/rd-rend2 codemp/rd-rend2 shared/KHR"
 SUMMARY_FILE="${SUMMARY_FILE:-}"
+# Files a ported commit touches outside PORT_PATHS are not ported; SP-only
+# code/ paths are dropped on purpose and not reported.
+OUTSIDE_RE="^($(printf '%s' "$PORT_PATHS" | tr ' ' '|')|code)/"
 
 cd "$(git rev-parse --show-toplevel)"
 
@@ -65,11 +68,22 @@ fi
 applied=()
 sp_only=()
 already_present=()
+outside=()
 conflict=""
 new_state="$LAST"
 
+note_outside() {
+    if [ -n "$2" ]; then
+        echo "  ! also touches (not ported): $2"
+        outside+=("$1 — not ported: \`${2% }\`")
+    fi
+}
+
 for c in $COMMITS; do
     subject=$(git log -1 --format='%h %s' "$c")
+    # Engine-side files (e.g. shared/sdl, codemp/rd-common) this commit also
+    # changes. They are not ported, so list them for a human to port by hand.
+    others=$(git show --format= --name-only "$c" | grep -v -E "$OUTSIDE_RE" | tr '\n' ' ' || true)
 
     # Patch limited to the paths we port; layout matches upstream, so no
     # path rewriting is needed.
@@ -92,6 +106,7 @@ for c in $COMMITS; do
         if git diff --cached --quiet; then
             echo "SKIP (present)  $subject"
             already_present+=("$subject")
+            note_outside "$subject" "$others"
             new_state="$c"
             continue
         fi
@@ -101,6 +116,7 @@ for c in $COMMITS; do
             -m "(ported from SomaZ/OpenJK $c)"
         echo "APPLIED         $subject"
         applied+=("$subject")
+        note_outside "$subject" "$others"
         new_state="$c"
     else
         git reset --hard --quiet HEAD
@@ -110,6 +126,7 @@ for c in $COMMITS; do
         if printf '%s\n' "$patch" | git apply --reverse --check --binary 2>/dev/null; then
             echo "SKIP (present)  $subject"
             already_present+=("$subject")
+            note_outside "$subject" "$others"
             new_state="$c"
             continue
         fi
@@ -135,6 +152,7 @@ echo "=== rend2-sync summary ==="
 echo "applied:  ${#applied[@]}"
 echo "sp-only:  ${#sp_only[@]}"
 echo "present:  ${#already_present[@]}"
+echo "outside:  ${#outside[@]} commit(s) also touch files outside the ported paths"
 if [ -n "$conflict" ]; then
     echo "stopped at conflict: $conflict ($remaining upstream commit(s) still pending)"
     echo "port it by hand, set $STATE_FILE to its full hash, commit, re-run."
@@ -160,6 +178,13 @@ if [ -n "$SUMMARY_FILE" ]; then
             for s in "${already_present[@]}"; do echo "- $s"; done
             echo
         fi
+        if [ ${#outside[@]} -gt 0 ]; then
+            echo "### :warning: Engine-side changes not ported"
+            echo "These commits also change files outside \`$PORT_PATHS\`. Only their"
+            echo "renderer part was ported; port the rest by hand if rend2 depends on it."
+            for s in "${outside[@]}"; do echo "- $s"; done
+            echo
+        fi
         if [ -n "$conflict" ]; then
             echo "### :warning: Stopped at conflict"
             echo "- $conflict"
@@ -174,5 +199,6 @@ if [ -n "${GITHUB_OUTPUT:-}" ]; then
     {
         echo "applied=${#applied[@]}"
         echo "conflict=$conflict"
+        echo "outside=${#outside[@]}"
     } >> "$GITHUB_OUTPUT"
 fi
