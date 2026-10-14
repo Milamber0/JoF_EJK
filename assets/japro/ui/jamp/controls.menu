@@ -5636,6 +5636,38 @@
 			}
 		}
 
+		itemDef
+		{
+			group				japluscontrols
+			type				ITEM_TYPE_BIND
+			text				"Force Destruction:"
+			cvar				"force_destruction"
+			rect				260 304 340 14
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			visible				0
+			descText			"Uses the force destruction ability, if you know it. JoF JA+ servers only."
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+			}
+
+			mouseenter
+			{
+				show			highlight9
+				show			keybindstatus
+			}
+			mouseexit
+			{
+				hide			highlight9
+				hide			keybindstatus
+			}
+		}
+
 //----------------------------------------------------------------------------------------------
 //
 //	JAPRO BINDING
