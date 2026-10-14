@@ -396,7 +396,11 @@ void RE_BeginFrame( stereoFrame_t stereoFrame ) {
 		R_SetColorMappings();
 		R_SetGammaCorrectionLUT();
 
-		if (ri.CGVMLoaded())
+		// Only reload a world that is actually loaded. After switching renderer
+		// in-game (e.g. from rd-rend2, which never clears this flag) cgame is
+		// already loaded but the map is not yet, so tr.world is still NULL; the
+		// map then loads with the current overbright setting anyway.
+		if (ri.CGVMLoaded() && tr.world)
 		{
 			Q_strncpyz(mapname, tr.world->name, sizeof(mapname));
 			tr.worldMapLoaded = qfalse;
