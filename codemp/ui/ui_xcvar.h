@@ -46,6 +46,15 @@ XCVAR_DEF( cp_sbRGB2,						"0",					NULL,				CVAR_ARCHIVE|CVAR_USERINFO )
 XCVAR_DEF( g_botsFile,						"",						NULL,				CVAR_INIT|CVAR_ROM )
 XCVAR_DEF( g_spSkill,						"2",					NULL,				CVAR_ARCHIVE|CVAR_INTERNAL )
 XCVAR_DEF( g_warmup,						"20",					NULL,				CVAR_ARCHIVE )
+// rend2 cvars the setup menus show that default to non-zero. Registered here so the Rend2
+// Advanced Settings page shows the real defaults before rd-rend2 has ever been loaded
+// (an unregistered cvar reads as 0, i.e. "Off"). Keep defaults in sync with codemp/rd-rend2/tr_init.cpp.
+XCVAR_DEF( r_autoExposure,					"1",					NULL,				CVAR_ARCHIVE )
+XCVAR_DEF( r_deluxeMapping,					"1",					NULL,				CVAR_ARCHIVE )
+XCVAR_DEF( r_deluxeSpecular,				"1",					NULL,				CVAR_ARCHIVE )
+XCVAR_DEF( r_hdr,							"1",					NULL,				CVAR_ARCHIVE )
+XCVAR_DEF( r_smaa_quality,					"2",					NULL,				CVAR_ARCHIVE )
+XCVAR_DEF( r_toneMap,						"1",					NULL,				CVAR_ARCHIVE )
 XCVAR_DEF( se_language,						"english",				NULL,				CVAR_ARCHIVE|CVAR_NORESTART )
 XCVAR_DEF( ui_PrecacheModels,				"0",					NULL,				CVAR_ARCHIVE )
 XCVAR_DEF( ui_actualNetGametype,			"3",					NULL,				CVAR_ARCHIVE|CVAR_INTERNAL )
