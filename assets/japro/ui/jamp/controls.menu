@@ -5458,7 +5458,7 @@
 			textscale			1
 			forecolor			.615 .615 .956 1
 			visible				0
-			descText			"Gives Jetpack (if enabled on server) and removes Jetpack"
+			descText			"Gives Jetpack (if enabled on server) and removes Jetpack."
 			action
 			{
 				play			"sound/interface/button1.wav" ;
@@ -5687,7 +5687,7 @@
 			textscale			1
 			forecolor			.615 .615 .956 1
 			visible				0
-			descText			"Gives Jetpack (if enabled on server) and removes Jetpack"
+			descText			"Gives Jetpack (if enabled on server) and removes Jetpack."
 			action 
 			{ 
 				play			"sound/interface/button1.wav" ;
@@ -6007,7 +6007,7 @@
 			textscale			1
 			forecolor			.615 .615 .956 1
 			visible				0 
-			descText			"Jump like a lowbob!"
+			descText			"Jump like a lowbob."
 			action 
 			{ 
 				play			"sound/interface/button1.wav" ;

@@ -114,7 +114,7 @@
 			maxChars				32
 			maxPaintChars			18
 			visible					1
-			descText				"Filter custom character models by name"
+			descText				"Filter custom character models by name."
 		}
 
 // Alphabetized model list
@@ -137,7 +137,8 @@
 			rect					15 78 210 249
 			font					2
 			textscale				.8
-			descText				"Select a model; use the wheel or keyboard to scroll"
+			textaligny				14
+			descText				"Select a model; use the wheel or keyboard to scroll."
 			visible					1
 			doubleClick
 			{
@@ -202,7 +203,7 @@
 			name					doneSpeciesBrowser
 			group					none
 			text					"DONE"
-			descText				"Return to custom character options"
+			descText				"Return to custom character options."
 			type					ITEM_TYPE_BUTTON
 			style					WINDOW_STYLE_EMPTY
 			rect					160 345 110 32

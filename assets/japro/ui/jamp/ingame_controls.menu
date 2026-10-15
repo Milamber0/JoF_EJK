@@ -4336,7 +4336,7 @@
 			textscale			1
 			forecolor			.615 .615 .956 1
 			visible			0 
-			descText			"Toggle raw mouse input"
+			descText			"Toggle raw mouse input."
 			action
 			{
 				play			"sound/interface/button1.wav";
@@ -5223,7 +5223,7 @@
 			textscale			1
 			forecolor			.615 .615 .956 1
 			visible				0
-			descText			"Gives Jetpack (if enabled on server) and removes Jetpack"
+			descText			"Gives Jetpack (if enabled on server) and removes Jetpack."
 			action
 			{
 				play			"sound/interface/button1.wav" ;
@@ -5466,7 +5466,7 @@ cvarTest				ui_isJoFJAPlus
 			forecolor			.615 .615 .956 1
 			visible				0
 			// appearance_slot		1
-			descText			"Gives Jetpack (if enabled on server) and removes Jetpack"
+			descText			"Gives Jetpack (if enabled on server) and removes Jetpack."
 			action
 			{
 				play			"sound/interface/button1.wav" ; 
@@ -5732,7 +5732,7 @@ cvarTest				ui_isJoFJAPlus
 			forecolor			.615 .615 .956 1
 			visible				0 
 			// appearance_slot		4
-			descText			"Jump low like snipe!"
+			descText			"Jump low like snipe."
 			action
 			{
 				play			"sound/interface/button1.wav" ; 
@@ -5798,7 +5798,7 @@ cvarTest				ui_isJoFJAPlus
 			textscale			1
 			forecolor			.615 .615 .956 1
 			visible				0 
-			descText			"WHAT?/? KILL YOURSELF"
+			descText			"WHAT?/? KILL YOURSELF."
 			action
 			{
 				play			"sound/interface/button1.wav" ; 
