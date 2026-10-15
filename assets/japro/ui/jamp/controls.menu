@@ -5546,7 +5546,7 @@
 			type				ITEM_TYPE_BIND
 			text				"Force Dash:"
 			cvar				"force_dash"
-			rect				260 259 340 14
+			rect				260 258 340 14
 			textalign			ITEM_ALIGN_RIGHT
 			textalignx			174
 			textaligny			0
@@ -5578,7 +5578,7 @@
 			type				ITEM_TYPE_BIND
 			text				"Force Stasis:"
 			cvar				"+force_stasis"
-			rect				260 274 340 14
+			rect				260 272 340 14
 			textalign			ITEM_ALIGN_RIGHT
 			textalignx			174
 			textaligny			0
@@ -5610,7 +5610,7 @@
 			type				ITEM_TYPE_BIND
 			text				"Force Repulse:"
 			cvar				"force_repulse"
-			rect				260 289 340 14
+			rect				260 286 340 14
 			textalign			ITEM_ALIGN_RIGHT
 			textalignx			174
 			textaligny			0
@@ -5642,7 +5642,7 @@
 			type				ITEM_TYPE_BIND
 			text				"Force Destruction:"
 			cvar				"force_destruction"
-			rect				260 304 340 14
+			rect				260 300 340 14
 			textalign			ITEM_ALIGN_RIGHT
 			textalignx			174
 			textaligny			0
@@ -5839,7 +5839,7 @@
 			type				ITEM_TYPE_BIND
 			text				"Gun Challenge:"
 			cvar				"engage_gunduel"
-			rect				260 259 340 14
+			rect				260 258 340 14
 			textalign			ITEM_ALIGN_RIGHT
 			textalignx			174 
 			textaligny			0
@@ -5871,7 +5871,7 @@
 			type				ITEM_TYPE_BIND
 			text				"Teleport Mark:"
 			cvar				"amTeleMark"
-			rect				260 274 340 14
+			rect				260 272 340 14
 			textalign			ITEM_ALIGN_RIGHT
 			textalignx			174 
 			textaligny			0
@@ -5903,7 +5903,7 @@
 			type				ITEM_TYPE_BIND
 			text				"Teleport:"
 			cvar				"amTele"
-			rect				260 289 340 14
+			rect				260 286 340 14
 			textalign			ITEM_ALIGN_RIGHT
 			textalignx			174 
 			textaligny			0
@@ -5935,7 +5935,7 @@
 			type				ITEM_TYPE_BIND
 			text				"Noclip:"
 			cvar				"noclip"
-			rect				260 304 340 14
+			rect				260 300 340 14
 			textalign			ITEM_ALIGN_RIGHT
 			textalignx			174 
 			textaligny			0
@@ -5967,7 +5967,7 @@
 			type				ITEM_TYPE_BIND
 			text				"FlipKick:"
 			cvar				"flipkick"
-			rect				260 319 340 14
+			rect				260 314 340 14
 			textalign			ITEM_ALIGN_RIGHT
 			textalignx			174 
 			textaligny			0
@@ -5999,7 +5999,7 @@
 			type				ITEM_TYPE_BIND
 			text				"LowJump:"
 			cvar				"lowjump"
-			rect				260 333 340 14
+			rect				260 328 340 14
 			textalign			ITEM_ALIGN_RIGHT
 			textalignx			174 
 			textaligny			0
@@ -6031,7 +6031,7 @@
 			type				ITEM_TYPE_BIND
 			text				"Suicide:"
 			cvar				"kill"
-			rect				260 347 340 14
+			rect				260 342 340 14
 			textalign			ITEM_ALIGN_RIGHT
 			textalignx			174 
 			textaligny			0
@@ -6063,7 +6063,7 @@
 			type				ITEM_TYPE_BIND
 			text				"Spot:"
 			cvar				"spot"
-			rect				260 361 340 14
+			rect				260 356 340 14
 			textalign			ITEM_ALIGN_RIGHT
 			textalignx			174 
 			textaligny			0
