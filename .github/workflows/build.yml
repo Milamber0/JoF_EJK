@@ -183,6 +183,24 @@ jobs:
           path: build/bin
           if-no-files-found: error
 
+      # Linked .pdb files for every module we build. Kept out of build/bin,
+      # which is the player download - attached to the release separately
+      # so crash dumps can be opened at the source line. Symbols are never
+      # allowed to block a release, hence if-no-files-found: warn below.
+      - name: Collect debug symbols
+        shell: bash
+        run: |
+          mkdir -p symbols
+          find build -name '*.pdb' -not -path 'build/bin/*' -not -path '*.dir/*' -exec cp {} symbols/ \;
+          ls -l symbols
+
+      - name: Upload debug symbols
+        uses: actions/upload-artifact@v4
+        with:
+          name: JoF-beta-windows-${{ matrix.arch }}-symbols
+          path: symbols
+          if-no-files-found: warn
+
   linux:
     if: github.ref == 'refs/heads/beta' && github.event_name == 'push'
     name: Linux ${{ matrix.arch }} Release (Beta)
@@ -433,6 +451,15 @@ jobs:
           mv JoF-beta-macos-x86_64/JoF-beta-macos-x86_64.tar.gz JoF-macos-x86_64.tar.gz
           mv JoF-beta-macos-arm64/JoF-beta-macos-arm64.tar.gz   JoF-macos-arm64.tar.gz
 
+          # Symbols are optional - never let them fail a release.
+          for arch in x86 x86_64; do
+            if [ -d "JoF-beta-windows-$arch-symbols" ]; then
+              zip -r "JoF-windows-$arch-symbols.zip" "JoF-beta-windows-$arch-symbols"
+            else
+              echo "::warning::No debug symbols for windows-$arch"
+            fi
+          done
+
       - name: Setup git authentication for tag push
         run: |
           git config --global user.name "github-actions[bot]"
@@ -486,6 +513,8 @@ jobs:
           files: |
             JoF-windows-x86.zip
             JoF-windows-x86_64.zip
+            JoF-windows-x86-symbols.zip
+            JoF-windows-x86_64-symbols.zip
             JoF-linux-x86.tar.gz
             JoF-linux-x86_64.tar.gz
             JoF-macos-x86_64.tar.gz
@@ -1118,6 +1147,24 @@ jobs:
           path: build/bin
           if-no-files-found: error
 
+      # Linked .pdb files for every module we build. Kept out of build/bin,
+      # which is the player download - attached to the release separately
+      # so crash dumps can be opened at the source line. Symbols are never
+      # allowed to block a release, hence if-no-files-found: warn below.
+      - name: Collect debug symbols
+        shell: bash
+        run: |
+          mkdir -p symbols
+          find build -name '*.pdb' -not -path 'build/bin/*' -not -path '*.dir/*' -exec cp {} symbols/ \;
+          ls -l symbols
+
+      - name: Upload debug symbols
+        uses: actions/upload-artifact@v4
+        with:
+          name: JoF-master-windows-${{ matrix.arch }}-symbols
+          path: symbols
+          if-no-files-found: warn
+
   linux-master:
     if: needs.check-master-changes.outputs.should_run == 'true'
     name: Linux ${{ matrix.arch }} Release (Master)
@@ -1365,6 +1412,15 @@ jobs:
           mv JoF-master-macos-x86_64/JoF-master-macos-x86_64.tar.gz JoF-macos-x86_64.tar.gz
           mv JoF-master-macos-arm64/JoF-master-macos-arm64.tar.gz   JoF-macos-arm64.tar.gz
 
+          # Symbols are optional - never let them fail a release.
+          for arch in x86 x86_64; do
+            if [ -d "JoF-master-windows-$arch-symbols" ]; then
+              zip -r "JoF-windows-$arch-symbols.zip" "JoF-master-windows-$arch-symbols"
+            else
+              echo "::warning::No debug symbols for windows-$arch"
+            fi
+          done
+
       - name: Setup git authentication for tag push
         run: |
           git config --global user.name "github-actions[bot]"
@@ -1388,6 +1444,8 @@ jobs:
           files: |
             JoF-windows-x86.zip
             JoF-windows-x86_64.zip
+            JoF-windows-x86-symbols.zip
+            JoF-windows-x86_64-symbols.zip
             JoF-linux-x86.tar.gz
             JoF-linux-x86_64.tar.gz
             JoF-macos-x86_64.tar.gz

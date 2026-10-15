@@ -827,11 +827,11 @@ static void CG_RegisterSounds( void ) {
 	trap->S_RegisterSound("sound/weapons/force/rage.wav");
 	trap->S_RegisterSound("sound/weapons/force/lightning");
 cgs.media.forceLightningImpactSounds[0] = trap->S_RegisterSound("sound/weapons/force/lightninghit1");
-cgs.media.forceLightningImpactSounds[1] = trap->S_RegisterSound("sound/weapons/force/lightninghit2");
-cgs.media.forceLightningImpactSounds[2] = trap->S_RegisterSound("sound/weapons/force/lightninghit3");
-// Environment impacts use the spark sounds from MB2's lightning_impact EFX.
-// MB2 also plays lightninghit1-3 from CG_DoLightningArcs on environment hits.
-// Environmental arcs use three dedicated sound variants.
+	cgs.media.forceLightningImpactSounds[1] = trap->S_RegisterSound("sound/weapons/force/lightninghit2");
+	cgs.media.forceLightningImpactSounds[2] = trap->S_RegisterSound("sound/weapons/force/lightninghit3");
+	// Environment impacts use the spark sounds from MB2's lightning_impact EFX.
+	// MB2 also plays lightninghit1-3 from CG_DoLightningArcs on environment hits.
+	// Environmental arcs use three dedicated sound variants.
 	// Separate asset names preserve player-hit audio.
 	for (i = 0; i < ARRAY_LEN(cgs.media.forceLightningEnvironmentArcSounds); i++) {
 		cgs.media.forceLightningEnvironmentArcSounds[i] = trap->S_RegisterSound(va("sound/weapons/force/lightningenv%i.mp3", i + 1));

@@ -1235,6 +1235,7 @@ cg.pickupHandshakeActive = cg.pickupConfirmed = qfalse;
 
 	cg.intermissionStarted = qfalse;
 	cg.binocularTargetCount = 0;
+	cg.endDuelCameraTime = 0;
 	cg.missionPartyCount = 0;
 	cg.endDuelCameraTime = 0;
 

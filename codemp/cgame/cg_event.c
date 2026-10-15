@@ -4126,10 +4126,13 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 					sfx = CG_ForceOwnSaberSound( es, es->number, cgs.gameSounds[ es->eventParm ] );
 					sfx = CG_DestructionCastSound(es, sfx);
 				} else {
+					sfxHandle_t sfx;
+
 					s = CG_ConfigString( CS_SOUNDS + es->eventParm );
 					sfx = CG_CustomSound( es->number, s );
 					if ( CG_ClassifyVoiceLine( s, &voiceLine ) && CG_VoiceLineThrottled( es->number, voiceLine, sfx ) )
 						break;
+					trap->S_StartSound (NULL, es->number, es->saberEntityNum, sfx );
 				}
 				//JA+ hands the saber ignition out this way, dropped at the owner's feet with
 				//nothing on it to say whose it is - hold it back if it belongs to a staff being

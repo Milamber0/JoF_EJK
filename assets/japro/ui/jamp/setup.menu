@@ -1789,7 +1789,8 @@
 			descText			"Enable parallax occlusion mapping for Rend2 materials."
 			mouseenter			{ show highlight9 }
 			mouseexit			{ hide highlight9 }
-			action				{ play "sound/interface/button1.wav" }
+			action				{ play "sound/interface/button1.wav" ; setcvar ui_r_modified 1 ; setcvar ui_vidrestart 1 ; show applyChanges }
+
 		}
 
 		itemDef

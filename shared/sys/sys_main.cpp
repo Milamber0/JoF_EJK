@@ -777,6 +777,10 @@ int main ( int argc, char* argv[] )
 
 	Com_Init (commandLine);
 
+	// Re-install: overlays/drivers loaded during Com_Init (Discord, Steam,
+	// GPU drivers) can replace the unhandled exception filter with their own.
+	Sys_InstallCrashHandler();
+
 #ifndef DEDICATED
 
 #if 0//defined(WIN32) && !defined(_DEBUG)

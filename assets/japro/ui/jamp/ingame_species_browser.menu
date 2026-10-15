@@ -137,7 +137,6 @@
 			rect					15 78 210 249
 			font					2
 			textscale				.8
-			textaligny				14
 			descText				"Select a model; use the wheel or keyboard to scroll"
 			visible					1
 			doubleClick

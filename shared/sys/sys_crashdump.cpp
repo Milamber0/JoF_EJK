@@ -22,7 +22,8 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 // Catches crashes (unhandled exceptions on Windows, fatal signals on
 // Linux/macOS) that would otherwise just take the game down with no trace,
 // and writes a crashdump-<timestamp>.log with a stack trace and the recent
-// console output next to the other log files in the home path.
+// console output next to the other log files in the home path. On Windows it
+// also writes a crashdump-<timestamp>.dmp minidump with the same name.
 
 #include "qcommon/qcommon.h"
 #include "sys_local.h"
@@ -64,7 +65,9 @@ static bool Sys_ClaimCrashHandler( void )
 	return crashHandlerFired.compare_exchange_strong( expected, 1 );
 }
 
-static void Sys_CrashDumpPath( char *out, size_t outSize )
+// Fills out with "<crash dir>/crashdump-<timestamp>" - no extension, so the
+// .dmp and .log from one crash share a name.
+static void Sys_CrashDumpBasePath( char *out, size_t outSize )
 {
 	time_t rawtime;
 	char timeStr[32] = {};
@@ -94,7 +97,8 @@ static void Sys_CrashDumpPath( char *out, size_t outSize )
 	Com_sprintf( crashDir, sizeof( crashDir ), "%s%ccrashdumps", base, PATH_SEP );
 	Sys_Mkdir( crashDir );
 
-	Com_sprintf( out, (int)outSize, "%s%ccrashdump-%s.log",
+	Com_sprintf( out, (int)outSize, "%s%ccrashdump-%s",
+		crashDir, PATH_SEP, timeStr );
 		crashDir, PATH_SEP, timeStr );
 }
 
@@ -148,25 +152,30 @@ static bool Sys_LoadDbgHelp( DbgHelpApi *api )
 // ever gets you function names/offsets, never variable values).
 // MiniDumpWithIndirectlyReferencedMemory pulls in whatever the stack and
 // registers point to (so locals/arguments are inspectable) without going as
-// far as a full process memory dump. Deliberately NOT MiniDumpWithDataSegs -
-// that pulls in the full .data section of every one of the 30-odd loaded
-// modules (game + every system DLL), which measured ~60MB on a real crash
-// here, several times over what's practical to attach to a bug report; the
-// crashing module's globals are rarely what's needed to read a stack trace.
+// far as a full process memory dump. MiniDumpWithUnloadedModules keeps DLLs
+// that were loaded and then unloaded before the crash (e.g. a renderer after
+// vid_restart) in the module list, so those frames can still be resolved.
+// Deliberately NOT MiniDumpWithDataSegs - that pulls in the full .data
+// section of every one of the 30-odd loaded modules (game + every system
+// DLL), which measured ~60MB on a real crash here, several times over what's
+// practical to attach to a bug report; the crashing module's globals are
+// rarely what's needed to read a stack trace.
 static bool Sys_WriteMiniDump( DbgHelpApi *dbghelp, EXCEPTION_POINTERS *info, const char *dumpPath )
 {
 	HANDLE file = CreateFileA( dumpPath, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL );
 	if ( file == INVALID_HANDLE_VALUE )
 		return false;
 
-	MINIDUMP_EXCEPTION_INFORMATION exceptionInfo;
+	MINIDUMP_EXCEPTION_INFORMATION exceptionInfo = {};
 	exceptionInfo.ThreadId = GetCurrentThreadId();
 	exceptionInfo.ExceptionPointers = info;
 	exceptionInfo.ClientPointers = FALSE;
 
 	const MINIDUMP_TYPE dumpType = (MINIDUMP_TYPE)(
+		MiniDumpNormal |
 		MiniDumpWithIndirectlyReferencedMemory |
-		MiniDumpWithThreadInfo );
+		MiniDumpWithThreadInfo |
+		MiniDumpWithUnloadedModules );
 
 	BOOL ok = dbghelp->MiniDumpWriteDump( GetCurrentProcess(), GetCurrentProcessId(),
 		file, dumpType, &exceptionInfo, NULL, NULL );
@@ -200,43 +209,123 @@ static void Sys_CrashDumpModules( FILE *fp )
 	CloseHandle( snapshot );
 }
 
-static LONG WINAPI Sys_CrashHandler( EXCEPTION_POINTERS *info )
+// Writes a text stack trace of the crashing thread. Frames resolve to
+// function (file:line) when a matching .pdb is available, and otherwise to
+// module+offset (e.g. eternaljk.x86_64.exe+0x3f21a8).
+static void Sys_CrashDumpStackTrace( FILE *fp, DbgHelpApi *dbghelp, EXCEPTION_POINTERS *info )
 {
-	// Don't try to handle a crash that happens while we're already
-	// writing the crash dump for a previous one (or a different thread
+	HANDLE process = GetCurrentProcess();
+	HANDLE thread = GetCurrentThread();
+
+	dbghelp->SymSetOptions( SYMOPT_LOAD_LINES | SYMOPT_UNDNAME );
+
+	if ( !dbghelp->SymInitialize( process, NULL, TRUE ) )
+	{
+		fprintf( fp, "(Symbol information unavailable, stack trace omitted)\n" );
+		return;
+	}
+
+	STACKFRAME64 frame = {};
+	CONTEXT context = *info->ContextRecord;
+
+#if defined(_M_X64)
+	DWORD machineType = IMAGE_FILE_MACHINE_AMD64;
+	frame.AddrPC.Offset = context.Rip;
+	frame.AddrFrame.Offset = context.Rbp;
+	frame.AddrStack.Offset = context.Rsp;
+#else
+	DWORD machineType = IMAGE_FILE_MACHINE_I386;
+	frame.AddrPC.Offset = context.Eip;
+	frame.AddrFrame.Offset = context.Ebp;
+	frame.AddrStack.Offset = context.Esp;
+#endif
+	frame.AddrPC.Mode = AddrModeFlat;
+	frame.AddrFrame.Mode = AddrModeFlat;
+	frame.AddrStack.Mode = AddrModeFlat;
+
+	fprintf( fp, "Stack trace:\n" );
+
+	// SYMBOL_INFO must be aligned to ULONG64 (the trailing
+	// Name[] array is accessed through DWORD64-sized fields) -
+	// a char[] buffer only guarantees 1-byte alignment, so
+	// allocate through a ULONG64 array per the documented
+	// dbghelp idiom instead.
+	ULONG64 symbolBuffer[(sizeof( SYMBOL_INFO ) + MAX_SYM_NAME * sizeof( char ) + sizeof( ULONG64 ) - 1) / sizeof( ULONG64 )];
+	SYMBOL_INFO *symbol = (SYMBOL_INFO *)symbolBuffer;
+	symbol->SizeOfStruct = sizeof( SYMBOL_INFO );
+	symbol->MaxNameLen = MAX_SYM_NAME;
+
+	for ( int i = 0; i < 64; i++ )
+	{
+		if ( !dbghelp->StackWalk64( machineType, process, thread, &frame, &context,
+				NULL, dbghelp->SymFunctionTableAccess64, dbghelp->SymGetModuleBase64, NULL ) )
+		{
+			break;
+		}
+
+		if ( frame.AddrPC.Offset == 0 )
+			break;
+
+		DWORD64 displacement = 0;
+		if ( dbghelp->SymFromAddr( process, frame.AddrPC.Offset, &displacement, symbol ) )
+		{
+			IMAGEHLP_LINE64 line = {};
+			line.SizeOfStruct = sizeof( IMAGEHLP_LINE64 );
+			DWORD lineDisplacement = 0;
+
+			if ( dbghelp->SymGetLineFromAddr64( process, frame.AddrPC.Offset, &lineDisplacement, &line ) )
+				fprintf( fp, "  %s (%s:%lu)\n", symbol->Name, line.FileName, line.LineNumber );
+			else
+				fprintf( fp, "  %s + 0x%llx\n", symbol->Name, displacement );
+		}
+		else
+		{
+			// Release builds ship without a PDB, so SymFromAddr
+			// fails here on every frame - fall back to
+			// module+offset (e.g. eternaljk.x86_64.exe+0x3f21a8)
+			// so the address is still something that can be
+			// rebased and looked up against the matching build.
+			IMAGEHLP_MODULE64 moduleInfo = {};
+			moduleInfo.SizeOfStruct = sizeof( IMAGEHLP_MODULE64 );
+			if ( dbghelp->SymGetModuleInfo64( process, frame.AddrPC.Offset, &moduleInfo ) )
+				fprintf( fp, "  %s+0x%llx\n", moduleInfo.ModuleName,
+					frame.AddrPC.Offset - moduleInfo.BaseOfImage );
+			else
+				fprintf( fp, "  0x%016llx\n", frame.AddrPC.Offset );
+		}
+	}
+
+	dbghelp->SymCleanup( process );
+}
+
+static LONG WINAPI Sys_CrashHandler( EXCEPTION_POINTERS *info )
 	// crashing at the same instant - see Sys_ClaimCrashHandler).
 	if ( !Sys_ClaimCrashHandler() )
 		return EXCEPTION_EXECUTE_HANDLER;
 
-	char path[MAX_OSPATH];
-	Sys_CrashDumpPath( path, sizeof( path ) );
+	char basePath[MAX_OSPATH];
+	Sys_CrashDumpBasePath( basePath, sizeof( basePath ) );
 
-	// Same path, .dmp instead of .log.
+	char logPath[MAX_OSPATH];
 	char dumpPath[MAX_OSPATH];
-	Com_sprintf( dumpPath, sizeof( dumpPath ), "%s", path );
-	size_t pathLen = strlen( dumpPath );
-	if ( pathLen > 4 && !strcmp( dumpPath + pathLen - 4, ".log" ) )
-		memcpy( dumpPath + pathLen - 4, ".dmp", 4 );
+	Com_sprintf( logPath, sizeof( logPath ), "%s.log", basePath );
+	Com_sprintf( dumpPath, sizeof( dumpPath ), "%s.dmp", basePath );
 
-	DbgHelpApi dbghelp;
+	// Loaded once, used for both the minidump and the text stack trace.
+	DbgHelpApi dbghelp = {};
 	bool haveDbgHelp = Sys_LoadDbgHelp( &dbghelp );
 
-	// Written before the text log below, and independently of whether that
-	// fopen() succeeds - it's the more valuable artifact of the two, so it
-	// shouldn't be held hostage to the other one working.
+	// The minidump goes first, before anything heavy: SymInitialize() in the
+	// stack trace below allocates a lot and can re-fault if the original
+	// crash was heap corruption. By then the .dmp - the file we actually
+	// debug with - is already safely on disk. It doesn't depend on the .log.
 	bool wroteMiniDump = haveDbgHelp && Sys_WriteMiniDump( &dbghelp, info, dumpPath );
 
-	bool wroteDump = false;
+	bool wroteLog = false;
 
-	FILE *fp = fopen( path, "w" );
+	FILE *fp = fopen( logPath, "w" );
 	if ( fp )
 	{
-		// Unbuffered: SymInitialize() below allocates heavily and can
-		// re-fault if the original crash was heap corruption. crashHandlerFired
-		// stops us recursing into this handler again, but if we never get
-		// back here to fclose(), a buffered file would end up empty -
-		// this way the exception code/address/module list are on disk
-		// immediately, before anything below has a chance to re-fault.
 		setvbuf( fp, NULL, _IONBF, 0 );
 
 		fprintf( fp, "JoF EternalJK crash dump\n" );
@@ -245,135 +334,40 @@ static LONG WINAPI Sys_CrashHandler( EXCEPTION_POINTERS *info )
 		fprintf( fp, "Exception code: 0x%08lX at address %p\n",
 			info->ExceptionRecord->ExceptionCode,
 			info->ExceptionRecord->ExceptionAddress );
-		fprintf( fp, "Minidump: %s\n\n", wroteMiniDump ? dumpPath : "(failed to write)" );
+		fprintf( fp, "Minidump: %s\n\n", wroteMiniDump ? dumpPath : "(could not be written)" );
 
 		Sys_CrashDumpModules( fp );
 		fprintf( fp, "\n" );
 
-		HANDLE process = GetCurrentProcess();
-		HANDLE thread = GetCurrentThread();
-
 		if ( haveDbgHelp )
-		{
-			dbghelp.SymSetOptions( SYMOPT_LOAD_LINES | SYMOPT_UNDNAME );
-
-			if ( dbghelp.SymInitialize( process, NULL, TRUE ) )
-			{
-				STACKFRAME64 frame = {};
-				CONTEXT context = *info->ContextRecord;
-
-#if defined(_M_X64)
-				DWORD machineType = IMAGE_FILE_MACHINE_AMD64;
-				frame.AddrPC.Offset = context.Rip;
-				frame.AddrFrame.Offset = context.Rbp;
-				frame.AddrStack.Offset = context.Rsp;
-#else
-				DWORD machineType = IMAGE_FILE_MACHINE_I386;
-				frame.AddrPC.Offset = context.Eip;
-				frame.AddrFrame.Offset = context.Ebp;
-				frame.AddrStack.Offset = context.Esp;
-#endif
-				frame.AddrPC.Mode = AddrModeFlat;
-				frame.AddrFrame.Mode = AddrModeFlat;
-				frame.AddrStack.Mode = AddrModeFlat;
-
-				fprintf( fp, "Stack trace:\n" );
-
-				// SYMBOL_INFO must be aligned to ULONG64 (the trailing
-				// Name[] array is accessed through DWORD64-sized fields) -
-				// a char[] buffer only guarantees 1-byte alignment, so
-				// allocate through a ULONG64 array per the documented
-				// dbghelp idiom instead.
-				ULONG64 symbolBuffer[(sizeof( SYMBOL_INFO ) + MAX_SYM_NAME * sizeof( char ) + sizeof( ULONG64 ) - 1) / sizeof( ULONG64 )];
-				SYMBOL_INFO *symbol = (SYMBOL_INFO *)symbolBuffer;
-				symbol->SizeOfStruct = sizeof( SYMBOL_INFO );
-				symbol->MaxNameLen = MAX_SYM_NAME;
-
-				for ( int i = 0; i < 64; i++ )
-				{
-					if ( !dbghelp.StackWalk64( machineType, process, thread, &frame, &context,
-							NULL, dbghelp.SymFunctionTableAccess64, dbghelp.SymGetModuleBase64, NULL ) )
-					{
-						break;
-					}
-
-					if ( frame.AddrPC.Offset == 0 )
-						break;
-
-					DWORD64 displacement = 0;
-					if ( dbghelp.SymFromAddr( process, frame.AddrPC.Offset, &displacement, symbol ) )
-					{
-						IMAGEHLP_LINE64 line = {};
-						line.SizeOfStruct = sizeof( IMAGEHLP_LINE64 );
-						DWORD lineDisplacement = 0;
-
-						if ( dbghelp.SymGetLineFromAddr64( process, frame.AddrPC.Offset, &lineDisplacement, &line ) )
-							fprintf( fp, "  %s (%s:%lu)\n", symbol->Name, line.FileName, line.LineNumber );
-						else
-							fprintf( fp, "  %s + 0x%llx\n", symbol->Name, displacement );
-					}
-					else
-					{
-						// Release builds ship without a PDB, so SymFromAddr
-						// fails here on every frame - fall back to
-						// module+offset (e.g. eternaljk.x86_64.exe+0x3f21a8)
-						// so the address is still something that can be
-						// rebased and looked up against the matching build.
-						IMAGEHLP_MODULE64 moduleInfo = {};
-						moduleInfo.SizeOfStruct = sizeof( IMAGEHLP_MODULE64 );
-						if ( dbghelp.SymGetModuleInfo64( process, frame.AddrPC.Offset, &moduleInfo ) )
-							fprintf( fp, "  %s+0x%llx\n", moduleInfo.ModuleName,
-								frame.AddrPC.Offset - moduleInfo.BaseOfImage );
-						else
-							fprintf( fp, "  0x%016llx\n", frame.AddrPC.Offset );
-					}
-				}
-
-				dbghelp.SymCleanup( process );
-			}
-			else
-			{
-				fprintf( fp, "(Symbol information unavailable, stack trace omitted)\n" );
-			}
-		}
+			Sys_CrashDumpStackTrace( fp, &dbghelp, info );
 		else
-		{
 			fprintf( fp, "(dbghelp.dll unavailable, stack trace omitted)\n" );
-		}
 
 		fprintf( fp, "\nRecent console output:\n" );
 		ConsoleLogWriteOut( fp );
 
 		fclose( fp );
-		wroteDump = true;
-	}
-
-#ifndef DEDICATED
-	// Shown either way (mirrors Sys_ErrorDialog's own fopen-failed path) -
-	// a failed write should still tell the player something happened,
-	// rather than have the game silently vanish.
-	char message[2 * MAX_OSPATH + 256];
-	if ( wroteDump )
+	if ( wroteMiniDump && wroteLog )
 	{
-		if ( wroteMiniDump )
-		{
-			Com_sprintf( message, sizeof( message ),
-				"JoF EternalJK has crashed.\n\nA crash log and minidump were written to:\n%s\n%s\n\n"
-				"Please attach both files when reporting the issue.", path, dumpPath );
-		}
-		else
-		{
-			Com_sprintf( message, sizeof( message ),
-				"JoF EternalJK has crashed.\n\nA crash log was written to:\n%s\n"
-				"(the minidump could not be written)\n\n"
-				"Please attach this file when reporting the issue.", path );
-		}
+		Com_sprintf( message, sizeof( message ),
+			"JoF EternalJK has crashed.\n\nCrash files were written to:\n%s\n%s\n\n"
+			"Please send both files when reporting the issue.", dumpPath, logPath );
+	}
+	else if ( wroteMiniDump || wroteLog )
+	{
+		Com_sprintf( message, sizeof( message ),
+			"JoF EternalJK has crashed.\n\nA crash file was written to:\n%s\n\n"
+			"Please send this file when reporting the issue.", wroteMiniDump ? dumpPath : logPath );
+	}
+	else
+	{
 	}
 	else
 	{
 		Com_sprintf( message, sizeof( message ),
-			"JoF EternalJK has crashed, and the crash dump could not be written to:\n%s\n\n"
-			"Please report the issue and mention this.", path );
+			"JoF EternalJK has crashed, and the crash files could not be written to:\n%s\n\n"
+			"Please report the issue and mention this.", basePath );
 	}
 	MessageBoxA( NULL, message, "JoF EternalJK - Crash", MB_OK | MB_ICONERROR );
 #endif
@@ -432,7 +426,7 @@ static void Sys_CrashDumpModules( int fd )
 }
 
 // Runs on the crashing thread inside the signal handler. Strictly this
-// isn't async-signal-safe (Sys_CrashDumpPath formats a timestamp via libc,
+// isn't async-signal-safe (Sys_CrashDumpBasePath formats a timestamp via libc,
 // and Com_sprintf/backtrace_symbols_fd may allocate), but it's a best-effort
 // dump for a process that's already dying, not a guarantee - and it sticks
 // to open/write/backtrace_symbols_fd rather than the malloc-heavy
@@ -450,8 +444,14 @@ static void Sys_CrashHandler( int sig, siginfo_t *info, void *ucontext )
 		return;
 	}
 
+	char basePath[MAX_OSPATH];
+	Sys_CrashDumpBasePath( basePath, sizeof( basePath ) );
+
 	char path[MAX_OSPATH];
-	Sys_CrashDumpPath( path, sizeof( path ) );
+	Com_sprintf( path, sizeof( path ), "%s.log", basePath );
+
+	int fd = open( path, O_WRONLY | O_CREAT | O_TRUNC, 0644 );
+	if ( fd >= 0 )
 
 	int fd = open( path, O_WRONLY | O_CREAT | O_TRUNC, 0644 );
 	if ( fd >= 0 )

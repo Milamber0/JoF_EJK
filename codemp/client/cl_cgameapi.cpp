@@ -1942,7 +1942,7 @@ void CL_BindCGame( void ) {
 		cgi.S_GetSampleLengthMs					= S_GetSampleLengthMs;
 		cgi.Video_Play							= CL_VideoPlay;
 		cgi.Video_Stop							= CL_VideoStop;
-		cgi.Video_Status						= CL_VideoStatus;
+		cgi.Video_Status							= CL_VideoStatus;
 		cgi.Video_GetSize						= CL_VideoGetSize;
 		cgi.Video_Draw							= CL_VideoDraw;
 		// cgame checks this before calling S_GetSampleLengthMs - an engine that never

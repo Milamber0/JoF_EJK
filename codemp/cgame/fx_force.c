@@ -25,9 +25,6 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "cg_local.h"
 #include "fx_local.h"
 
-// Emit two environmental arcs for narrow lightning and five for wide lightning.
-// Cache endpoints between direction updates and constrain bolts to the aim cone.
-// Use optional pack effects when installed, otherwise vanilla/JoF effects.
 static void FX_ForceLightningReference(centity_t *cent, vec3_t origin, matrix3_t axis, qboolean wide) {
 	int i;
 	int arcs = wide ? 5 : 2;
@@ -49,7 +46,6 @@ static void FX_ForceLightningReference(centity_t *cent, vec3_t origin, matrix3_t
 			direction[0] += 2.0f * ((rand() & 0x7fff) / 32767.0f - 0.5f) * spread;
 			direction[1] += 2.0f * ((rand() & 0x7fff) / 32767.0f - 0.5f) * spread;
 			direction[2] += 2.0f * ((rand() & 0x7fff) / 32767.0f - 0.5f) * spread;
-			// Keep randomized direction length to vary trace reach.
 			traceDistance = 350.0f;
 		} else {
 			VectorSubtract(origin, cent->lightningReferenceEnd[i], angles);
@@ -62,7 +58,7 @@ static void FX_ForceLightningReference(centity_t *cent, vec3_t origin, matrix3_t
 		if (arcAngle < 360.0f) {
 			directionLength = VectorLength(direction);
 			// Redirect rearward/over-wide bolts toward the player's current aim.
-			// Preserve vector length and therefore trace reach.
+
 			if (directionLength < 0.0001f)
 				VectorCopy(axis[0], direction);
 			else if (DotProduct(direction, axis[0]) < minForwardDot * directionLength)
@@ -86,7 +82,7 @@ static void FX_ForceLightningReference(centity_t *cent, vec3_t origin, matrix3_t
 			// Pack arcs own their impact effect; only the fallback needs this one.
 			if (!cgs.effects.forceLightningReferenceArc && !tr.startsolid && !tr.allsolid &&
 				!(tr.surfaceFlags & (SURF_SKY | SURF_NOIMPACT | SURF_NODRAW))) {
-				trap->FX_PlayEffectID(cgs.effects.forceLightningEnvironmentImpact,
+				trap->FX_PlayEffectID(cgs.effects.demp2WallImpactEffectSmall,
 					tr.endpos, tr.plane.normal, -1, -1, qfalse);
 			}
 		}
@@ -164,14 +160,14 @@ static void FX_LightningImpactSound(centity_t *cent, const trace_t *hit) {
 	if (lightningSounds >= LIGHTNING_SOUND_BUDGET)
 		return;
 
-	sound = (cg.time / LIGHTNING_INTERVAL + cent->currentState.number) % ARRAY_LEN(cgs.media.forceLightningEnvironmentSounds);
+	sound = (cg.time / LIGHTNING_INTERVAL + cent->currentState.number) % ARRAY_LEN(cgs.media.forceLightningEnvironmentArcSounds);
 	cent->lightningImpactSoundTime = cg.time + LIGHTNING_SOUND_INTERVAL + (sound % 3) * 30;
-	if (!cgs.media.forceLightningEnvironmentSounds[sound])
+	if (!cgs.media.forceLightningEnvironmentArcSounds[sound])
 		return;
 
 	lightningSounds++;
 	VectorMA(hit->endpos, 2.0f, hit->plane.normal, contact);
-	trap->S_StartSound(contact, ENTITYNUM_WORLD, CHAN_AUTO, cgs.media.forceLightningEnvironmentSounds[sound]);
+	trap->S_StartSound(contact, ENTITYNUM_WORLD, CHAN_AUTO, cgs.media.forceLightningEnvironmentArcSounds[sound]);
 }
 
 // CG_DoSaberShockEffects in the supplied MBII cgamei386.so, 0x872a0.
