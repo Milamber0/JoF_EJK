@@ -137,7 +137,8 @@
 			rect					15 78 210 249
 			font					2
 			textscale				.8
-			textaligny				14
+			// ergoec: center visible capitals within the nominal font line.
+			textaligny				-3.2
 			descText				"Select a model; use the wheel or keyboard to scroll."
 			visible					1
 			doubleClick
