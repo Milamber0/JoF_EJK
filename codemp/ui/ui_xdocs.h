@@ -84,6 +84,8 @@ XDOCS_CVAR_DEF("cg_tauntAntiSpam", "Throttle repeated model voice lines per play
 	"The gasp, jump, roll and landing grunts get a shorter timer of their own, so a player bobbing at a water surface cannot gasp on every frame, and one spammed line never silences the others." NL
 	SETTING("0", "Off, every voice line plays") NL
 	SETTING("1", "On, a player's next taunt waits for the last one to finish and no line is layered over itself (default)")
+)
+
 XDOCS_CVAR_DEF("s_soundAntiSpam", "Limit repeated sound effects",
 	"Use the s_maxSounds rate limit for repeated sounds. This is separate from Taunt Anti-Spam and does not change the configured limit." NL
 	SETTING("0", "Off, bypass the sound rate limit") NL
