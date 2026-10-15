@@ -6178,10 +6178,10 @@ void Item_ListBox_Paint(itemDef_t *item) {
 //						DC->drawText(x + 4, y + listPtr->elementHeight, item->textscale, item->window.foreColor, text, 0, 0, item->textStyle);
 						if ((int)item->special == FEEDER_PLAYER_SPECIES_BROWSER)
 						{
-							// Match the selected row bounds instead of using a fixed text offset.
+							// Center the font line, then apply the menu's visible-glyph correction.
 							const float rowY = y + listPtr->elementHeight + 2;
 							const float textHeight = DC->textHeight(text, textScale, item->iMenuFont);
-							textY = rowY + (listPtr->elementHeight - textHeight) * 0.5f;
+							textY = rowY + (listPtr->elementHeight - textHeight) * 0.5f + item->textaligny;
 						}
 						DC->drawText(x + 4, textY, textScale, item->window.foreColor, text, 0, 0, item->textStyle, item->iMenuFont);
 					}
