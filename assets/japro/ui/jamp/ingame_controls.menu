@@ -5425,7 +5425,7 @@
 			visible				0
 			cvarTest			ui_isJoFJAPlus
 			showCvar			{ 1 }
-			descText			"Uses the force destruction ability, if you know it. JoF JA+ servers only."
+			descText			"Uses the JA+ force destruction ability. JoF JA+ servers only."
 			action
 			{
 				play			"sound/interface/button1.wav" ;
