@@ -590,7 +590,7 @@
 		itemDef 
 		{
 			name 				headlist
-			rect 				30 224 312 194
+			rect 				30 224 306 194
 //			rect 				126 215 80 200
 			type 				ITEM_TYPE_LISTBOX
 			style 				WINDOW_STYLE_FILLED
