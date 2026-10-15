@@ -99,7 +99,6 @@ static void Sys_CrashDumpBasePath( char *out, size_t outSize )
 
 	Com_sprintf( out, (int)outSize, "%s%ccrashdump-%s",
 		crashDir, PATH_SEP, timeStr );
-		crashDir, PATH_SEP, timeStr );
 }
 
 #if defined(_WIN32)
@@ -299,6 +298,9 @@ static void Sys_CrashDumpStackTrace( FILE *fp, DbgHelpApi *dbghelp, EXCEPTION_PO
 }
 
 static LONG WINAPI Sys_CrashHandler( EXCEPTION_POINTERS *info )
+{
+	// Don't try to handle a crash that happens while we're already
+	// writing the crash files for a previous one (or a different thread
 	// crashing at the same instant - see Sys_ClaimCrashHandler).
 	if ( !Sys_ClaimCrashHandler() )
 		return EXCEPTION_EXECUTE_HANDLER;
@@ -326,6 +328,8 @@ static LONG WINAPI Sys_CrashHandler( EXCEPTION_POINTERS *info )
 	FILE *fp = fopen( logPath, "w" );
 	if ( fp )
 	{
+		// Unbuffered for the same reason: if the stack trace re-faults we
+		// never reach fclose(), and a buffered file would be left empty.
 		setvbuf( fp, NULL, _IONBF, 0 );
 
 		fprintf( fp, "JoF EternalJK crash dump\n" );
@@ -348,6 +352,14 @@ static LONG WINAPI Sys_CrashHandler( EXCEPTION_POINTERS *info )
 		ConsoleLogWriteOut( fp );
 
 		fclose( fp );
+		wroteLog = true;
+	}
+
+#ifndef DEDICATED
+	// Shown whichever files were written (mirrors Sys_ErrorDialog's own
+	// fopen-failed path) - a failed write should still tell the player
+	// something happened, rather than have the game silently vanish.
+	char message[2 * MAX_OSPATH + 256];
 	if ( wroteMiniDump && wroteLog )
 	{
 		Com_sprintf( message, sizeof( message ),
@@ -359,9 +371,6 @@ static LONG WINAPI Sys_CrashHandler( EXCEPTION_POINTERS *info )
 		Com_sprintf( message, sizeof( message ),
 			"JoF EternalJK has crashed.\n\nA crash file was written to:\n%s\n\n"
 			"Please send this file when reporting the issue.", wroteMiniDump ? dumpPath : logPath );
-	}
-	else
-	{
 	}
 	else
 	{
@@ -449,9 +458,6 @@ static void Sys_CrashHandler( int sig, siginfo_t *info, void *ucontext )
 
 	char path[MAX_OSPATH];
 	Com_sprintf( path, sizeof( path ), "%s.log", basePath );
-
-	int fd = open( path, O_WRONLY | O_CREAT | O_TRUNC, 0644 );
-	if ( fd >= 0 )
 
 	int fd = open( path, O_WRONLY | O_CREAT | O_TRUNC, 0644 );
 	if ( fd >= 0 )
