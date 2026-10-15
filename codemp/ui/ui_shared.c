@@ -6170,19 +6170,29 @@ void Item_ListBox_Paint(itemDef_t *item) {
 					else if (text)
 					{
 						float textScale = item->textscale;
+						float textY = y + item->textaligny;
 
 						if ( ((int)item->special == FEEDER_COSMETIC_HATS || (int)item->special == FEEDER_COSMETIC_CAPES)
 							&& !Q_stricmpn( text, "^3Get ", 6 ) )
 							textScale *= 0.78f;
 //						DC->drawText(x + 4, y + listPtr->elementHeight, item->textscale, item->window.foreColor, text, 0, 0, item->textStyle);
-						DC->drawText(x + 4, y + item->textaligny, textScale, item->window.foreColor, text, 0, 0, item->textStyle, item->iMenuFont);
+						if ((int)item->special == FEEDER_PLAYER_SPECIES_BROWSER)
+						{
+							// Match the selected row bounds instead of using a fixed text offset.
+							const float rowY = y + listPtr->elementHeight + 2;
+							const float textHeight = DC->textHeight(text, textScale, item->iMenuFont);
+							textY = rowY + (listPtr->elementHeight - textHeight) * 0.5f;
+						}
+						DC->drawText(x + 4, textY, textScale, item->window.foreColor, text, 0, 0, item->textStyle, item->iMenuFont);
 					}
 				}
 
 				if (i == item->cursorPos) {
 					DC->fillRect(x + 2, y + listPtr->elementHeight + 2, item->window.rect.w - SCROLLBAR_SIZE - 4, listPtr->elementHeight, item->window.outlineColor);
 				} else if (i == listPtr->cursorPos && (item->window.flags & WINDOW_HASFOCUS) && (item->window.flags & WINDOW_MOUSEOVER)) {
-					DC->drawRect(x, y, listPtr->elementWidth-1, listPtr->elementHeight-1, item->window.borderSize, hoverColor);
+					const float hoverY = (int)item->special == FEEDER_PLAYER_SPECIES_BROWSER
+						? y + listPtr->elementHeight + 2 : y;
+					DC->drawRect(x, hoverY, listPtr->elementWidth-1, listPtr->elementHeight-1, item->window.borderSize, hoverColor);
 				}
 
 				sizeHeight -= listPtr->elementHeight;
