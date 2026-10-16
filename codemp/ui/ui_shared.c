@@ -5111,6 +5111,7 @@ static const char *g_bindCommands[] = {
 	"engage_gunduel",
 	"force_dash",
 	"force_repulse",
+	"force_destruction",
 	"amTeleMark", //teleport marker
 	"amTele", //teleport to marker
 	"noclip",
