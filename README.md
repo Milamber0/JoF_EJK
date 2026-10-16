@@ -28,6 +28,25 @@ Installing and running EternalJK:
 3. Run eternaljk.x86.exe (Rename to jamp.exe for better steam support)
 
 
+## The Freedom renderer
+
+`rd-freedom_x86_64.dll` (Setup > Video > Renderer: "Freedom Renderer", Windows
+x86_64) runs a modified copy of SJK's renderer inside the client: its lighting,
+shadows, reflections, weather and post-processing on JoF EJK's game. Its settings
+are under Setup > Video > Freedom Renderer Settings, or in the console as the
+cvars of the same names, and `graphicsquality vanilla|performance|balanced|high|ultra`
+sets them together. Settings marked `*` apply after a `vid_restart`.
+
+It is built on Linux with MinGW-w64, CMake, Ninja and Rust:
+
+    rustup target add x86_64-pc-windows-gnu
+    scripts/build-rd-freedom.sh lib/sjk build-rd-freedom
+
+CI builds it in the `freedom-renderer` job and bundles it with the Windows
+x86_64 packages. `scripts/gen-freedom-graphics-menu.py` regenerates the settings
+menu (`assets/japro/ui/jamp/freedom_graphics.menu`) from the renderer's own
+settings catalog.
+
 ## Credits
 ### JoF Maintainers/Contributors
 * [Milamber](https://github.com/Milamber0)
@@ -42,6 +61,7 @@ Installing and running EternalJK:
 * [eternal](https://github.com/eternalcodes)
 * [loda](https://github.com/videoP)
 * [SomaZ](https://github.com/SomaZ) - for the Rend2 renderer version we package with our releases: [![Fork](https://img.shields.io/badge/repository-OpenJK-brightgreen.svg)](https://github.com/SomaZ/OpenJK)
+* [Sol](https://github.com/Sol-Vulpes), [Bishop](https://github.com/Bishop-R) and the JKR contributors - for SJK, whose renderer the Freedom renderer (`rd-freedom`) is built on: [![Fork](https://img.shields.io/badge/repository-SJK-brightgreen.svg)](https://github.com/Sol-Vulpes/SJK) (GPL-2.0; our modified copy and what we changed are in [lib/sjk](lib/sjk/JOF-CHANGES.md))
 * [Sunny](https://github.com/JKSunny) - for the Vulkan renderer version we package with our releases: [![Fork](https://img.shields.io/badge/repository-EternalJK-brightgreen.svg)](https://github.com/JKSunny/EternalJK)
 * [Tayst](https://github.com/taysta) - for changes contributed to Sunny's EJK which we sourced from.
 * [Circa](https://jkhub.org/files/file/4564-elegance-hud-hd/) - for the HD Elegance HUD textures, based on the original HUD by [DarthNormaN](https://jkhub.org/files/file/296-elegance-hud/).

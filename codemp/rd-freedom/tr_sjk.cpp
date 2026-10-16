@@ -838,9 +838,10 @@ void RE_RenderScene( const refdef_t *fd ) {
 	}
 	// The first full view of the world is the frame's main view; model previews in
 	// menus (RDF_NOWORLDMODEL) come later.
-	// The sky portal's own view (RDF_DRAWSKYBOX) is drawn by the renderer from the
-	// map's portal entity; the automap is not drawn.
-	if ( frameHasView || ( fd->rdflags & ( RDF_NOWORLDMODEL | RDF_DRAWSKYBOX | RDF_AUTOMAP ) ) || !tr.worldMapLoaded ) {
+	// The sky portal's own view (RDF_SKYBOXPORTAL; the main view carries
+	// RDF_DRAWSKYBOX) is drawn by the renderer from the map's portal entity; the
+	// automap is not drawn.
+	if ( frameHasView || ( fd->rdflags & ( RDF_SKYBOXPORTAL | RDF_AUTOMAP ) ) || !tr.worldMapLoaded ) {
 		return;
 	}
 	VectorCopy( fd->vieworg, frameView.origin );

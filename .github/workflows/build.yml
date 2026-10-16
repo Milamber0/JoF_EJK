@@ -153,7 +153,8 @@ jobs:
           exit 1
 
   windows:
-    if: github.ref == 'refs/heads/beta' && github.event_name == 'push'
+    # Runs without the Freedom renderer when its build fails.
+    if: ${{ !cancelled() && github.ref == 'refs/heads/beta' && github.event_name == 'push' && needs.beta-version.result == 'success' }}
     name: Windows ${{ matrix.arch }} Release (Beta)
     needs: [beta-version, freedom-renderer]
     runs-on: windows-2022
@@ -192,7 +193,8 @@ jobs:
           echo "RD_VULKAN_MODULE=${{ github.workspace }}/external/$DLL_NAME" >> $GITHUB_ENV
 
       - name: Download the Freedom renderer
-        if: matrix.arch == 'x86_64'
+        if: matrix.arch == 'x86_64' && needs.freedom-renderer.result == 'success'
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: rd-freedom-windows-x86_64
@@ -677,7 +679,8 @@ jobs:
           exit 1
 
   windows-alpha:
-    if: github.ref == 'refs/heads/alpha' && github.event_name == 'push'
+    # Runs without the Freedom renderer when its build fails.
+    if: ${{ !cancelled() && github.ref == 'refs/heads/alpha' && github.event_name == 'push' && needs.alpha-version.result == 'success' }}
     name: Windows ${{ matrix.arch }} Release (Alpha)
     needs: [alpha-version, freedom-renderer]
     runs-on: windows-2022
@@ -716,7 +719,8 @@ jobs:
           echo "RD_VULKAN_DLL=${{ github.workspace }}/external/$DLL_NAME" >> $GITHUB_ENV
 
       - name: Download the Freedom renderer
-        if: matrix.arch == 'x86_64'
+        if: matrix.arch == 'x86_64' && needs.freedom-renderer.result == 'success'
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: rd-freedom-windows-x86_64
@@ -1140,7 +1144,8 @@ jobs:
           echo "Computed version: $VERSION"
 
   windows-master:
-    if: needs.check-master-changes.outputs.should_run == 'true'
+    # Runs without the Freedom renderer when its build fails.
+    if: ${{ !cancelled() && needs.check-master-changes.outputs.should_run == 'true' && needs.master-version.result == 'success' }}
     name: Windows ${{ matrix.arch }} Release (Master)
     needs: [check-master-changes, master-version, freedom-renderer]
     runs-on: windows-2022
@@ -1179,7 +1184,8 @@ jobs:
           echo "RD_VULKAN_MODULE=${{ github.workspace }}/external/$DLL_NAME" >> $GITHUB_ENV
 
       - name: Download the Freedom renderer
-        if: matrix.arch == 'x86_64'
+        if: matrix.arch == 'x86_64' && needs.freedom-renderer.result == 'success'
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: rd-freedom-windows-x86_64
