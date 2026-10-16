@@ -306,7 +306,7 @@
 			name				backbutton
 			group				fade_buttons
 			text				@MENUS_BACK
-			descText			"Back to player config"
+			descText			"Back to player config."
 			type				ITEM_TYPE_BUTTON
 			style				WINDOW_STYLE_EMPTY
 			rect				39 418 130 24
@@ -356,7 +356,7 @@
 			name				exitgamebutton
 			group				othermain
 			text				@MENUS_EXIT
-			descText			"Quit this menu"
+			descText			"Quit this menu."
 			type				ITEM_TYPE_BUTTON
 			style				WINDOW_STYLE_EMPTY
 			rect				235 418 130 24

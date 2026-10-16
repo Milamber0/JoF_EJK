@@ -146,7 +146,7 @@
 			name				speciesbrowse
 			group				none
 			background			"gfx/menus/species_search"
-			descText			"Browse species"
+			descText			"Browse species."
 			type				ITEM_TYPE_BUTTON
 			style				WINDOW_STYLE_SHADER
 			rect				287 48 24 24
@@ -225,7 +225,7 @@
 			name				rgb
 			group				none
 			text				"RGB"
-			descText			"Customized RGB colors"
+			descText			"Customized RGB colors."
 			type				ITEM_TYPE_BUTTON
 			style				WINDOW_STYLE_EMPTY
 			rect				160 80 100 24
@@ -265,7 +265,7 @@
 			forecolor			.615 .615 .956 1
 			visible			0
 			// appearance_slot	3
-			descText			"Red component in RGB colors"
+			descText			"Red component in RGB colors."
 			
 			mouseEnter 
 			{ 
@@ -297,7 +297,7 @@
 			forecolor			.615 .615 .956 1
 			visible			0
 			// appearance_slot	3
-			descText			"Green component in RGB colors"
+			descText			"Green component in RGB colors."
 
 			mouseEnter 
 			{ 
@@ -329,7 +329,7 @@
 			forecolor			.615 .615 .956 1
 			visible			0
 			// appearance_slot	3
-			descText			"Blue component in RGB colors"
+			descText			"Blue component in RGB colors."
 			
 			mouseEnter 
 			{ 
@@ -367,7 +367,7 @@
 			border 			1
 			bordercolor 		0 0 0 0
 			visible 			0
-			descText			"Red component Value"
+			descText			"Red component Value."
 			mouseEnter 
 			{ 
 				show			rgbred_glow
@@ -404,7 +404,7 @@
 			border 			1
 			bordercolor			0 0 0 0
 			visible 			0
-			descText			"Green component Value"
+			descText			"Green component Value."
 			mouseEnter 
 			{ 
 				show			rgbgreen_glow
@@ -441,7 +441,7 @@
 			border 				1
 			bordercolor 			0 0 0 0
 			visible 			0
-			descText			"Blue component Value"
+			descText			"Blue component Value."
 			mouseEnter 
 			{ 
 				show			rgbblue_glow

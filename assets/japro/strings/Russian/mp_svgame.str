@@ -334,8 +334,8 @@ LANG_ENGLISH        "Invalid Password. Press ESCAPE to return to Main Menu"
 LANG_RUSSIAN         "Неверный пароль. Нажмите ESCAPE, чтобы вернуться в главное меню"
 
 REFERENCE           CANCEL_PASSWORD
-LANG_ENGLISH        "Close menu, do not attempt to connect"
-LANG_RUSSIAN         "Закрыть меню, не подключаться"
+LANG_ENGLISH        "Close menu, do not attempt to connect."
+LANG_RUSSIAN         "Закрыть меню, не подключаться."
 
 REFERENCE           CANNOT_TASK_INTERMISSION
 LANG_ENGLISH        "You cannot perform this task during the intermission."

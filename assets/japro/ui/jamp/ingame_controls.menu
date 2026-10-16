@@ -4336,7 +4336,7 @@
 			textscale			1
 			forecolor			.615 .615 .956 1
 			visible			0 
-			descText			"Toggle raw mouse input"
+			descText			"Toggle raw mouse input."
 			action
 			{
 				play			"sound/interface/button1.wav";
@@ -5223,7 +5223,7 @@
 			textscale			1
 			forecolor			.615 .615 .956 1
 			visible				0
-			descText			"Gives Jetpack (if enabled on server) and removes Jetpack"
+			descText			"Gives Jetpack (if enabled on server) and removes Jetpack."
 			action
 			{
 				play			"sound/interface/button1.wav" ;
@@ -5409,6 +5409,40 @@
 			}
 		}
 
+		itemDef
+		{
+			group				japluscontrols
+			type				ITEM_TYPE_BIND
+			text				"Force Destruction:"
+			cvar				"force_destruction"
+			rect				220 201 300 20
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			151
+			textaligny			0
+			font				4
+			textscale			1
+			forecolor			.615 .615 .956 1
+			visible				0
+			cvarTest			ui_isJoFJAPlus
+			showCvar			{ 1 }
+			descText			"Uses the JA+ force destruction ability. JoF JA+ servers only."
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+			}
+
+			mouseenter
+			{
+				show			highlight9
+				show			keybindstatus
+			}
+			mouseexit
+			{
+				hide			highlight9
+				hide			keybindstatus
+			}
+		}
+
 //----------------------------------------------------------------------------------------------
 //
 //	JAPRO BINDING
@@ -5429,7 +5463,7 @@
 			forecolor			.615 .615 .956 1
 			visible				0
 			// appearance_slot		1
-			descText			"Gives Jetpack (if enabled on server) and removes Jetpack"
+			descText			"Gives Jetpack (if enabled on server) and removes Jetpack."
 			action
 			{
 				play			"sound/interface/button1.wav" ; 
@@ -5695,7 +5729,7 @@
 			forecolor			.615 .615 .956 1
 			visible				0 
 			// appearance_slot		4
-			descText			"Jump low like snipe!"
+			descText			"Jump low like snipe."
 			action
 			{
 				play			"sound/interface/button1.wav" ; 
@@ -5761,7 +5795,7 @@
 			textscale			1
 			forecolor			.615 .615 .956 1
 			visible				0 
-			descText			"WHAT?/? KILL YOURSELF"
+			descText			"WHAT?/? KILL YOURSELF."
 			action
 			{
 				play			"sound/interface/button1.wav" ; 

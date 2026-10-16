@@ -378,7 +378,7 @@
 			name				misc
 			group				grpCallVote
 			text				"Restart Server"
-			descText			"Restart the server"
+			descText			"Restart the server."
 			rect				112 125 245 30
 			type				1
 			textalign			ITEM_ALIGN_CENTER

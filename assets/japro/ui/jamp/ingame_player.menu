@@ -252,7 +252,7 @@
 			showCvar			{ 1 }
 			group				none
 			text				"Moves"
-			descText			"Browse moves and animations"
+			descText			"Browse moves and animations."
 			type				ITEM_TYPE_BUTTON
 			style				WINDOW_STYLE_EMPTY
 			rect				425 100 160 26
@@ -459,7 +459,7 @@
 		{
 			name 				headlist
 //			rect 				20 90 388 82
-			rect 				20 90 304 194
+			rect 				20 90 306 194
 			type 				ITEM_TYPE_LISTBOX
 			style 			WINDOW_STYLE_FILLED
 			elementwidth 		32
@@ -562,7 +562,7 @@
 			forecolor			1 1 1 1
 			visible				1
 			// appearance_slot	3
-			descText			"Red component in RGB colors"
+			descText			"Red component in RGB colors."
 			cvarTest			ui_RGBSkin
 			hideCvar			{ 0, 2 }
 			
@@ -587,7 +587,7 @@
 			forecolor			1 1 1 1
 			visible				1
 			// appearance_slot	3
-			descText			"Green component in RGB colors"
+			descText			"Green component in RGB colors."
 			cvarTest			ui_RGBSkin
 			hideCvar			{ 0, 2 }
 
@@ -611,7 +611,7 @@
 			textscale 			1
 			forecolor			1 1 1 1
 			visible				1
-			descText			"Blue component in RGB colors"
+			descText			"Blue component in RGB colors."
 			cvarTest			ui_RGBSkin
 			hideCvar			{ 0, 2 }
 			
@@ -641,7 +641,7 @@
 			border 			1
 			bordercolor 		0 0 0 0
 			visible 			1
-			descText			"Red component Value"
+			descText			"Red component Value."
 			cvarTest			ui_RGBSkin
 			hideCvar			{ 0, 2 }
 			
@@ -672,7 +672,7 @@
 			border 			1
 			bordercolor			0 0 0 0
 			visible 			1
-			descText			"Green component Value"
+			descText			"Green component Value."
 			cvarTest			ui_RGBSkin
 			hideCvar			{ 0, 2 }
 			
@@ -703,7 +703,7 @@
 			border 				1
 			bordercolor 			0 0 0 0
 			visible 			1
-			descText			"Blue component Value"
+			descText			"Blue component Value."
 			cvarTest			ui_RGBSkin
 			hideCvar			{ 0, 2 }
 			

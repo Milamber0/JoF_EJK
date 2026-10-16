@@ -407,7 +407,7 @@
 		{
 			name speciesbrowse
 			background "gfx/menus/species_search"
-			descText "Browse species"
+			descText "Browse species."
 			type ITEM_TYPE_BUTTON
 			style WINDOW_STYLE_SHADER
 			rect 296 88 24 24

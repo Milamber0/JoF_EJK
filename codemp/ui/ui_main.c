@@ -1025,7 +1025,7 @@ static void UI_SpeciesBrowserDisplayName(int speciesIndex, char *displayName, in
 
 	Com_sprintf(stringRef, sizeof(stringRef), "MENUS_%s", uiInfo.playerSpecies[speciesIndex].Name);
 	Q_strupr(stringRef);
-	if (!trap->SE_GetStringTextString(stringRef, displayName, displayNameSize))
+	if (!trap->SE_GetStringTextString(stringRef, displayName, displayNameSize) || !displayName[0])
 	{
 		Q_strncpyz(displayName, uiInfo.playerSpecies[speciesIndex].Name, displayNameSize);
 	}
