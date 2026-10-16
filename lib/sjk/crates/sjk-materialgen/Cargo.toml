@@ -1,0 +1,24 @@
+[package]
+name = "sjk-materialgen"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Local generator of rend2-convention material maps from installed Jedi Academy textures"
+
+[[bin]]
+name = "sjk-materialgen"
+path = "src/main.rs"
+
+[dependencies]
+# The viewer's decoder set: the same formats the client reads, and a PNG encoder.
+image = { version = "0.25.9", default-features = false, features = ["jpeg", "png", "tga"] }
+sjk-bsp.workspace = true
+sjk-shader.workspace = true
+sjk-vfs.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+zip.workspace = true
+
+[lints]
+workspace = true

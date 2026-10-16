@@ -1,0 +1,9 @@
+# WGSL programs are embedded with include_str! and patched by text at pipeline
+# build time (crates/sjk-viewer/src/wgsl_source.rs). Keep them LF in every
+# checkout, including Windows with core.autocrlf, so the embedded bytes match
+# the LF patterns in the Rust sources. Other text is left to Git's defaults:
+# Rust sources are normalised by rustc, and the embedded HUD layouts (*.json)
+# are parsed, never matched by text.
+*.wgsl text eol=lf
+# The emoji pack (scripts/twemoji_pack.py): PNG bytes and their LF index.
+crates/sjk-viewer/assets/emoji/twemoji.bin binary

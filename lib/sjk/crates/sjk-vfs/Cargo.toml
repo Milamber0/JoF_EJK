@@ -1,0 +1,13 @@
+[package]
+name = "sjk-vfs"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+md4.workspace = true
+zip.workspace = true
+
+[lints]
+workspace = true

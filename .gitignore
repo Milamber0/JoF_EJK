@@ -185,3 +185,7 @@ build-NVML/
 buildi686/
 
 lib/libcurl/
+
+# The Freedom renderer's Rust build (scripts/build-rd-freedom.sh)
+lib/sjk/target/
+build-rd-freedom/

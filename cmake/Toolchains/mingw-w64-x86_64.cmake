@@ -1,4 +1,4 @@
-# Cross-compile 64-bit Windows binaries with MinGW-w64 (used to build rd-sjk on Linux).
+# Cross-compile 64-bit Windows binaries with MinGW-w64 (used to build rd-freedom on Linux).
 set(CMAKE_SYSTEM_NAME Windows)
 set(CMAKE_SYSTEM_PROCESSOR x86_64)
 set(CMAKE_C_COMPILER x86_64-w64-mingw32-gcc)

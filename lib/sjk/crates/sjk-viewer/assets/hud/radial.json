@@ -1,0 +1,859 @@
+{
+ "version": 1,
+ "theme": "modern",
+ "widgets": [
+  {
+   "id": "left_pill",
+   "kind": "panel",
+   "anchor": "center",
+   "offset": {
+    "x": -175.0,
+    "y": 0.0
+   },
+   "offset_fraction": {
+    "x": 0.0,
+    "y": 0.19
+   },
+   "size": {
+    "width": {
+     "unit": "px",
+     "value": 210.0
+    },
+    "height": {
+     "unit": "px",
+     "value": 44.0
+    }
+   },
+   "visibility": {
+    "kind": "flag",
+    "binding": "draw_status"
+   },
+   "layer": 1,
+   "style": {
+    "background": {
+     "r": 0,
+     "g": 0,
+     "b": 0,
+     "a": 0.5
+    },
+    "radius": 22.0
+   }
+  },
+  {
+   "id": "right_pill",
+   "kind": "panel",
+   "anchor": "center",
+   "offset": {
+    "x": 175.0,
+    "y": 0.0
+   },
+   "offset_fraction": {
+    "x": 0.0,
+    "y": 0.19
+   },
+   "size": {
+    "width": {
+     "unit": "px",
+     "value": 210.0
+    },
+    "height": {
+     "unit": "px",
+     "value": 44.0
+    }
+   },
+   "visibility": {
+    "kind": "flag",
+    "binding": "draw_status"
+   },
+   "layer": 1,
+   "style": {
+    "background": {
+     "r": 0,
+     "g": 0,
+     "b": 0,
+     "a": 0.5
+    },
+    "radius": 22.0
+   }
+  },
+  {
+   "id": "health_arc",
+   "kind": "arc",
+   "binding": "health_ratio",
+   "anchor": "center",
+   "offset": {
+    "x": 0.0,
+    "y": 0.0
+   },
+   "offset_fraction": {
+    "x": 0.0,
+    "y": 0.19
+   },
+   "size": {
+    "width": {
+     "unit": "px",
+     "value": 407.0
+    },
+    "height": {
+     "unit": "px",
+     "value": 407.0
+    }
+   },
+   "visibility": {
+    "kind": "flag",
+    "binding": "draw_status"
+   },
+   "layer": 2,
+   "style": {
+    "foreground": {
+     "r": 1.0,
+     "g": 0.3,
+     "b": 0.22,
+     "a": 1.0
+    },
+    "background": {
+     "r": 1,
+     "g": 1,
+     "b": 1,
+     "a": 0.14
+    },
+    "border": {
+     "r": 0,
+     "g": 0,
+     "b": 0,
+     "a": 0.5
+    },
+    "border_width": 5.0,
+    "arc": {
+     "start_degrees": 146.0,
+     "sweep_degrees": 68.0,
+     "width": 7.0,
+     "segments": 4,
+     "gap_degrees": 3.0,
+     "knockout": {
+      "from_x": -280.0,
+      "to_x": -70.0,
+      "half_height": 22.0
+     }
+    }
+   }
+  },
+  {
+   "id": "armor_arc",
+   "kind": "arc",
+   "binding": "armor_ratio",
+   "anchor": "center",
+   "offset": {
+    "x": 0.0,
+    "y": 0.0
+   },
+   "offset_fraction": {
+    "x": 0.0,
+    "y": 0.19
+   },
+   "size": {
+    "width": {
+     "unit": "px",
+     "value": 351.0
+    },
+    "height": {
+     "unit": "px",
+     "value": 351.0
+    }
+   },
+   "visibility": {
+    "kind": "flag",
+    "binding": "draw_status"
+   },
+   "layer": 2,
+   "style": {
+    "foreground": {
+     "r": 0.32,
+     "g": 1.0,
+     "b": 0.4,
+     "a": 1.0
+    },
+    "background": {
+     "r": 1,
+     "g": 1,
+     "b": 1,
+     "a": 0.14
+    },
+    "border": {
+     "r": 0,
+     "g": 0,
+     "b": 0,
+     "a": 0.5
+    },
+    "border_width": 5.0,
+    "arc": {
+     "start_degrees": 146.0,
+     "sweep_degrees": 68.0,
+     "width": 7.0,
+     "segments": 4,
+     "gap_degrees": 3.0,
+     "knockout": {
+      "from_x": -280.0,
+      "to_x": -70.0,
+      "half_height": 22.0
+     }
+    }
+   }
+  },
+  {
+   "id": "force_arc",
+   "kind": "arc",
+   "binding": "force_ratio",
+   "anchor": "center",
+   "offset": {
+    "x": 0.0,
+    "y": 0.0
+   },
+   "offset_fraction": {
+    "x": 0.0,
+    "y": 0.19
+   },
+   "size": {
+    "width": {
+     "unit": "px",
+     "value": 407.0
+    },
+    "height": {
+     "unit": "px",
+     "value": 407.0
+    }
+   },
+   "visibility": {
+    "kind": "flag",
+    "binding": "draw_status"
+   },
+   "layer": 2,
+   "style": {
+    "foreground": {
+     "r": 0.34,
+     "g": 0.64,
+     "b": 1.0,
+     "a": 1.0
+    },
+    "background": {
+     "r": 1,
+     "g": 1,
+     "b": 1,
+     "a": 0.14
+    },
+    "border": {
+     "r": 0,
+     "g": 0,
+     "b": 0,
+     "a": 0.5
+    },
+    "border_width": 5.0,
+    "arc": {
+     "start_degrees": 34.0,
+     "sweep_degrees": -68.0,
+     "width": 7.0,
+     "segments": 4,
+     "gap_degrees": 3.0,
+     "knockout": {
+      "from_x": 70.0,
+      "to_x": 280.0,
+      "half_height": 22.0
+     }
+    }
+   }
+  },
+  {
+   "id": "ammo_arc",
+   "kind": "arc",
+   "binding": "ammo_ratio",
+   "anchor": "center",
+   "offset": {
+    "x": 0.0,
+    "y": 0.0
+   },
+   "offset_fraction": {
+    "x": 0.0,
+    "y": 0.19
+   },
+   "size": {
+    "width": {
+     "unit": "px",
+     "value": 351.0
+    },
+    "height": {
+     "unit": "px",
+     "value": 351.0
+    }
+   },
+   "visibility": {
+    "kind": "flag",
+    "binding": "draw_ammo"
+   },
+   "layer": 2,
+   "style": {
+    "foreground": {
+     "r": 1.0,
+     "g": 0.76,
+     "b": 0.16,
+     "a": 1.0
+    },
+    "background": {
+     "r": 1,
+     "g": 1,
+     "b": 1,
+     "a": 0.14
+    },
+    "border": {
+     "r": 0,
+     "g": 0,
+     "b": 0,
+     "a": 0.5
+    },
+    "border_width": 5.0,
+    "arc": {
+     "start_degrees": 34.0,
+     "sweep_degrees": -68.0,
+     "width": 7.0,
+     "segments": 4,
+     "gap_degrees": 3.0,
+     "knockout": {
+      "from_x": 70.0,
+      "to_x": 280.0,
+      "half_height": 22.0
+     }
+    }
+   }
+  },
+  {
+   "id": "style_arc",
+   "kind": "arc",
+   "binding": "style_ratio",
+   "anchor": "center",
+   "offset": {
+    "x": 0.0,
+    "y": 0.0
+   },
+   "offset_fraction": {
+    "x": 0.0,
+    "y": 0.19
+   },
+   "size": {
+    "width": {
+     "unit": "px",
+     "value": 351.0
+    },
+    "height": {
+     "unit": "px",
+     "value": 351.0
+    }
+   },
+   "visibility": {
+    "kind": "flag",
+    "binding": "draw_style"
+   },
+   "layer": 2,
+   "style": {
+    "foreground": {
+     "r": 0.84,
+     "g": 0.74,
+     "b": 1.0,
+     "a": 1.0
+    },
+    "background": {
+     "r": 1,
+     "g": 1,
+     "b": 1,
+     "a": 0.14
+    },
+    "border": {
+     "r": 0,
+     "g": 0,
+     "b": 0,
+     "a": 0.5
+    },
+    "border_width": 5.0,
+    "arc": {
+     "start_degrees": 34.0,
+     "sweep_degrees": -68.0,
+     "width": 7.0,
+     "segments": 1,
+     "gap_degrees": 0.0,
+     "knockout": {
+      "from_x": 70.0,
+      "to_x": 280.0,
+      "half_height": 22.0
+     }
+    }
+   }
+  },
+  {
+   "id": "health_value",
+   "kind": "text",
+   "binding": "health_value",
+   "anchor": "center",
+   "offset": {
+    "x": -245.5,
+    "y": 2.0
+   },
+   "offset_fraction": {
+    "x": 0.0,
+    "y": 0.19
+   },
+   "size": {
+    "width": {
+     "unit": "px",
+     "value": 64.0
+    },
+    "height": {
+     "unit": "px",
+     "value": 32.0
+    }
+   },
+   "visibility": {
+    "kind": "flag",
+    "binding": "draw_status"
+   },
+   "layer": 3,
+   "style": {
+    "foreground": {
+     "r": 1.0,
+     "g": 0.46,
+     "b": 0.4,
+     "a": 1.0
+    },
+    "type_scale": 1.4,
+    "weight": "semibold",
+    "align": "end"
+   }
+  },
+  {
+   "id": "armor_value",
+   "kind": "text",
+   "binding": "armor_value",
+   "anchor": "center",
+   "offset": {
+    "x": -126.5,
+    "y": 2.0
+   },
+   "offset_fraction": {
+    "x": 0.0,
+    "y": 0.19
+   },
+   "size": {
+    "width": {
+     "unit": "px",
+     "value": 64.0
+    },
+    "height": {
+     "unit": "px",
+     "value": 32.0
+    }
+   },
+   "visibility": {
+    "kind": "flag",
+    "binding": "draw_status"
+   },
+   "layer": 3,
+   "style": {
+    "foreground": {
+     "r": 0.5,
+     "g": 1.0,
+     "b": 0.56,
+     "a": 1.0
+    },
+    "type_scale": 1.4,
+    "weight": "semibold",
+    "align": "start"
+   }
+  },
+  {
+   "id": "ammo_value",
+   "kind": "text",
+   "binding": "ammo_value",
+   "anchor": "center",
+   "offset": {
+    "x": 126.5,
+    "y": 2.0
+   },
+   "offset_fraction": {
+    "x": 0.0,
+    "y": 0.19
+   },
+   "size": {
+    "width": {
+     "unit": "px",
+     "value": 64.0
+    },
+    "height": {
+     "unit": "px",
+     "value": 32.0
+    }
+   },
+   "visibility": {
+    "kind": "flag",
+    "binding": "draw_ammo"
+   },
+   "layer": 3,
+   "style": {
+    "foreground": {
+     "r": 1.0,
+     "g": 0.82,
+     "b": 0.36,
+     "a": 1.0
+    },
+    "type_scale": 1.4,
+    "weight": "semibold",
+    "align": "end"
+   }
+  },
+  {
+   "id": "force_value",
+   "kind": "text",
+   "binding": "force_value",
+   "anchor": "center",
+   "offset": {
+    "x": 245.5,
+    "y": 2.0
+   },
+   "offset_fraction": {
+    "x": 0.0,
+    "y": 0.19
+   },
+   "size": {
+    "width": {
+     "unit": "px",
+     "value": 64.0
+    },
+    "height": {
+     "unit": "px",
+     "value": 32.0
+    }
+   },
+   "visibility": {
+    "kind": "flag",
+    "binding": "draw_status"
+   },
+   "layer": 3,
+   "style": {
+    "foreground": {
+     "r": 0.52,
+     "g": 0.74,
+     "b": 1.0,
+     "a": 1.0
+    },
+    "type_scale": 1.4,
+    "weight": "semibold",
+    "align": "start"
+   }
+  },
+  {
+   "id": "style_value",
+   "kind": "text",
+   "binding": "style_value",
+   "anchor": "center",
+   "offset": {
+    "x": 116.5,
+    "y": 5.0
+   },
+   "offset_fraction": {
+    "x": 0.0,
+    "y": 0.19
+   },
+   "size": {
+    "width": {
+     "unit": "px",
+     "value": 84.0
+    },
+    "height": {
+     "unit": "px",
+     "value": 32.0
+    }
+   },
+   "visibility": {
+    "kind": "flag",
+    "binding": "draw_style"
+   },
+   "layer": 3,
+   "style": {
+    "type_scale": 1.1,
+    "weight": "semibold",
+    "align": "end"
+   }
+  },
+  {
+   "id": "weapon_value",
+   "kind": "text",
+   "binding": "weapon_value",
+   "anchor": "center",
+   "offset": {
+    "x": 0.0,
+    "y": -45.0
+   },
+   "offset_fraction": {
+    "x": 0.0,
+    "y": 0.19
+   },
+   "size": {
+    "width": {
+     "unit": "px",
+     "value": 280.0
+    },
+    "height": {
+     "unit": "px",
+     "value": 28.0
+    }
+   },
+   "visibility": {
+    "kind": "flag",
+    "binding": "draw_weapon"
+   },
+   "layer": 3,
+   "style": {
+    "foreground": {
+     "r": 1,
+     "g": 1,
+     "b": 1,
+     "a": 0.95
+    },
+    "type_scale": 1.1,
+    "weight": "semibold",
+    "centered": true
+   }
+  },
+  {
+   "id": "vote_panel",
+   "kind": "repeater",
+   "binding": "vote_panel",
+   "anchor": "top",
+   "offset": {
+    "x": 0.0,
+    "y": 32.0
+   },
+   "size": {
+    "width": {
+     "unit": "px",
+     "value": 620.0
+    },
+    "height": {
+     "unit": "px",
+     "value": 192.0
+    }
+   },
+   "visibility": {
+    "kind": "flag",
+    "binding": "draw_vote"
+   },
+   "layer": 8,
+   "style": {
+    "background": {
+     "r": 0.0,
+     "g": 0.0,
+     "b": 0.0,
+     "a": 0.62
+    },
+    "radius": 12.0
+   }
+  },
+  {
+   "id": "crosshair",
+   "kind": "image",
+   "binding": "crosshair",
+   "anchor": "center",
+   "offset": {
+    "x": 0.0,
+    "y": 0.0
+   },
+   "size": {
+    "width": {
+     "unit": "px",
+     "value": 22.0
+    },
+    "height": {
+     "unit": "px",
+     "value": 22.0
+    }
+   },
+   "visibility": {
+    "kind": "flag",
+    "binding": "draw_crosshair"
+   },
+   "layer": 10,
+   "style": {
+    "foreground": {
+     "r": 0.973,
+     "g": 0.991,
+     "b": 1.0,
+     "a": 0.982
+    }
+   }
+  },
+  {
+   "id": "crosshair_name",
+   "kind": "text",
+   "binding": "crosshair_name",
+   "anchor": "center",
+   "offset": {
+    "x": 0.0,
+    "y": -131.5
+   },
+   "size": {
+    "width": {
+     "unit": "px",
+     "value": 960.0
+    },
+    "height": {
+     "unit": "px",
+     "value": 52.0
+    }
+   },
+   "visibility": {
+    "kind": "flag",
+    "binding": "draw_crosshair_name"
+   },
+   "layer": 11,
+   "style": {
+    "type_scale": 1.0,
+    "weight": "semibold"
+   }
+  },
+  {
+   "id": "match_timer",
+   "kind": "text",
+   "binding": "match_timer",
+   "anchor": "top",
+   "offset": {
+    "x": 0.0,
+    "y": 28.0
+   },
+   "size": {
+    "width": {
+     "unit": "px",
+     "value": 180.0
+    },
+    "height": {
+     "unit": "px",
+     "value": 42.0
+    }
+   },
+   "visibility": {
+    "kind": "flag",
+    "binding": "draw_timer"
+   },
+   "layer": 6,
+   "style": {
+    "foreground": {
+     "r": 1.0,
+     "g": 1.0,
+     "b": 1.0,
+     "a": 0.982
+    },
+    "type_scale": 1.35,
+    "weight": "semibold"
+   }
+  },
+  {
+   "id": "warmup_text",
+   "kind": "text",
+   "binding": "warmup_text",
+   "anchor": "top",
+   "offset": {
+    "x": 0.0,
+    "y": 88.0
+   },
+   "size": {
+    "width": {
+     "unit": "px",
+     "value": 480.0
+    },
+    "height": {
+     "unit": "px",
+     "value": 58.0
+    }
+   },
+   "visibility": {
+    "kind": "flag",
+    "binding": "draw_warmup"
+   },
+   "layer": 9,
+   "style": {
+    "foreground": {
+     "r": 1.0,
+     "g": 0.88,
+     "b": 0.48,
+     "a": 1.0
+    },
+    "type_scale": 1.5,
+    "weight": "semibold"
+   }
+  },
+  {
+   "id": "lagometer",
+   "kind": "repeater",
+   "binding": "lagometer",
+   "anchor": "bottom_right",
+   "offset": {
+    "x": -32.0,
+    "y": -240.0
+   },
+   "size": {
+    "width": {
+     "unit": "px",
+     "value": 64.0
+    },
+    "height": {
+     "unit": "px",
+     "value": 64.0
+    }
+   },
+   "visibility": {
+    "kind": "flag",
+    "binding": "draw_lagometer"
+   },
+   "layer": 13,
+   "style": {
+    "background": {
+     "r": 0.0,
+     "g": 0.0,
+     "b": 0.0,
+     "a": 0.55
+    },
+    "radius": 6.0
+   }
+  },
+  {
+   "id": "connection_interrupted",
+   "kind": "text",
+   "binding": "connection_interrupted",
+   "anchor": "center",
+   "offset": {
+    "x": 0.0,
+    "y": -92.0
+   },
+   "size": {
+    "width": {
+     "unit": "px",
+     "value": 420.0
+    },
+    "height": {
+     "unit": "px",
+     "value": 34.0
+    }
+   },
+   "visibility": {
+    "kind": "flag",
+    "binding": "draw_interrupted"
+   },
+   "layer": 12,
+   "style": {
+    "foreground": {
+     "r": 1.0,
+     "g": 0.3,
+     "b": 0.24,
+     "a": 1.0
+    },
+    "type_scale": 1.05,
+    "weight": "semibold"
+   }
+  }
+ ]
+}

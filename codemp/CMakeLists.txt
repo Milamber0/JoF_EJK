@@ -140,10 +140,10 @@ if(BuildMPRend2)
 	add_subdirectory("${MPDir}/rd-rend2")
 endif(BuildMPRend2)
 
-#	Add the SJK renderer (rd-sjk)
-if(BuildMPRdSjk)
-	add_subdirectory("${MPDir}/rd-sjk")
-endif(BuildMPRdSjk)
+#	Add the Freedom renderer (rd-freedom, built on SJK)
+if(BuildMPRdFreedom)
+	add_subdirectory("${MPDir}/rd-freedom")
+endif(BuildMPRdFreedom)
 
 
 #    Common things between Engine and Dedicated Server
@@ -811,6 +811,20 @@ if(BuildMPEngine)
 			DESTINATION ${RDVulkanDestination}
 			COMPONENT ${JKAMPClientComponent})
 		message(STATUS "Bundling prebuilt Vulkan renderer: ${EXTERNAL_RD_VULKAN_MODULE}")
+	endif()
+
+	# The Freedom renderer (rd-freedom, built on SJK): its Rust half needs a Rust
+	# toolchain, so CI builds it in a job of its own with MinGW-w64
+	# (scripts/build-rd-freedom.sh) and hands the DLL over here.
+	if(DEFINED EXTERNAL_RD_FREEDOM_DLL)
+		if(NOT EXISTS "${EXTERNAL_RD_FREEDOM_DLL}")
+			message(FATAL_ERROR
+				"EXTERNAL_RD_FREEDOM_DLL does not exist: ${EXTERNAL_RD_FREEDOM_DLL}")
+		endif()
+		install(PROGRAMS ${EXTERNAL_RD_FREEDOM_DLL}
+			DESTINATION ${JKAInstallDir}
+			COMPONENT ${JKAMPClientComponent})
+		message(STATUS "Bundling the Freedom renderer: ${EXTERNAL_RD_FREEDOM_DLL}")
 	endif()
 
 	if(DEFINED EXTERNAL_MOLTENVK_LIBRARY)

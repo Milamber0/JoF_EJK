@@ -1,0 +1,38 @@
+SJK Menu, SJK Chat and SJK HUD
+==============================
+
+SJK draws no bitmap fonts. These three TrueType fonts replace Jedi Academy's
+bitmap game fonts and keep their layout: every glyph has the retail font's
+advance and sits where the retail glyph sat. scripts/game_fonts.py builds them
+from the inputs below, read from a player's install; none of those inputs are
+in this repository.
+
+SJKMenu.ttf (for ergoec) and SJKHud.ttf (for arialnb)
+  Traced, glyph by glyph, from the ergoec and arialnb atlases of the JoF HD
+  Fonts & Icons pack (JoF_HDFonts&Icons.pk3), a high-resolution redraw of the
+  fonts Raven Software shipped with Jedi Academy. The pack's author is unknown
+  and it states no licence; SJK includes these tracings on the assumption that
+  the pack is shared freely in the community, credits it here, and will remove
+  them at the author's request. The letterforms follow the retail fonts, whose
+  designs belong to their respective owners.
+
+SJKChat.ttf (for ocr_a)
+  OCR-A by John Sauter, released to the public domain (Debian package
+  fonts-ocr-a), set to the widths of Jedi Academy's ocr_a. Latin-1 letters and
+  symbols OCR-A lacks were composed from its own glyphs for SJK. Seven glyphs
+  (ß þ Þ ð § ¶ ¤) and the "WSI fonts" logo at byte 0xAC are traced from the JoF
+  HD pack as above.
+
+The "WSI fonts" logo at byte 0xAC of SJK Menu and SJK Chat is the boxed logo
+the retail fonts carry there, which players use in their names.
+
+SJK's own work on these fonts is distributed with SJK under the GNU General
+Public License, version 2 (see LICENSE at the repository root).
+
+SJK Symbols
+===========
+
+SJKSymbols.ttf is SJK's own symbol font: marks for rarities and finishes in
+Unicode's Private Use Area, drawn for SJK and built by scripts/sjk_symbols.py
+(docs/sjk-ui.md "Symbols"). Nothing in it is traced or taken from another font.
+It is distributed with SJK under the GNU General Public License, version 2.

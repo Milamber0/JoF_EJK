@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "theme": "classic",
+  "widgets": [
+    { "id":"health_label","kind":"text","binding":"health_text","anchor":"bottom_left","offset":{"x":28.0,"y":-70.0},"size":{"width":{"unit":"px","value":122.0},"height":{"unit":"px","value":28.0}},"visibility":{"kind":"flag","binding":"draw_status"},"layer":3,"style":{} },
+    { "id":"health_meter","kind":"meter","binding":"health_ratio","anchor":"bottom_left","offset":{"x":164.0,"y":-75.0},"size":{"width":{"unit":"px","value":180.0},"height":{"unit":"px","value":10.0}},"visibility":{"kind":"flag","binding":"draw_status"},"layer":2,"style":{"foreground":{"r":0.9,"g":0.08,"b":0.04,"a":1.0}} },
+    { "id":"armor_label","kind":"text","binding":"armor_text","anchor":"bottom_left","offset":{"x":28.0,"y":-28.0},"size":{"width":{"unit":"px","value":122.0},"height":{"unit":"px","value":28.0}},"visibility":{"kind":"flag","binding":"draw_status"},"layer":3,"style":{} },
+    { "id":"armor_meter","kind":"meter","binding":"armor_ratio","anchor":"bottom_left","offset":{"x":164.0,"y":-35.0},"size":{"width":{"unit":"px","value":180.0},"height":{"unit":"px","value":10.0}},"visibility":{"kind":"flag","binding":"draw_status"},"layer":2,"style":{"foreground":{"r":0.25,"g":0.4,"b":1.0,"a":1.0}} },
+    { "id":"force_label","kind":"text","binding":"force_text","anchor":"bottom_right","offset":{"x":-28.0,"y":-70.0},"size":{"width":{"unit":"px","value":110.0},"height":{"unit":"px","value":28.0}},"visibility":{"kind":"flag","binding":"draw_status"},"layer":3,"style":{} },
+    { "id":"force_meter","kind":"meter","binding":"force_ratio","anchor":"bottom_right","offset":{"x":-166.0,"y":-75.0},"size":{"width":{"unit":"px","value":180.0},"height":{"unit":"px","value":10.0}},"visibility":{"kind":"flag","binding":"draw_status"},"layer":2,"style":{"foreground":{"r":0.45,"g":0.2,"b":1.0,"a":1.0}} },
+    { "id":"weapon_label","kind":"text","binding":"weapon_text","anchor":"bottom","offset":{"x":0.0,"y":-70.0},"size":{"width":{"unit":"px","value":260.0},"height":{"unit":"px","value":28.0}},"visibility":{"kind":"flag","binding":"draw_weapon"},"layer":3,"style":{} },
+    { "id":"ammo_label","kind":"text","binding":"ammo_text","anchor":"bottom","offset":{"x":0.0,"y":-36.0},"size":{"width":{"unit":"px","value":260.0},"height":{"unit":"px","value":28.0}},"visibility":{"kind":"flag","binding":"draw_ammo_text"},"layer":3,"style":{} },
+    { "id":"vote_panel","kind":"repeater","binding":"vote_panel","anchor":"top","offset":{"x":0.0,"y":28.0},"size":{"width":{"unit":"px","value":560.0},"height":{"unit":"px","value":180.0}},"visibility":{"kind":"flag","binding":"draw_vote"},"layer":8,"style":{} },
+    { "id":"crosshair","kind":"image","binding":"crosshair","anchor":"center","offset":{"x":0.0,"y":0.0},"size":{"width":{"unit":"px","value":16.0},"height":{"unit":"px","value":16.0}},"visibility":{"kind":"flag","binding":"draw_crosshair"},"layer":10,"style":{} },
+    { "id":"crosshair_name","kind":"text","binding":"crosshair_name","anchor":"center","offset":{"x":0.0,"y":-128.5},"size":{"width":{"unit":"px","value":960.0},"height":{"unit":"px","value":58.0}},"visibility":{"kind":"flag","binding":"draw_crosshair_name"},"layer":11,"style":{"type_scale":0.9} },
+    { "id":"match_timer","kind":"text","binding":"match_timer","anchor":"top","offset":{"x":0.0,"y":24.0},"size":{"width":{"unit":"px","value":160.0},"height":{"unit":"px","value":36.0}},"visibility":{"kind":"flag","binding":"draw_timer"},"layer":6,"style":{} },
+    { "id":"warmup_text","kind":"text","binding":"warmup_text","anchor":"top","offset":{"x":0.0,"y":72.0},"size":{"width":{"unit":"px","value":460.0},"height":{"unit":"px","value":44.0}},"visibility":{"kind":"flag","binding":"draw_warmup"},"layer":9,"style":{} },
+    { "id":"lagometer","kind":"repeater","binding":"lagometer","anchor":"bottom_right","offset":{"x":-28.0,"y":-118.0},"size":{"width":{"unit":"px","value":48.0},"height":{"unit":"px","value":48.0}},"visibility":{"kind":"flag","binding":"draw_lagometer"},"layer":13,"style":{} },
+    { "id":"connection_interrupted","kind":"text","binding":"connection_interrupted","anchor":"center","offset":{"x":0.0,"y":-72.0},"size":{"width":{"unit":"px","value":400.0},"height":{"unit":"px","value":30.0}},"visibility":{"kind":"flag","binding":"draw_interrupted"},"layer":12,"style":{} }
+  ]
+}

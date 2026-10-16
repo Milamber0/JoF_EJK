@@ -1,0 +1,30 @@
+Sol JK (SJK)
+Copyright (C) 2026 Sol-Vulpes, Bishop-R and the JKR contributors
+
+SJK is developed by Sol (Sol-Vulpes) and contributors. It began as a modified
+version of JKR (https://github.com/Bishop-R/JKR) by Bishop (Bishop-R). CREDITS.md
+lists who made what; the git history records every change with its author and
+date.
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License version 2 as published by the Free
+Software Foundation (see LICENSE). It is distributed WITHOUT ANY WARRANTY;
+without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.
+
+Keeping the credits
+-------------------
+The license requires anyone who copies, modifies or redistributes SJK to:
+
+- keep these copyright notices and the license intact (sections 1 and 2);
+- mark their changes with what was changed and when (section 2(a));
+- keep the copyright and no-warranty announcement that the client and server
+  print when they start (section 2(c)).
+
+Name and emblem
+---------------
+The GPL covers the code, not the project's identity. "Sol JK", "SJK" and the
+SJK emblem identify Sol's releases: a modified version must use its own name
+and emblem unless Sol agrees otherwise, and must not suggest that it is an
+official SJK release. Credit stays: saying a work is based on SJK is welcome and
+expected.

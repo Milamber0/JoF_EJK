@@ -1,0 +1,33 @@
+[package]
+name = "sjk-dedicated"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "SJK's headless server process: platform composition of the native server core and its protocol adapters"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "sjk-server"
+path = "src/main.rs"
+
+[dependencies]
+getrandom = { version = "0.3.4", features = ["std"] }
+sjk-bsp.workspace = true
+sjk-entity.workspace = true
+sjk-game-jka.workspace = true
+sjk-icarus.workspace = true
+sjk-model.workspace = true
+sjk-network.workspace = true
+sjk-protocol.workspace = true
+sjk-server.workspace = true
+sjk-vfs.workspace = true
+
+[build-dependencies]
+# Windows icon and version resource; the build script uses it only for Windows targets.
+winresource = { version = "0.1.31", default-features = false }
+
+[lints]
+workspace = true

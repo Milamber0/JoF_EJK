@@ -1,0 +1,19 @@
+[package]
+name = "sjk-client"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+sjk-audio.workspace = true
+sjk-game-jka.workspace = true
+sjk-model.workspace = true
+sjk-network.workspace = true
+sjk-protocol.workspace = true
+sjk-runtime.workspace = true
+sjk-vfs.workspace = true
+
+
+[lints]
+workspace = true

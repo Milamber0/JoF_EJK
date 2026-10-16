@@ -1,0 +1,19 @@
+[package]
+name = "sjk-game-jka"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Jedi Academy game rules as a compatibility profile, shared by SJK's client prediction and its server"
+
+[dependencies]
+glam.workspace = true
+sjk-entity.workspace = true
+sjk-icarus.workspace = true
+sjk-model.workspace = true
+sjk-nav.workspace = true
+sjk-protocol.workspace = true
+
+
+[lints]
+workspace = true

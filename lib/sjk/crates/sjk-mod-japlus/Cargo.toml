@@ -1,0 +1,13 @@
+[package]
+name = "sjk-mod-japlus"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+sjk-mod.workspace = true
+sjk-protocol.workspace = true

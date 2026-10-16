@@ -45,7 +45,7 @@ option(BuildDiscordRichPresence "Whether to build with Discord Rich Presence int
 option(UseFFmpegVideo "Non-Windows: play cutscene videos with the system FFmpeg libraries, if pkg-config finds them" ON)
 
 option(BuildMPRend2 "Whether to create projects for the EXPERIMENTAL MP rend2 renderer (rd-rend2-etjk_x86.dll)" ON)
-option(BuildMPRdSjk "Whether to build the Freedom renderer (rd-freedom_x86_64.dll, built on SJK); needs SJK_HOST_LIBRARY" OFF)
+option(BuildMPRdFreedom "Whether to build the Freedom renderer (rd-freedom_x86_64.dll, built on SJK); needs SJK_HOST_LIBRARY" OFF)
 
 option(BuildTests "Whether to build automatic unit tests (requires Boost)" OFF)
 
@@ -161,7 +161,7 @@ set(MPCGame "cgame${Architecture}")
 set(MPUI "ui${Architecture}")
 set(BinsPk3 "jofclient-win-${Architecture}.pk3")
 set(MPRend2 "rd-rend2-etjk_${Architecture}")
-set(MPRdSjk "rd-freedom_${Architecture}")
+set(MPRdFreedom "rd-freedom_${Architecture}")
 # Library names
 set(MPBotLib "botlib")
 set(SharedLib "shared")

@@ -28,6 +28,56 @@ concurrency:
 
 jobs:
   # =========================
+  # FREEDOM RENDERER
+  # =========================
+  # rd-freedom_x86_64.dll, the Freedom renderer built on SJK (lib/sjk): its Rust
+  # half is cross-built with MinGW-w64 here, and each Windows x86_64 package
+  # takes the DLL from this job.
+  freedom-renderer:
+    name: Freedom renderer (Windows x86_64)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout triggering commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Install MinGW-w64, CMake and Ninja
+        run: |
+          sudo apt-get -qq update
+          sudo apt-get -y install g++-mingw-w64-x86-64-win32 gcc-mingw-w64-x86-64-win32 cmake ninja-build
+
+      - name: Install Rust
+        run: |
+          rustup toolchain install 1.97.0 --profile minimal --target x86_64-pc-windows-gnu
+          rustup default 1.97.0
+
+      - name: Cache Rust build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            lib/sjk/target
+          key: freedom-${{ runner.os }}-${{ hashFiles('lib/sjk/Cargo.lock') }}-${{ hashFiles('lib/sjk/crates/**/*.rs', 'lib/sjk/crates/**/*.wgsl') }}
+          restore-keys: |
+            freedom-${{ runner.os }}-${{ hashFiles('lib/sjk/Cargo.lock') }}-
+            freedom-${{ runner.os }}-
+
+      - name: Build
+        run: |
+          bash scripts/build-rd-freedom.sh lib/sjk build-rd-freedom
+          x86_64-w64-mingw32-strip --strip-all build-rd-freedom/rd-freedom_x86_64.dll
+          ls -l build-rd-freedom/rd-freedom_x86_64.dll
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: rd-freedom-windows-x86_64
+          path: build-rd-freedom/rd-freedom_x86_64.dll
+          if-no-files-found: error
+
+  # =========================
   # BETA
   # =========================
   beta-version:
@@ -105,7 +155,7 @@ jobs:
   windows:
     if: github.ref == 'refs/heads/beta' && github.event_name == 'push'
     name: Windows ${{ matrix.arch }} Release (Beta)
-    needs: beta-version
+    needs: [beta-version, freedom-renderer]
     runs-on: windows-2022
     strategy:
       matrix:
@@ -141,6 +191,13 @@ jobs:
           unzip -j external/$ZIP_NAME "$DLL_NAME" -d external
           echo "RD_VULKAN_MODULE=${{ github.workspace }}/external/$DLL_NAME" >> $GITHUB_ENV
 
+      - name: Download the Freedom renderer
+        if: matrix.arch == 'x86_64'
+        uses: actions/download-artifact@v4
+        with:
+          name: rd-freedom-windows-x86_64
+          path: external/freedom
+
       - name: Create build directory
         run: cmake -E make_directory build
 
@@ -148,6 +205,9 @@ jobs:
         working-directory: ${{ github.workspace }}/build
         shell: bash
         run: |
+          if [ -f "${{ github.workspace }}/external/freedom/rd-freedom_x86_64.dll" ]; then
+            RD_FREEDOM_DLL="${{ github.workspace }}/external/freedom/rd-freedom_x86_64.dll"
+          fi
           cmake .. -A ${{ matrix.platform }} \
             -DCMAKE_INSTALL_PREFIX=bin \
             -DCMAKE_BUILD_TYPE=Release \
@@ -155,7 +215,8 @@ jobs:
             -DJOF_VERSION_SUFFIX="${{ needs.beta-version.outputs.version_suffix }}" \
             -DGIT_SHA=${{ github.sha }} \
             -DGIT_BRANCH=${{ github.ref_name }} \
-            -DEXTERNAL_RD_VULKAN_MODULE="$RD_VULKAN_MODULE"
+            -DEXTERNAL_RD_VULKAN_MODULE="$RD_VULKAN_MODULE" \
+            ${RD_FREEDOM_DLL:+-DEXTERNAL_RD_FREEDOM_DLL="$RD_FREEDOM_DLL"}
 
       - name: Build
         working-directory: ${{ github.workspace }}/build
@@ -618,7 +679,7 @@ jobs:
   windows-alpha:
     if: github.ref == 'refs/heads/alpha' && github.event_name == 'push'
     name: Windows ${{ matrix.arch }} Release (Alpha)
-    needs: alpha-version
+    needs: [alpha-version, freedom-renderer]
     runs-on: windows-2022
     strategy:
       matrix:
@@ -654,6 +715,13 @@ jobs:
           unzip -j external/$ZIP_NAME "$DLL_NAME" -d external
           echo "RD_VULKAN_DLL=${{ github.workspace }}/external/$DLL_NAME" >> $GITHUB_ENV
 
+      - name: Download the Freedom renderer
+        if: matrix.arch == 'x86_64'
+        uses: actions/download-artifact@v4
+        with:
+          name: rd-freedom-windows-x86_64
+          path: external/freedom
+
       - name: Create build directory
         run: cmake -E make_directory build
 
@@ -661,6 +729,9 @@ jobs:
         working-directory: ${{ github.workspace }}/build
         shell: bash
         run: |
+          if [ -f "${{ github.workspace }}/external/freedom/rd-freedom_x86_64.dll" ]; then
+            RD_FREEDOM_DLL="${{ github.workspace }}/external/freedom/rd-freedom_x86_64.dll"
+          fi
           cmake .. -A ${{ matrix.platform }} \
             -DCMAKE_INSTALL_PREFIX=bin \
             -DCMAKE_BUILD_TYPE=Release \
@@ -668,7 +739,8 @@ jobs:
             -DJOF_VERSION_SUFFIX="${{ needs.alpha-version.outputs.version_suffix }}" \
             -DGIT_SHA=${{ github.sha }} \
             -DGIT_BRANCH=${{ github.ref_name }} \
-            -DEXTERNAL_RD_VULKAN_DLL="$RD_VULKAN_DLL"
+            -DEXTERNAL_RD_VULKAN_DLL="$RD_VULKAN_DLL" \
+            ${RD_FREEDOM_DLL:+-DEXTERNAL_RD_FREEDOM_DLL="$RD_FREEDOM_DLL"}
 
       - name: Build
         working-directory: ${{ github.workspace }}/build
@@ -1070,7 +1142,7 @@ jobs:
   windows-master:
     if: needs.check-master-changes.outputs.should_run == 'true'
     name: Windows ${{ matrix.arch }} Release (Master)
-    needs: [check-master-changes, master-version]
+    needs: [check-master-changes, master-version, freedom-renderer]
     runs-on: windows-2022
     strategy:
       matrix:
@@ -1106,6 +1178,13 @@ jobs:
           unzip -j external/$ZIP_NAME "$DLL_NAME" -d external
           echo "RD_VULKAN_MODULE=${{ github.workspace }}/external/$DLL_NAME" >> $GITHUB_ENV
 
+      - name: Download the Freedom renderer
+        if: matrix.arch == 'x86_64'
+        uses: actions/download-artifact@v4
+        with:
+          name: rd-freedom-windows-x86_64
+          path: external/freedom
+
       - name: Create build directory
         run: cmake -E make_directory build
 
@@ -1113,13 +1192,17 @@ jobs:
         working-directory: ${{ github.workspace }}/build
         shell: bash
         run: |
+          if [ -f "${{ github.workspace }}/external/freedom/rd-freedom_x86_64.dll" ]; then
+            RD_FREEDOM_DLL="${{ github.workspace }}/external/freedom/rd-freedom_x86_64.dll"
+          fi
           cmake .. -A ${{ matrix.platform }} \
             -DCMAKE_INSTALL_PREFIX=bin \
             -DCMAKE_BUILD_TYPE=Release \
             -DJOF_VERSION_STRING="${{ needs.master-version.outputs.version }}" \
             -DGIT_SHA=${{ github.sha }} \
             -DGIT_BRANCH=${{ github.ref_name }} \
-            -DEXTERNAL_RD_VULKAN_MODULE="$RD_VULKAN_MODULE"
+            -DEXTERNAL_RD_VULKAN_MODULE="$RD_VULKAN_MODULE" \
+            ${RD_FREEDOM_DLL:+-DEXTERNAL_RD_FREEDOM_DLL="$RD_FREEDOM_DLL"}
 
       - name: Build
         working-directory: ${{ github.workspace }}/build

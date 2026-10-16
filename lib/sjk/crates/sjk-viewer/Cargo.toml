@@ -1,0 +1,88 @@
+[package]
+name = "sjk-viewer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "sjk"
+path = "src/main.rs"
+
+# The same client as a library, for `rd-sjk` (JoF EJK's renderer DLL) to link as a
+# static library: `cargo rustc -p sjk-viewer --lib --crate-type=staticlib`. Its C
+# interface is `src/host/ffi.rs`.
+[lib]
+name = "sjk_host"
+path = "src/main.rs"
+test = false
+doctest = false
+
+[dependencies]
+bytemuck = { version = "1.25.0", features = ["derive"] }
+glam = "0.33.0"
+image = { version = "0.25.9", default-features = false, features = ["gif", "jpeg", "png", "tga"] }
+half = "2.7.1"
+fontdue = "0.9.3"
+# Glyphs beyond the code-page atlases, outlined on demand (`text/wide.rs`).
+ab_glyph = { version = "0.2.32", default-features = false, features = ["std"] }
+getrandom = { version = "0.3.4", features = ["std"] }
+sjk-bsp.workspace = true
+sjk-audio.workspace = true
+sjk-client.workspace = true
+sjk-game-jka.workspace = true
+sjk-entity.workspace = true
+sjk-effect.workspace = true
+sjk-identity.workspace = true
+sjk-model.workspace = true
+sjk-mod.workspace = true
+# The client mods (docs/mods.md): built in by default, each can be left out.
+sjk-mod-japlus = { workspace = true, optional = true }
+sjk-mod-jof = { workspace = true, optional = true }
+sjk-network.workspace = true
+sjk-protocol.workspace = true
+sjk-runtime.workspace = true
+sjk-scene.workspace = true
+sjk-shader.workspace = true
+sjk-shell.workspace = true
+sjk-ui.workspace = true
+sjk-vfs.workspace = true
+md-5.workspace = true
+md4.workspace = true
+pollster = "1.0.0"
+rodio = { version = "0.20.1", default-features = false, features = ["minimp3", "wav"] }
+ringbuf = "0.4.8"
+# The picture panel's Browse...: the system's file dialog. On Linux the desktop portal,
+# reached through libdbus loaded at run time, so the build needs no GTK.
+rfd = { version = "=0.17.2", default-features = false, features = ["xdg-portal"] }
+serde.workspace = true
+serde_json.workspace = true
+tempfile = "3.27.0"
+zip.workspace = true
+wgpu = { version = "30.0.1", default-features = false, features = ["dx12", "gles", "std", "vulkan", "wgsl"] }
+winit = { version = "0.30.13", default-features = false, features = ["rwh_06", "wayland", "wayland-dlopen", "x11"] }
+ureq = { version = "3", default-features = false, features = ["rustls", "gzip"] }
+sha2 = "0.11.0"
+
+[features]
+default = ["mod-japlus", "mod-jof"]
+mod-japlus = ["dep:sjk-mod-japlus"]
+mod-jof = ["dep:sjk-mod-jof"]
+
+[target.'cfg(windows)'.dependencies]
+# Ctrl+V and copies read and set the clipboard directly: starting PowerShell for them
+# took about a quarter of a second, a hitch in the middle of play.
+clipboard-win = "5.4.0"
+
+[build-dependencies]
+# Windows icon and version resource; the build script uses it only for Windows targets.
+winresource = { version = "0.1.31", default-features = false }
+
+# The workspace's lints, except that the C interface of `src/host` may use `unsafe`.
+[lints.rust]
+unsafe_code = "deny"
+
+[lints.clippy]
+dbg_macro = "deny"
+todo = "deny"
+undocumented_unsafe_blocks = "deny"

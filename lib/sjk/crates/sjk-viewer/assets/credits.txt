@@ -1,0 +1,232 @@
+# Credits shown by the credits page (main menu > Credits, the in-game SJK menu, or
+# the `credits` console command). The file is built into the client
+# (include_str!) and parsed once; unit tests in credits_data.rs check it, so
+# `cargo test` catches a broken edit. CREDITS.md stays the full written record.
+#
+# Format, in display order:
+#
+#   == Section title   Starts a section (a later "== Supporters" needs no code).
+#   [Name]             Starts a card in the current section.
+#   github: handle     Optional GitHub account, shown as @handle; clicking it
+#                      opens https://github.com/handle.
+#   role: text         Required: one line under the name.
+#   did: text          One contribution per line (repeat the key); optional.
+#   link: https://...  A clickable address under the card (repeat the key);
+#                      optional, https only. "link: Label | https://..." shows
+#                      the label instead of the address.
+#   medal: id          A medal from the SJK team, shown on the card with its
+#                      picture and name (repeat the key for more); optional.
+#                      The ids are the hub's (crates/sjk-viewer/src/medals.rs):
+#                      early_tester, early_contributor, bug_hunter.
+#                      An unknown id is an error; bug_hunter listed again
+#                      counts up ("Bug Hunter x2"), any other one twice is an
+#                      error.
+#
+# Lines starting with '#' and blank lines are ignored. ASCII only: the menu fonts
+# draw bytes. Every merge into main that brings someone's work adds it here: a
+# card when their first change lands, lines as they keep contributing
+# (docs/sjk.md "Credits").
+
+== Sol JK
+
+[Sol]
+github: Sol-Vulpes
+role: Creator and developer of Sol JK
+did: Sol JK itself: its name, emblem, website, releases and self-updates
+did: The classic menus and classic+, the settings and search, the retail-look console
+did: The SJK UI, Sol JK's own menus over the live map
+did: SJK's icon art: the quick wheels' and the settings' icons
+did: The HUD picker, the radial HUD, nameplates with shared bars and player cards
+did: JA+ and JoF server support: movement, sabers, grapple, Force wheel, flip kick
+did: Illuminate, SJK's own toy: a holocron that lights the way, art by Sol
+did: Medals from the SJK team, with medal pictures generated and chosen by Sol
+did: The JoF clan tag: the clan's emblem beside tagged names
+did: Holocron drops: loot boxes earned by playing, in four tiers, with a Holocrons tab
+did: Opening holocrons: sealed cards in Normal, Holo and Solar, and credits (in testing)
+did: The loot table: every chance a holocron brings
+did: Hover cards: how every collected thing is obtained
+did: Settings in Simple and Advanced, Vanilla or the SJK renderer, anonymous settings usage
+did: Card faces and the first card, art by Sol (AI-assisted)
+did: World pings: mark a spot for the SJK players on your server
+did: Team games: red and green outlines, team logos over teammates (after JoF EJK)
+did: World notes: a page of text, the shader remaps in play, and map models
+did: Donations on Ko-fi: the live goal on the site and main page, the Supporter medal
+did: Footprints and dust on sand, snow and mud; props hung on movers drawn (Rancor's tables)
+did: Material maps: overrides found again, crates and concrete read right (generation 7)
+did: Decals fade into fog with their walls; no sky flicker through ceilings under the sky
+did: Cards that tilt towards the pointer, their light following it
+did: SJK Symbols, our own symbol font for rarities and finishes
+did: Character creator: tile grids, Apply, the Jedi Academy's own models first
+did: 125 Hz user commands, so every tap reaches the server
+did: Rig models: glTF players with their own skeleton, moved by JKA's animations
+did: SJK Rig Model Export, the Blender add-on that writes a rig model folder
+did: Rig model emotes: a model's own animations played on its own skeleton
+did: Gameplay FPS: the movement of 125, 142, 250 or 333 at any frame rate, explained
+did: Import from Base, JA+, OpenJK, EJK and TaystJK configs found on your computer
+did: Player profile, model grid, lightsaber creation, hats and capes
+did: Weather: rain, snow, splashes, ground fog and volumetric clouds
+did: Eye adaptation, dynamic glow, metal materials and many renderer fixes
+did: SJK identity and its hub, player reports, the changelog and these credits
+did: The Profile page and achievements counted in matches, with their board
+did: Staff tools in the game: medals, achievements, verifying and merging players
+did: debug_collectibles: staff try every collectible on their own PC, without the hub
+did: SJK chat through the hub, seen in the menus and in games, and the path for emotes
+did: Synced emotes: join another player's emote in step, music included
+did: Unlockables: the Sun blade skin and looks every SJK player sees
+did: The Collection: medals, achievements, saber shaders, toys and nameplates
+did: Nine more saber shaders, from Molten's lava to Runic's glyphs of your name
+did: Medals that bring a saber shader while you hold them
+did: Chroma saber shaders that take your saber colour
+did: Saber shader tiers, as the holocrons', and a grid of cards to browse them
+did: Rarity effects: Rare frames breathe, Legendary shine, Mythical spark
+did: Player cards with the worn saber shader, picture, SJK TEAM mark and achievements
+did: The kill feed with weapon icons
+did: The SJK profile card and profile pictures
+did: Muting players from their name in chat
+did: Graphics quality levels, EJK graphics, and the graphics reload that applies them live
+did: Low FPS help (help_fps): EJK graphics offered on heavy maps
+did: Lighter memory on servers: the menu world dropped during matches
+did: Client mods: JA+ tools (admin teleports after JoF EJK) and JoF tools, loaded on their servers
+did: Mythical shader parts: the Sun's and the Spectral's effects, each switched on or off
+did: The Sun's orbiting glints, circling its blade below the tip
+did: The Void's black holes orbiting its blade, bending the world behind them
+did: SJK chat GIFs, who is online, chat sounds, reply and the last channel remembered
+did: The SJK chat GIF picker: favourites, GIPHY search with your own key, the GIFs seen in the chat
+did: SJK chat from binds: sjksay, sjkgif and the GIF wheel of favourite GIFs
+did: Crash reports to the SJK team, and world notes: tell the team what is wrong on a map
+did: Log requests: the SJK team asks a player for their logs, and reads crash reports in game
+did: The quick wheel's live Force page and Toys page, Illuminate as a toy
+did: The pilot's vehicle HUD and crosshair, jetpacks, the spawn bubble and Force spheres
+did: Create game and its map picker, Import and the test list in the SJK look
+did: Faster play: players' models loaded off the render thread, no hitch when players join
+did: Lighting that stops at walls, doors that block lamps, a faster JoFTemple
+did: Invisible brushes: clips, triggers, ladders, nodrop and movers (doors, lifts) shown as Radiant shows them
+did: Weather under sabers and effects, shield hits, idrive and +duck after JoF EJK
+did: Ghost replay: record a run once, replay it on the server to film a showcase
+did: Mimic: copy another player's moves and saber attacks live, as their mirror image
+did: Strafe lines after JoF EJK: the best strafe heading, in third person and on the ground
+did: Hold push or pull to use it again the moment it is ready, after JoF EJK
+link: https://github.com/Sol-Vulpes/SJK
+link: https://sol-vulpes.github.io/SJK/
+
+== Contributors
+
+[Creyon]
+github: Creyon94
+role: Contributor and tester: 51 merged pull requests, EternalJK parity
+medal: early_contributor
+did: #2 #7 Duel challenges from names with symbols, centre prints kept whole
+did: #3 The third-person camera damped per frame as EternalJK (cg_cameraFPS)
+did: #4 #19 Retail crosshair pictures, the weapon row in every HUD style
+did: #5 Dismemberment and burning bodies
+did: #6 The mouse wheel bindable in Controls
+did: #8 #20 Effect fixes: impact marks, trip mine beams, det packs, charge glow
+did: #9 EternalJK's player animation fixes
+did: #10 No more full-screen flash on saber clashes
+did: #11 Every scoreboard row read on full servers
+did: #13 #14 #22 Windows-1252 symbols in names, copy and paste, EternalJK's font
+did: #15 #17 JoF's HD effects and images load
+did: #16 #18 View weapon FOV, first-person zoom, HD scope mask, camera shakes
+did: #21 fx_debug and cg_debugMissiles diagnostics
+did: #23 Smooth melee kicks, predicted in a joined game and held still on JA+
+did: #30 Chat emojis: EternalJK's pictures in chat
+did: #31 Console input shown in its colour codes
+did: #44 % and quotes in chat arrive as typed, as EternalJK sends them
+did: #78 #79 #80 #81 Ledge legs, dropped sabers, door sounds and the muzzle flash fixed
+did: #82 #92 The frame rate on the scoreboard and in the upper right, as JoF EJK
+did: #83 Clan emblems from a table: JoFA, teal JoF, look-alike letters
+did: #84 #85 #86 The in-game chat under the match card, the Character page without Model
+did: #87 #88 #89 #90 #91 Server browser: second master, charsets, favourites by address, saved passwords, player scroll
+did: #93 #94 #95 #96 #97 showplayerid, amcolor, crackle, server list, model turn
+did: #98 #99 Rockets fired while moving no longer stutter, the lock-on ring and its sounds
+did: #100 #101 Each Force power shown on the profile's model
+did: #103 Emotes of high quality models played on the stock JKA models
+did: #104 No purple tag arrows on community models
+did: The Saber ideas page: the concepts of the Tidal, Circuit, Aurora, Echo, Nebula, Cinder, Venom, Sakura and Firefly blades and the twelve after them (Saber smith: Creyon)
+did: The Blade Lab page: the Neon, Peppermint, Soap Bubble, Lava Lamp, Reactor and Bleeding Kyber blades
+did: The Blade Lab page: the Sketch, Hourglass, Fiber Optic, Serpent, Monarch, Phoenix and Quantum blades
+did: The Blade Lab page: the Comic, Quicksilver and Obsidian Edge blades
+link: Creyon's pull requests | https://github.com/Sol-Vulpes/SJK/pulls?q=is%3Apr+author%3ACreyon94
+
+[Lumaya]
+github: lumayaa
+role: Contributor: 17 merged pull requests
+medal: early_contributor
+did: #24 Saber blades stop at walls instead of shining through them
+did: #29 Free camera: /freecam flies the camera away from your body
+did: #28 Peek: /peek watches another player for a few seconds
+did: #26 First person with a saber shows your arms and body holding it
+did: #25 U whispers to the player under your crosshair
+did: #65 The pistol in hand uses the blaster pistol model, so DL-44 packs show
+did: #66 Your own pistol shot plays one sound, not two
+did: #67 Server models nothing uses are loaded when first shown, not at join
+did: #68 Asset browser: switch installed PK3 packs on and off
+did: #69 Damage hitmarker: the red indicator is a setting, off by default
+did: #70 The shield-hit flash on the body is quieter by default
+did: #71 Wall runs and rebounds keep the predicted view, no mouse leak
+did: #73 The console follows con_height live while it is open
+did: #74 Rain steam and sizzle on exposed saber blades
+did: #75 Lagometer scale setting
+did: #76 Classic scoreboard behaves like JoF EJK's
+did: #77 Jetpack flight prediction and the pack on your back
+link: Lumaya's pull requests | https://github.com/Sol-Vulpes/SJK/pulls?q=is%3Apr+author%3Alumayaa
+
+== Art
+
+[Reyced]
+role: Artist: the Solfox player model
+did: Made Solfox, Sol's fox player model, which every SJK player gets through the hub
+
+== Origins
+
+[Bishop]
+github: Bishop-R
+role: Creator of JKR, the engine Sol JK began from
+did: The Rust engine and the wgpu renderer with its lighting
+did: The native client, the dedicated server and protocol 26 networking
+did: Prediction and the shared Jedi Academy game rules
+did: Content loading: PK3, BSP, models, shaders and sounds
+did: The console, menus, HUD, server browser and demos
+link: https://github.com/Bishop-R/JKR
+
+== Made with
+
+[Claude]
+role: Coding assistant, by Anthropic
+did: Wrote many of Sol's changes together with Sol
+
+[Inter, JetBrains Mono, Rajdhani, Exo 2 and Noto Sans]
+role: The fonts of the menus, the SJK UI and the console, under the SIL Open Font License
+did: Inter by The Inter Project Authors, JetBrains Mono by The JetBrains Mono Project Authors
+did: Rajdhani by the Indian Type Foundry, Exo 2 by the Exo 2 Project Authors (Natanael Gama)
+did: Noto Sans JP, SC and KR by Adobe and Google, for Japanese, Chinese and Korean
+link: https://rsms.me/inter/
+link: https://www.jetbrains.com/lp/mono/
+link: https://fonts.google.com/specimen/Rajdhani
+link: https://fonts.google.com/specimen/Exo+2
+link: https://fonts.google.com/noto/specimen/Noto+Sans+JP
+
+[Twemoji]
+role: The colour emoji in chat, names and every text, under CC-BY 4.0
+did: Twemoji 17.0.3 by Twitter, Inc and other contributors
+link: https://github.com/jdecked/twemoji
+
+[GIPHY]
+role: Where the GIFs in SJK chat come from
+did: A GIPHY link in an SJK chat message shows its GIF, fetched from GIPHY by each player
+did: The GIF picker's search and trending GIFs, powered by GIPHY
+link: https://giphy.com
+
+[TheRisqe]
+role: Author of the Radial HUD that SJK's radial HUD is modelled on
+did: SJK draws its own take on the Radial HUD's layout and colours (cg_hudStyle radial)
+
+[JoF HD Fonts & Icons and OCR-A]
+role: The game fonts SJK Menu, SJK Chat and SJK HUD
+did: SJK Menu and SJK HUD are traced from the JoF HD Fonts & Icons pack (author unknown); SJK Chat is OCR-A by John Sauter (public domain)
+
+[OpenJK, EternalJK, JoF EJK, TaystJK and jaPRO]
+role: References for how Jedi Academy behaves
+did: SJK reimplements their behaviour and includes none of their code
+link: https://github.com/JACoders/OpenJK
+link: https://github.com/eternalcodes/EternalJK

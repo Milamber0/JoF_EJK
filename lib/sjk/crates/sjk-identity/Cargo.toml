@@ -1,0 +1,21 @@
+[package]
+name = "sjk-identity"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+base64 = "0.23.1"
+ed25519-dalek = "3.0.0"
+getrandom = "0.4"
+serde.workspace = true
+serde_json.workspace = true
+sha2 = "0.11.0"
+ureq = { version = "3", default-features = false, features = ["rustls", "gzip"] }
+
+[dev-dependencies]
+tempfile = "3.27.0"
