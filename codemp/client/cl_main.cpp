@@ -29,8 +29,6 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include <limits.h>
 #include <SDL.h>
 #include <SDL_vulkan.h>
-#include <atomic>
-#include <thread>
 
 #include "ghoul2/G2.h"
 #include "qcommon/cm_public.h"
@@ -96,8 +94,6 @@ cvar_t	*m_side;
 cvar_t	*m_filter;
 
 cvar_t	*cl_activeAction;
-
-cvar_t	*cl_asyncMapLoad;
 
 cvar_t	*cl_motdString;
 
@@ -1611,101 +1607,12 @@ void CL_DownloadsComplete( void ) {
 	// starting to load a map so we get out of full screen ui mode
 	Cvar_Set("r_uiFullScreen", "0");
 	
-	// Async loading is skipped when a display mode change could occur during the
-	// load (exclusive fullscreen at a non-desktop mode): a mode change while the
-	// GL context is current on the worker thread can invalidate the context and
-	// crash the process. See WIN_AsyncLoadSafe.
-	qboolean asyncSafe = WIN_AsyncLoadSafe();
-	if ( cl_asyncMapLoad->integer && !asyncSafe ) {
-		Com_Printf( "Async map load skipped: exclusive fullscreen mode differs from desktop mode\n" );
-	}
-
-	if ( cl_asyncMapLoad->integer && asyncSafe ) {
-		// Hand the GL context to the worker thread so it can own the full load stage.
-		// Main thread pumps OS events so the window stays responsive during connect->load.
-
-		// Prevent SDL from calling ChangeDisplaySettingsEx while the GL context
-		// belongs to the worker thread.  Exclusive fullscreen triggers this on
-		// both focus loss (minimize path) and focus gain (restore path), either
-		// of which can invalidate a wglMakeCurrent'd context on another thread,
-		// producing an SEH access violation that bypasses catch(int).
-		// WIN_BeginAsyncLoad temporarily switches to desktop fullscreen (no
-		// ChangeDisplaySettingsEx) so focus events during the load are harmless.
-		// The minimize hint suppresses any remaining minimise-on-focus-loss path.
-		const char *prevMinOnFocusTmp = SDL_GetHint(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS);
-		std::string prevMinOnFocus = prevMinOnFocusTmp ? prevMinOnFocusTmp : "";
-		SDL_SetHint(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, "0");
-		WIN_BeginAsyncLoad();
-
-		WIN_ReleaseGLContext();
-
-		std::atomic<bool> loadDone{false};
-		int loadError = 0;
-		bool workerRanLoad = false;
-		std::thread loadThread([&]() {
-			if (!WIN_ReacquireGLContext()) {
-				// The context could not be made current on this thread (e.g. it
-				// was invalidated by a display change). Bail out without issuing
-				// any GL calls; the main thread will load synchronously instead.
-				loadDone.store(true, std::memory_order_release);
-				return;
-			}
-			workerRanLoad = true;
-			try {
-				// This includes the expensive pre-map flush/restart work before cgame init.
-				CL_FlushMemory();
-				cls.cgameStarted = qtrue;
-				CL_InitCGame();
-			} catch (int code) {
-				// Com_Error throws an int; catch here so std::terminate() is not called,
-				// then re-throw on the main thread after join where Com_Frame can catch it.
-				loadError = code;
-			} catch (...) {
-				// Any other C++ exception (e.g. from a DLL) also must not escape the thread.
-				loadError = ERR_DROP;
-			}
-			WIN_ReleaseGLContext();
-			loadDone.store(true, std::memory_order_release);
-		});
-
-		while (!loadDone.load(std::memory_order_acquire)) {
-			SDL_PumpEvents();
-			Sys_Sleep(10);
-		}
-
-		loadThread.join();
-		qboolean reacquired = WIN_ReacquireGLContext();
-		WIN_EndAsyncLoad();
-
-		SDL_SetHint(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS,
-			prevMinOnFocus.empty() ? "1" : prevMinOnFocus.c_str());
-
-		if (!reacquired) {
-			Com_Error( ERR_FATAL, "CL_DownloadsComplete: could not restore GL context after async map load" );
-		}
-
-		if (loadError) {
-			throw loadError;
-		}
-
-		if (!workerRanLoad) {
-			// Worker never got the GL context; run the load on the main thread.
-			Com_Printf( S_COLOR_YELLOW "WARNING: async map load unavailable, loading synchronously\n" );
-			CL_FlushMemory();
-			cls.cgameStarted = qtrue;
-			CL_InitCGame();
-		}
-	} else {
-		// flush client memory and start loading stuff
-		// this will also (re)load the UI
-		// if this is a local client then only the client part of the hunk
-		// will be cleared, note that this is done after the hunk mark has been set
-		CL_FlushMemory();
-
-		// initialize the CGame
-		cls.cgameStarted = qtrue;
-		CL_InitCGame();
-	}
+	// Renderer restart and cgame initialization both issue GL calls. Keep them on
+	// the window thread: migrating the context while SDL pumps window events
+	// can crash inside the driver even after SDL_GL_MakeCurrent succeeds.
+	CL_FlushMemory();
+	cls.cgameStarted = qtrue;
+	CL_InitCGame();
 
 	// set pure checksums
 	CL_SendPureChecksums();
@@ -4077,9 +3984,10 @@ void CL_Init( void ) {
 	cl_avi2GBLimit = Cvar_Get ("cl_avi2GBLimit", "1", CVAR_ARCHIVE );
 	cl_forceavidemo = Cvar_Get ("cl_forceavidemo", "0", 0);
 	
-	// Experimental: worker-thread map load. Known driver-dependent crash/hang
-	// modes while minimized or on HDMI mode re-sync, so off by default.
-	cl_asyncMapLoad = Cvar_Get ("cl_asyncMapLoad", "0", CVAR_ARCHIVE_ND );
+	// Retain the old setting as read-only so saved configs cannot re-enable
+	// unsafe worker-thread renderer initialization during a map change.
+	Cvar_Get("cl_asyncMapLoad", "0", CVAR_ROM,
+		"Deprecated: map loading runs on the main thread for graphics driver stability");
 
 #if JAMME_PIPES
 	cl_aviPipe = Cvar_Get("cl_aviPipe", "0", CVAR_ARCHIVE_ND, "use ffmpeg pipe for avi recording");

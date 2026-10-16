@@ -219,11 +219,6 @@ void		WIN_SetGamma( glconfig_t *glConfig, byte red[256], byte green[256], byte b
 void		WIN_Shutdown( void );
 void *		WIN_GL_GetProcAddress( const char *proc );
 qboolean	WIN_GL_ExtensionSupported( const char *extension );
-void		WIN_ReleaseGLContext( void );
-qboolean	WIN_ReacquireGLContext( void );
-void		WIN_BeginAsyncLoad( void );
-void		WIN_EndAsyncLoad( void );
-qboolean	WIN_AsyncLoadSafe( void );
 
 //#if WIN32 && !defined(DEDICATED)
 //qboolean	WIN_VK_GetInstanceExtensions( unsigned int *extensionCount, const char *extensions[] );
