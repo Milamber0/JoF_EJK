@@ -35,7 +35,7 @@
 		{
 			name				usernameEntry
 			text				"Username:"
-			descText			"Input Username"
+			descText			"Input Username."
 			type				ITEM_TYPE_EDITFIELD
 			style				1
 			cvar				UI_USERNAME

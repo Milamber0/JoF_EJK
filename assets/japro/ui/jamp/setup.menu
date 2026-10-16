@@ -1100,7 +1100,7 @@
 			textscale 			1
 			forecolor			.615 .615 .956 1
 			cvarStrList			{  "Default Mode (Vanilla)" , "rd-eternaljk" , "Performance Mode (Vulkan)", "rd-vulkan" , "Quality Mode (Rend2)", "rd-rend2-etjk" }
-			descText			"Change the renderer library to use. (Vulkan only supported on newer GPUs and Rend2 is highly experimental)"
+			descText			"Change the renderer library to use. (Vulkan only supported on newer GPUs and Rend2 is highly experimental)."
 			cvarTest			"ui_vulkan_supported"
 			showCvar
 			{
@@ -1140,7 +1140,7 @@
 			textscale 			1
 			forecolor			.615 .615 .956 1
 			cvarStrList			{  "Default Mode (Vanilla)" , "rd-eternaljk" , "Quality Mode (Rend2)", "rd-rend2-etjk" }
-			descText			"Change the renderer library to use. (Rend2 is highly experimental)"
+			descText			"Change the renderer library to use. (Rend2 is highly experimental)."
 			cvarTest			"ui_vulkan_supported"
 			showCvar
 			{

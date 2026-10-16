@@ -424,7 +424,7 @@
 			name				misc
 			group				grpCallVote
 			text				"Restart Server"
-			descText			"Restart the server"
+			descText			"Restart the server."
 			rect				112 125 245 30
 			type				1
 			textalign			ITEM_ALIGN_CENTER
@@ -827,7 +827,7 @@
 			group				grpCallVote
 			type				ITEM_TYPE_NUMERICFIELD
 			text				"Team Size:"
-			descText			"Select a team size. [1-16]"
+			descText			"Select a team size. [1-16]."
 			style				0
 			cvar				UI_TEAMSIZE
 			rect				123 100 130 30

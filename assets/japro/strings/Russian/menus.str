@@ -1742,8 +1742,8 @@ LANG_ENGLISH        "ENTER PASSWORD"
 LANG_RUSSIAN         "ВВОД ПАРОЛЯ"
 
 REFERENCE           INPUT_PASSWORD_1
-LANG_ENGLISH        "Input Password"
-LANG_RUSSIAN         "Ввод пароля"
+LANG_ENGLISH        "Input Password."
+LANG_RUSSIAN         "Ввод пароля."
 
 REFERENCE           DONE
 NOTES               "Used on password screen."
@@ -2993,8 +2993,8 @@ LANG_ENGLISH        "Channel the Force to boost the power of your allies."
 LANG_RUSSIAN         "Направьте Силу, чтобы умножить силы своих союзников."
 
 REFERENCE           USE_MORE_POWERFUL_LIGHTSABER
-LANG_ENGLISH        "Use more powerful lightsaber attacks. (Required to possess saber)"
-LANG_RUSSIAN         "Используйте более сильные выпады световым мечом. (Необходимо для светового меча)"
+LANG_ENGLISH        "Use more powerful lightsaber attacks. (Required to possess saber)."
+LANG_RUSSIAN         "Используйте более сильные выпады световым мечом. (Необходимо для светового меча)."
 
 REFERENCE           USE_THE_LIGHTSABER_TO
 LANG_ENGLISH        "Use the lightsaber to deflect incoming saber attacks and projectiles."
@@ -3089,8 +3089,8 @@ LANG_ENGLISH        "PLAY"
 LANG_RUSSIAN         "ИГРА"
 
 REFERENCE           START_PLAYING_NOW
-LANG_ENGLISH        "Start playing now!"
-LANG_RUSSIAN         "Начать игру!"
+LANG_ENGLISH        "Start playing now."
+LANG_RUSSIAN         "Начать игру."
 
 REFERENCE           JOIN_A_GAME_IN_PROGRESS
 LANG_ENGLISH        "Join a Game in Progress."
@@ -4395,8 +4395,8 @@ LANG_RUSSIAN         "Джедай:"
 
 REFERENCE           CHOOSE_JEDI_NONJEDI
 NOTES               "Tells you what the jedi/non jedi button does"
-LANG_ENGLISH        "Jedi Yes/No"
-LANG_RUSSIAN         "Джедай Да/Нет"
+LANG_ENGLISH        "Jedi Yes/No."
+LANG_RUSSIAN         "Джедай Да/Нет."
 
 REFERENCE           DATAPADTITLE
 LANG_ENGLISH        "DATA PAD"
@@ -5433,8 +5433,8 @@ LANG_ENGLISH        "Franзais"
 LANG_RUSSIAN         "Русский"
 
 REFERENCE           BACKTORULES
-LANG_ENGLISH        "Back to Rules Menu"
-LANG_RUSSIAN         "Вернуться к меню правил"
+LANG_ENGLISH        "Back to Rules Menu."
+LANG_RUSSIAN         "Вернуться к меню правил."
 
 REFERENCE           CANCEL
 LANG_ENGLISH        "CANCEL"
