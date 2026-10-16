@@ -3981,3 +3981,114 @@ qboolean R_LoadMDXA( model_t *mod, void *buffer, const char *mod_name, qboolean 
 
 
 
+
+/*
+==================
+rd-sjk: Ghoul2 entities for SJK's renderer.
+
+The same skeleton work rd-vanilla's R_AddGhoulSurfaces does (root matrix, sorted
+models, bolted models transformed by their bolt), then each drawn model's render
+bones (CBoneCache::EvalRender: bone times inverse bind pose, in model space, the
+matrices RB_SurfaceGhoul skins raw GLM vertices with) go to SJK, which skins the
+same vertices with them on the GPU.
+==================
+*/
+#include "sjk_host.h"
+
+extern sjkHostEntity_t *SJK_NewEntity( const refEntity_t *ent );
+extern float *SJK_NewBones( int count, int *first );
+extern int *SJK_NewInts( int count, int *first );
+
+void R_SJK_AddGhoul2( const refEntity_t *ent, int refdefTime ) {
+	CGhoul2Info_v &ghoul2 = *( (CGhoul2Info_v *)ent->ghoul2 );
+	if ( !ghoul2.IsValid() ) {
+		return;
+	}
+	if ( !G2_SetupModelPointers( ghoul2 ) ) {
+		return;
+	}
+	const int currentTime = G2API_GetTime( refdefTime );
+	mdxaBone_t rootMatrix;
+	HackadelicOnClient = true;
+	RootMatrix( ghoul2, currentTime, ent->modelScale, rootMatrix );
+	int modelList[256];
+	int modelCount = 0;
+	modelList[255] = 548;
+	G2_Sort_Models( ghoul2, modelList, &modelCount );
+	G2_GenerateWorldMatrix( ent->angles, ent->origin );
+
+	for ( int j = 0; j < modelCount; j++ ) {
+		const int i = modelList[j];
+		CGhoul2Info &g = ghoul2[i];
+		if ( !g.mValid || ( g.mFlags & GHOUL2_NOMODEL ) || ( g.mFlags & GHOUL2_NORENDER ) ) {
+			continue;
+		}
+		if ( j && g.mModelBoltLink != -1 ) {
+			const int boltMod = ( g.mModelBoltLink >> MODEL_SHIFT ) & MODEL_AND;
+			const int boltNum = ( g.mModelBoltLink >> BOLT_SHIFT ) & BOLT_AND;
+			mdxaBone_t bolt;
+			G2_GetBoltMatrixLow( ghoul2[boltMod], boltNum, ent->modelScale, bolt );
+			G2_TransformGhoulBones( g.mBlist, bolt, g, currentTime );
+		} else {
+			G2_TransformGhoulBones( g.mBlist, rootMatrix, g, currentTime );
+		}
+		if ( !g.mBoneCache || !g.aHeader ) {
+			continue;
+		}
+
+		sjkHostEntity_t *out = SJK_NewEntity( ent );
+		if ( !out ) {
+			break;
+		}
+		out->kind = SJK_ENT_GHOUL2;
+		out->model = g.mModel;	// the renderer model handle (mModelindex is the slot in the vector)
+		out->key = ghoul2.mItem * 16 + i;
+		// R_AddGhoulSurfaces: a custom shader wins, then the model's own custom skin,
+		// the entity's, and the model's skin.
+		out->shader = ent->customShader;
+		out->skin = 0;
+		if ( !ent->customShader ) {
+			if ( g.mCustomSkin ) {
+				out->skin = g.mCustomSkin;
+			} else if ( ent->customSkin ) {
+				out->skin = ent->customSkin;
+			} else if ( g.mSkin > 0 && g.mSkin < tr.numSkins ) {
+				out->skin = g.mSkin;
+			}
+		}
+
+		const int numBones = g.aHeader->numBones;
+		float *bones = SJK_NewBones( numBones, &out->firstBone );
+		if ( !bones ) {
+			out->kind = -1;
+			break;
+		}
+		for ( int b = 0; b < numBones; b++ ) {
+			const mdxaBone_t &m = g.mBoneCache->EvalRender( b );
+			memcpy( bones + b * 12, &m.matrix[0][0], sizeof( float ) * 12 );
+		}
+		out->numBones = numBones;
+
+		// Surface overrides (G2API_SetSurfaceOnOff, dismemberment), not bolt-generated ones.
+		int overrides = 0;
+		for ( size_t k = 0; k < g.mSlist.size(); k++ ) {
+			if ( g.mSlist[k].surface >= 0 && !( g.mSlist[k].offFlags & G2SURFACEFLAG_GENERATED ) ) {
+				overrides++;
+			}
+		}
+		int *ints = overrides ? SJK_NewInts( overrides * 2, &out->firstSurface ) : NULL;
+		if ( ints ) {
+			int n = 0;
+			for ( size_t k = 0; k < g.mSlist.size(); k++ ) {
+				if ( g.mSlist[k].surface >= 0 && !( g.mSlist[k].offFlags & G2SURFACEFLAG_GENERATED ) ) {
+					ints[n * 2] = g.mSlist[k].surface;
+					ints[n * 2 + 1] = g.mSlist[k].offFlags;
+					n++;
+				}
+			}
+			out->numSurfaces = n;
+		}
+		out->rootSurface = g.mSurfaceRoot;
+	}
+	HackadelicOnClient = false;
+}

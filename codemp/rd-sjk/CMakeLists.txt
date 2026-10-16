@@ -42,6 +42,7 @@ set(MPRdSjkFiles
 	"${MPDir}/rd-sjk/tr_shader.cpp"
 	"${MPDir}/rd-sjk/tr_skin.cpp"
 	"${MPDir}/rd-sjk/tr_sjk.cpp"
+	"${MPDir}/rd-sjk/sjk_crash.cpp"
 	"${MPDir}/rd-sjk/tr_subs.cpp"
 	"${MPDir}/ghoul2/g2_local.h"
 	"${MPDir}/ghoul2/ghoul2_shared.h"

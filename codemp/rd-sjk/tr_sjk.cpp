@@ -30,6 +30,13 @@ static window_t	window;
 
 static qboolean	hostStarted;
 static int		shadersSent;
+static int		modelsSent, skinsSent;
+static void		SJK_AllocScene( void );
+void			SJK_InstallCrashLog( const char *path );	// sjk_crash.cpp
+void			SJK_RemoveCrashLog( void );
+static void		SJK_FreeScene( void );
+static void		SJK_SendAssetNames( void );
+qboolean		G2API_HaveWeGhoul2Models( CGhoul2Info_v &ghoul2 );
 
 // The world the engine loaded: cgame parses its entities through GetEntityToken.
 static char		*entityString;
@@ -84,6 +91,9 @@ static void SJK_StartHost( void ) {
 	// read once to start them from what the player chose there.
 	Com_sprintf( config, sizeof( config ), "%s/" ETERNALJKGAME "/rd-sjk/config.cfg", home[0] ? home : base );
 	Com_sprintf( sjkConfig, sizeof( sjkConfig ), "%s/SJK/config.cfg", base );
+	char crashLog[MAX_OSPATH];
+	Com_sprintf( crashLog, sizeof( crashLog ), "%s/" ETERNALJKGAME "/rd-sjk/rd-sjk-crash.log", home[0] ? home : base );
+	SJK_InstallCrashLog( crashLog );
 
 	sjkHostStart_t start;
 	memset( &start, 0, sizeof( start ) );
@@ -108,6 +118,8 @@ static void SJK_StartHost( void ) {
 	SJK_HostAdapter( adapter, sizeof( adapter ) );
 	glConfig.renderer_string = adapter;
 	shadersSent = 0;
+	modelsSent = 0;
+	skinsSent = 0;
 }
 
 /*
@@ -178,22 +190,53 @@ void RE_BeginRegistration( glconfig_t *glconfigOut ) {
 	tr.whiteShader = R_FindShader( "white", lightmaps2d, styles, qtrue );
 
 	R_InitFonts();
+	SJK_AllocScene();
+	modelsSent = 0;
+	skinsSent = 0;
 
 	*glconfigOut = glConfig;
 	tr.registered = qtrue;
 	tr.viewCluster = -1;
 	numFramePics = 0;
 	frameHasView = qfalse;
-	SJK_SendShaderNames();
+	SJK_SendAssetNames();
 }
 
 void RE_EndRegistration( void ) {
-	SJK_SendShaderNames();
+	SJK_SendAssetNames();
 	SJK_FlushLog();
 }
 
+// Register the world's inline models (*1..*N) as rd-vanilla's R_LoadSubmodels does, so
+// cgame's movers get real handles and bounds; SJK draws them from its own BSP copy.
+static void SJK_RegisterSubmodels( const byte *buffer, int length ) {
+	const dheader_t *header = (const dheader_t *)buffer;
+	const int offset = LittleLong( header->lumps[LUMP_MODELS].fileofs );
+	const int size = LittleLong( header->lumps[LUMP_MODELS].filelen );
+	if ( offset < 0 || size <= 0 || offset + size > length || size % sizeof( dmodel_t ) ) {
+		return;
+	}
+	const dmodel_t *in = (const dmodel_t *)( buffer + offset );
+	const int count = size / sizeof( dmodel_t );
+	for ( int i = 1; i < count; i++ ) {
+		model_t *mod = R_AllocModel();
+		if ( !mod ) {
+			break;
+		}
+		mod->type = MOD_BRUSH;
+		Com_sprintf( mod->name, sizeof( mod->name ), "*%d", i );
+		mod->bmodel = (bmodel_t *)ri.Hunk_Alloc( sizeof( bmodel_t ), h_low );
+		memset( mod->bmodel, 0, sizeof( bmodel_t ) );
+		for ( int k = 0; k < 3; k++ ) {
+			mod->bmodel->bounds[0][k] = LittleFloat( in[i].mins[k] );
+			mod->bmodel->bounds[1][k] = LittleFloat( in[i].maxs[k] );
+		}
+		RE_InsertModelIntoHash( mod->name, mod );
+	}
+}
+
 // The world's entity lump, read straight from the BSP for cgame's spawn parsing.
-static void SJK_ReadEntities( const char *name ) {
+static void SJK_ReadWorld( const char *name ) {
 	if ( entityString ) {
 		Z_Free( entityString );
 		entityString = NULL;
@@ -214,17 +257,20 @@ static void SJK_ReadEntities( const char *name ) {
 		entityString[size] = 0;
 		entityParsePoint = entityString;
 	}
+	SJK_RegisterSubmodels( (const byte *)buffer, length );
 	ri.FS_FreeFile( buffer );
 }
+
+static void SJK_SendAssetNames( void );
 
 void RE_LoadWorldMap( const char *name ) {
 	if ( tr.worldMapLoaded ) {
 		ri.Error( ERR_DROP, "ERROR: attempted to redundantly load world map" );
 	}
-	SJK_ReadEntities( name );
+	SJK_ReadWorld( name );
 	Q_strncpyz( worldName, name, sizeof( worldName ) );
 	tr.worldMapLoaded = qtrue;
-	SJK_SendShaderNames();
+	SJK_SendAssetNames();
 	const int loaded = SJK_HostLoadWorld( name );
 	SJK_FlushLog();
 	if ( !loaded ) {
@@ -252,30 +298,348 @@ qboolean RE_GetEntityToken( char *buffer, int size ) {
 
 /*
 ==================
-Scene
+Model and skin names
+
+SJK resolves every handle the game passes by name: shaders, models and skins are
+told to it once each, as they are registered.
 ==================
 */
 
-static int numSceneEntities, numSceneLights, numScenePolys;
+
+static void SJK_SendAssetNames( void ) {
+	if ( !hostStarted ) {
+		return;
+	}
+	SJK_SendShaderNames();
+	for ( ; modelsSent < tr.numModels; modelsSent++ ) {
+		const model_t *mod = tr.models[modelsSent];
+		SJK_HostModelName( modelsSent, mod ? mod->name : "" );
+	}
+	for ( ; skinsSent < tr.numSkins; skinsSent++ ) {
+		const skin_t *skin = tr.skins[skinsSent];
+		static char text[128 * ( MAX_QPATH * 2 + 2 ) + 1];
+		text[0] = 0;
+		size_t used = 0;
+		if ( skin ) {
+			for ( int i = 0; i < skin->numSurfaces && i < 128; i++ ) {
+				const skinSurface_t *surf = skin->surfaces[i];
+				if ( !surf ) {
+					continue;
+				}
+				const int wrote = Com_sprintf( text + used, sizeof( text ) - used, "%s,%s\n",
+					surf->name, surf->shader ? surf->shader->name : "*off" );
+				if ( wrote <= 0 ) {
+					break;
+				}
+				used += wrote;
+			}
+		}
+		SJK_HostSkin( skinsSent, text );
+	}
+}
+
+/*
+==================
+Scene
+
+cgame builds several scenes a frame (the main view, then menu model previews). The
+calls between ClearScene and the main view's RenderScene are kept as given and turned
+into SJK's entities there, at the view's time, where rd-vanilla poses Ghoul2.
+==================
+*/
+
+#define SJK_MAX_REFENTITIES	4096
+#define SJK_MAX_LIGHTS		256
+#define SJK_MAX_ENTITIES	8192
+#define SJK_MAX_BONE_FLOATS	( 1024 * 72 * 12 )
+#define SJK_MAX_INTS		( 1024 * 256 )
+
+static refEntity_t		*pendingEntities;
+static int				numPendingEntities;
+static sjkHostLight_t	pendingLights[SJK_MAX_LIGHTS];
+static int				numPendingLights;
+static int				numScenePolys;
+
+static sjkHostEntity_t	*sceneEntities;
+static int				numSceneEntities;
+static float			*sceneBones;
+static int				numSceneBoneFloats;
+static int				*sceneInts;
+static int				numSceneInts;
+static sjkHostLight_t	sceneLights[SJK_MAX_LIGHTS];
+static int				numSceneLights;
+
+// Polys (marks, effect polys, trails): queued as given, handed over with the main view.
+#define SJK_MAX_POLYS		8192
+#define SJK_MAX_POLYVERTS	32768
+static sjkHostPoly_t		*pendingPolys, *scenePolys;
+static sjkHostPolyVert_t	*pendingPolyVerts, *scenePolyVerts;
+static int					numPendingPolys, numPendingPolyVerts, numScenePolyList, numScenePolyVerts;
+
+static void SJK_AllocScene( void ) {
+	if ( pendingEntities ) {
+		return;
+	}
+	pendingEntities = (refEntity_t *)Z_Malloc( sizeof( refEntity_t ) * SJK_MAX_REFENTITIES, TAG_GENERAL, qtrue );
+	sceneEntities = (sjkHostEntity_t *)Z_Malloc( sizeof( sjkHostEntity_t ) * SJK_MAX_ENTITIES, TAG_GENERAL, qtrue );
+	sceneBones = (float *)Z_Malloc( sizeof( float ) * SJK_MAX_BONE_FLOATS, TAG_GENERAL, qfalse );
+	sceneInts = (int *)Z_Malloc( sizeof( int ) * SJK_MAX_INTS, TAG_GENERAL, qfalse );
+	pendingPolys = (sjkHostPoly_t *)Z_Malloc( sizeof( sjkHostPoly_t ) * SJK_MAX_POLYS, TAG_GENERAL, qfalse );
+	scenePolys = (sjkHostPoly_t *)Z_Malloc( sizeof( sjkHostPoly_t ) * SJK_MAX_POLYS, TAG_GENERAL, qfalse );
+	pendingPolyVerts = (sjkHostPolyVert_t *)Z_Malloc( sizeof( sjkHostPolyVert_t ) * SJK_MAX_POLYVERTS, TAG_GENERAL, qfalse );
+	scenePolyVerts = (sjkHostPolyVert_t *)Z_Malloc( sizeof( sjkHostPolyVert_t ) * SJK_MAX_POLYVERTS, TAG_GENERAL, qfalse );
+}
+
+static void SJK_FreeScene( void ) {
+	if ( pendingEntities ) Z_Free( pendingEntities );
+	if ( sceneEntities ) Z_Free( sceneEntities );
+	if ( sceneBones ) Z_Free( sceneBones );
+	if ( sceneInts ) Z_Free( sceneInts );
+	if ( pendingPolys ) Z_Free( pendingPolys );
+	if ( scenePolys ) Z_Free( scenePolys );
+	if ( pendingPolyVerts ) Z_Free( pendingPolyVerts );
+	if ( scenePolyVerts ) Z_Free( scenePolyVerts );
+	pendingPolys = scenePolys = NULL;
+	pendingPolyVerts = scenePolyVerts = NULL;
+	pendingEntities = NULL;
+	sceneEntities = NULL;
+	sceneBones = NULL;
+	sceneInts = NULL;
+}
+
+sjkHostEntity_t *SJK_NewEntity( const refEntity_t *ent ) {
+	if ( !sceneEntities || numSceneEntities >= SJK_MAX_ENTITIES ) {
+		return NULL;
+	}
+	sjkHostEntity_t *out = &sceneEntities[numSceneEntities++];
+	memset( out, 0, sizeof( *out ) );
+	out->renderfx = ent->renderfx;
+	VectorCopy( ent->origin, out->origin );
+	for ( int i = 0; i < 3; i++ ) {
+		VectorCopy( ent->axis[i], out->axis[i] );
+	}
+	if ( ent->modelScale[0] || ent->modelScale[1] || ent->modelScale[2] ) {
+		VectorCopy( ent->modelScale, out->scale );
+	} else {
+		VectorSet( out->scale, 1, 1, 1 );
+	}
+	VectorCopy( ent->oldorigin, out->end );
+	out->radius = ent->radius;
+	out->rotation = ent->rotation;
+	out->shader = ent->customShader;
+	out->skin = ent->customSkin;
+	out->rgba[0] = ent->shaderRGBA[0];
+	out->rgba[1] = ent->shaderRGBA[1];
+	out->rgba[2] = ent->shaderRGBA[2];
+	out->rgba[3] = ent->shaderRGBA[3];
+	out->frame = ent->frame;
+	out->oldframe = ent->oldframe;
+	out->backlerp = ent->backlerp;
+	VectorCopy( ( ent->renderfx & RF_LIGHTING_ORIGIN ) ? ent->lightingOrigin : ent->origin, out->lightingOrigin );
+	out->rootSurface = -1;
+	return out;
+}
+
+float *SJK_NewBones( int count, int *first ) {
+	if ( !sceneBones || count <= 0 || numSceneBoneFloats + count * 12 > SJK_MAX_BONE_FLOATS ) {
+		return NULL;
+	}
+	*first = numSceneBoneFloats / 12;
+	float *bones = sceneBones + numSceneBoneFloats;
+	numSceneBoneFloats += count * 12;
+	return bones;
+}
+
+int *SJK_NewInts( int count, int *first ) {
+	if ( !sceneInts || count <= 0 || numSceneInts + count > SJK_MAX_INTS ) {
+		return NULL;
+	}
+	*first = numSceneInts;
+	int *ints = sceneInts + numSceneInts;
+	numSceneInts += count;
+	return ints;
+}
+
+extern void R_SJK_AddGhoul2( const refEntity_t *ent, int refdefTime );	// tr_ghoul2.cpp
+
+// One refEntity_t as rd-vanilla's R_AddEntitySurfaces would draw it.
+static void SJK_AddEntity( const refEntity_t *ent, int time ) {
+	switch ( ent->reType ) {
+	case RT_MODEL: {
+		if ( ent->ghoul2 && G2API_HaveWeGhoul2Models( *( (CGhoul2Info_v *)ent->ghoul2 ) ) ) {
+			R_SJK_AddGhoul2( ent, time );
+			return;
+		}
+		const model_t *mod = R_GetModelByHandle( ent->hModel );
+		if ( !mod || !ent->hModel ) {
+			return;
+		}
+		sjkHostEntity_t *out = SJK_NewEntity( ent );
+		if ( !out ) return;
+		if ( mod->type == MOD_BRUSH ) {
+			out->kind = SJK_ENT_BRUSH;
+			out->model = atoi( mod->name + 1 );
+		} else {
+			out->kind = SJK_ENT_MODEL;
+			out->model = ent->hModel;
+		}
+		return;
+	}
+	case RT_SPRITE: {
+		sjkHostEntity_t *out = SJK_NewEntity( ent );
+		if ( out ) out->kind = SJK_ENT_SPRITE;
+		return;
+	}
+	case RT_ORIENTED_QUAD: {
+		sjkHostEntity_t *out = SJK_NewEntity( ent );
+		if ( out ) out->kind = SJK_ENT_QUAD;
+		return;
+	}
+	case RT_LINE:
+	case RT_ORIENTEDLINE:
+	case RT_BEAM: {
+		sjkHostEntity_t *out = SJK_NewEntity( ent );
+		if ( !out ) return;
+		out->kind = SJK_ENT_LINE;
+		out->radius = ent->reType == RT_BEAM ? (float)ent->frame : ent->data.line.width;
+		out->width2 = ent->data.line.width2;
+		return;
+	}
+	case RT_SABER_GLOW: {
+		sjkHostEntity_t *out = SJK_NewEntity( ent );
+		if ( !out ) return;
+		out->kind = SJK_ENT_SABER;
+		out->length = ent->saberLength;
+		return;
+	}
+	case RT_CYLINDER: {
+		sjkHostEntity_t *out = SJK_NewEntity( ent );
+		if ( !out ) return;
+		out->kind = SJK_ENT_CYLINDER;
+		out->radius = ent->data.cylinder.width;
+		out->width2 = ent->data.cylinder.width2;
+		out->length = ent->data.cylinder.height;
+		return;
+	}
+	case RT_ELECTRICITY: {
+		sjkHostEntity_t *out = SJK_NewEntity( ent );
+		if ( !out ) return;
+		out->kind = SJK_ENT_ELECTRICITY;
+		out->radius = ent->data.electricity.width;
+		out->width2 = ent->data.electricity.deviation;
+		return;
+	}
+	default:
+		return;
+	}
+}
 
 void RE_ClearScene( void ) {
-	numSceneEntities = 0;
-	numSceneLights = 0;
+	numPendingEntities = 0;
+	numPendingLights = 0;
+	numPendingPolys = 0;
+	numPendingPolyVerts = 0;
 	numScenePolys = 0;
 }
 
-void RE_ClearDecals( void ) {}
-void RE_AddRefEntityToScene( const refEntity_t *ent ) { numSceneEntities++; }
-void RE_AddMiniRefEntityToScene( const miniRefEntity_t *ent ) { numSceneEntities++; }
-void RE_AddPolyToScene( qhandle_t hShader, int numVerts, const polyVert_t *verts, int num ) { numScenePolys += num; }
-void RE_AddDecalToScene( qhandle_t shader, const vec3_t origin, const vec3_t dir, float orientation, float r, float g, float b, float a, qboolean alphaFade, float radius, qboolean temporary ) {}
-void RE_AddLightToScene( const vec3_t org, float intensity, float r, float g, float b ) { numSceneLights++; }
-void RE_AddAdditiveLightToScene( const vec3_t org, float intensity, float r, float g, float b ) { numSceneLights++; }
+// Effect decals are projected by SJK; queued until the next main view.
+#define SJK_MAX_DECALS	256
+static sjkHostDecal_t	pendingDecals[SJK_MAX_DECALS], sceneDecals[SJK_MAX_DECALS];
+static int				numPendingDecals, numSceneDecals;
 
+void RE_ClearDecals( void ) {
+	numPendingDecals = 0;
+}
+
+void RE_AddRefEntityToScene( const refEntity_t *ent ) {
+	if ( !ent || !tr.registered || !pendingEntities || numPendingEntities >= SJK_MAX_REFENTITIES ) {
+		return;
+	}
+	pendingEntities[numPendingEntities++] = *ent;
+}
+
+void RE_AddMiniRefEntityToScene( const miniRefEntity_t *ent ) {
+	// NULL ends an effect's chain of mini entities (rd-vanilla).
+	if ( !ent || !tr.registered || !pendingEntities || numPendingEntities >= SJK_MAX_REFENTITIES ) {
+		return;
+	}
+	// A miniRefEntity_t is the start of a refEntity_t.
+	refEntity_t *out = &pendingEntities[numPendingEntities++];
+	memset( out, 0, sizeof( *out ) );
+	memcpy( out, ent, sizeof( *ent ) );
+}
+
+void RE_AddPolyToScene( qhandle_t hShader, int numVerts, const polyVert_t *verts, int num ) {
+	numScenePolys += num;
+	if ( !tr.registered || !pendingPolys || !verts || numVerts < 3 ) {
+		return;
+	}
+	for ( int j = 0; j < num; j++ ) {
+		if ( numPendingPolys >= SJK_MAX_POLYS || numPendingPolyVerts + numVerts > SJK_MAX_POLYVERTS ) {
+			return;
+		}
+		sjkHostPoly_t *poly = &pendingPolys[numPendingPolys++];
+		poly->shader = hShader;
+		poly->firstVertex = numPendingPolyVerts;
+		poly->numVertices = numVerts;
+		for ( int k = 0; k < numVerts; k++ ) {
+			const polyVert_t *in = &verts[j * numVerts + k];
+			sjkHostPolyVert_t *out = &pendingPolyVerts[numPendingPolyVerts++];
+			VectorCopy( in->xyz, out->xyz );
+			out->st[0] = in->st[0];
+			out->st[1] = in->st[1];
+			memcpy( out->modulate, in->modulate, 4 );
+		}
+	}
+}
+void RE_AddDecalToScene( qhandle_t shader, const vec3_t origin, const vec3_t dir, float orientation, float r, float g, float b, float a, qboolean alphaFade, float radius, qboolean temporary ) {
+	if ( !tr.registered || !tr.worldMapLoaded || numPendingDecals >= SJK_MAX_DECALS ) {
+		return;
+	}
+	sjkHostDecal_t *decal = &pendingDecals[numPendingDecals++];
+	decal->shader = shader;
+	VectorCopy( origin, decal->origin );
+	VectorCopy( dir, decal->dir );
+	decal->orientation = orientation;
+	decal->rgba[0] = r;
+	decal->rgba[1] = g;
+	decal->rgba[2] = b;
+	decal->rgba[3] = a;
+	decal->alphaFade = alphaFade;
+	decal->radius = radius;
+	decal->temporary = temporary;
+}
+
+static void SJK_AddLight( const vec3_t org, float intensity, float r, float g, float b, int additive ) {
+	if ( !tr.registered || numPendingLights >= SJK_MAX_LIGHTS || intensity <= 0 ) {
+		return;
+	}
+	sjkHostLight_t *light = &pendingLights[numPendingLights++];
+	VectorCopy( org, light->origin );
+	light->radius = intensity;
+	light->color[0] = r;
+	light->color[1] = g;
+	light->color[2] = b;
+	light->additive = additive;
+}
+
+void RE_AddLightToScene( const vec3_t org, float intensity, float r, float g, float b ) {
+	SJK_AddLight( org, intensity, r, g, b, 0 );
+}
+
+void RE_AddAdditiveLightToScene( const vec3_t org, float intensity, float r, float g, float b ) {
+	SJK_AddLight( org, intensity, r, g, b, 1 );
+}
+
+// rd-vanilla's R_LightForPoint, from SJK's light grid: ambient and directed in 0..255.
 int R_LightForPoint( vec3_t point, vec3_t ambientLight, vec3_t directedLight, vec3_t lightDir ) {
-	VectorSet( ambientLight, 96, 96, 96 );
-	VectorSet( directedLight, 128, 128, 128 );
-	VectorSet( lightDir, 0.57735f, 0.57735f, 0.57735f );
+	float light[3][3];
+	if ( !tr.worldMapLoaded || !SJK_HostLightForPoint( point, &light[0][0] ) ) {
+		return qfalse;
+	}
+	VectorScale( light[0], 255.0f, ambientLight );
+	VectorScale( light[1], 255.0f, directedLight );
+	VectorCopy( light[2], lightDir );
 	return qtrue;
 }
 
@@ -301,6 +665,25 @@ void RE_RenderScene( const refdef_t *fd ) {
 	frameView.time = fd->time;
 	frameView.rdflags = fd->rdflags;
 	frameHasView = qtrue;
+
+	tr.refdef.time = fd->time;
+	numSceneEntities = 0;
+	numSceneBoneFloats = 0;
+	numSceneInts = 0;
+	for ( int i = 0; i < numPendingEntities; i++ ) {
+		SJK_AddEntity( &pendingEntities[i], fd->time );
+	}
+	memcpy( sceneLights, pendingLights, sizeof( sjkHostLight_t ) * numPendingLights );
+	numSceneLights = numPendingLights;
+	if ( scenePolys ) {
+		memcpy( scenePolys, pendingPolys, sizeof( sjkHostPoly_t ) * numPendingPolys );
+		memcpy( scenePolyVerts, pendingPolyVerts, sizeof( sjkHostPolyVert_t ) * numPendingPolyVerts );
+		numScenePolyList = numPendingPolys;
+		numScenePolyVerts = numPendingPolyVerts;
+	}
+	memcpy( sceneDecals, pendingDecals, sizeof( sjkHostDecal_t ) * numPendingDecals );
+	numSceneDecals = numPendingDecals;
+	numPendingDecals = 0;
 }
 
 /*
@@ -370,18 +753,50 @@ void RE_BeginFrame( stereoFrame_t stereoFrame ) {
 	if ( !framePics ) {
 		framePics = (sjkHostPic_t *)Z_Malloc( sizeof( sjkHostPic_t ) * MAX_SJK_PICS, TAG_GENERAL, qfalse );
 	}
+	SJK_AllocScene();
+	numSceneEntities = 0;
+	numSceneBoneFloats = 0;
+	numSceneInts = 0;
+	numSceneLights = 0;
+	numScenePolyList = 0;
+	numScenePolyVerts = 0;
+	numSceneDecals = 0;
 }
 
 void RE_EndFrame( int *frontEndMsec, int *backEndMsec ) {
 	if ( !tr.registered ) {
 		return;
 	}
-	SJK_SendShaderNames();
+	SJK_SendAssetNames();
 	if ( r_sjkDebug && r_sjkDebug->integer ) {
-		ri.Printf( PRINT_ALL, "rd-sjk frame: view %d, %d pictures, %d entities, %d lights, %d polys\n",
-			frameHasView, numFramePics, numSceneEntities, numSceneLights, numScenePolys );
+		ri.Printf( PRINT_ALL, "rd-sjk frame: view %d, %d pictures, %d entities, %d bones, %d lights, %d polys\n",
+			frameHasView, numFramePics, numSceneEntities, numSceneBoneFloats / 12, numSceneLights, numScenePolys );
 	}
-	SJK_HostFrame( frameHasView ? &frameView : NULL, framePics, numFramePics );
+	if ( r_sjkDebug && r_sjkDebug->integer >= 2 && frameHasView ) {
+		for ( int i = 0; i < numSceneEntities; i++ ) {
+			const sjkHostEntity_t *e = &sceneEntities[i];
+			const model_t *mod = ( e->kind == SJK_ENT_MODEL || e->kind == SJK_ENT_GHOUL2 ) ? R_GetModelByHandle( e->model ) : NULL;
+			ri.Printf( PRINT_ALL, "  %d: kind %d model %d %s shader %d skin %d bones %d rfx %#x at %.0f %.0f %.0f\n", i, e->kind, e->model,
+				mod ? mod->name : "", e->shader, e->skin, e->numBones, e->renderfx, e->origin[0], e->origin[1], e->origin[2] );
+		}
+		ri.Cvar_Set( "r_sjkDebug", "1" );
+	}
+	sjkHostScene_t scene;
+	scene.entities = sceneEntities;
+	scene.numEntities = frameHasView ? numSceneEntities : 0;
+	scene.bones = sceneBones;
+	scene.numBones = numSceneBoneFloats / 12;
+	scene.ints = sceneInts;
+	scene.numInts = numSceneInts;
+	scene.lights = sceneLights;
+	scene.numLights = frameHasView ? numSceneLights : 0;
+	scene.polys = scenePolys;
+	scene.numPolys = frameHasView ? numScenePolyList : 0;
+	scene.polyVerts = scenePolyVerts;
+	scene.numPolyVerts = frameHasView ? numScenePolyVerts : 0;
+	scene.decals = sceneDecals;
+	scene.numDecals = frameHasView ? numSceneDecals : 0;
+	SJK_HostFrame( frameHasView ? &frameView : NULL, &scene, framePics, numFramePics );
 	ri.WIN_Present( &window );
 	SJK_FlushLog();
 	if ( frontEndMsec ) *frontEndMsec = 0;
@@ -396,12 +811,19 @@ Queries the game makes of the world
 ==================
 */
 
+// cgame's marks (scorches, saber burns) are clipped into SJK's copy of the world.
 int R_MarkFragments( int numPoints, const vec3_t *points, const vec3_t projection, int maxPoints, vec3_t pointBuffer, int maxFragments, markFragment_t *fragmentBuffer ) {
-	return 0;
+	if ( !tr.worldMapLoaded ) {
+		return 0;
+	}
+	return SJK_HostMarkFragments( numPoints, (const float *)points, projection, maxPoints, (float *)pointBuffer, maxFragments, (int *)fragmentBuffer );
 }
 
 qboolean R_inPVS( const vec3_t p1, const vec3_t p2, byte *mask ) {
-	return qtrue;
+	if ( !tr.worldMapLoaded ) {
+		return qtrue;
+	}
+	return SJK_HostInPVS( p1, p2 ) ? qtrue : qfalse;
 }
 
 void RE_GetLightStyle( int style, color4ub_t color ) {
@@ -461,6 +883,7 @@ void SJK_Shutdown( qboolean destroyWindow, qboolean restarting ) {
 	if ( hostStarted ) {
 		if ( destroyWindow ) {
 			SJK_HostShutdown();
+			SJK_RemoveCrashLog();
 			hostStarted = qfalse;
 		} else {
 			SJK_HostUnloadWorld();
@@ -471,10 +894,15 @@ void SJK_Shutdown( qboolean destroyWindow, qboolean restarting ) {
 		Z_Free( framePics );
 		framePics = NULL;
 	}
+	SJK_FreeScene();
+	numPendingEntities = 0;
+	numPendingLights = 0;
 	if ( destroyWindow ) {
 		ri.WIN_Shutdown();
 		memset( &glConfig, 0, sizeof( glConfig ) );
 		memset( &window, 0, sizeof( window ) );
 	}
 	shadersSent = 0;
+	modelsSent = 0;
+	skinsSent = 0;
 }
