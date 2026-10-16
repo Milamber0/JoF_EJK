@@ -1530,6 +1530,40 @@
 			} 
 		}
 
+		itemDef
+		{
+			name				video_aa
+			group				video
+			type				ITEM_TYPE_MULTI
+			text				"Anti-aliasing:"
+			cvar				"r_ext_multisample"
+			cvarFloatList		{ @MENUS_OFF 0 "2x" 2 "4x" 4 "8x" 8 }
+			rect				260 356 340 14
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			174
+			textaligny			0
+			font 				4
+			textscale 			1
+			forecolor			0.65 0.65 1 1
+			visible				0
+			descText			"Multisample anti-aliasing. Applied after a video restart."
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				setcvar			ui_r_modified	1 ;
+				setcvar			ui_vidrestart	1 ;
+				show			applyChanges
+			}
+			mouseenter
+			{
+				show			highlight13
+			}
+			mouseexit
+			{
+				hide			highlight13
+			}
+		}
+
 		// Rend2 advanced settings, based on SomaZ's Rend2 Setup UI 1.1.
 		itemDef
 		{
@@ -1595,8 +1629,10 @@
 			forecolor			.615 .615 .956 1
 			cvar				"r_toneMap"
 			cvarFloatList		{ @MENUS_OFF 0 @MENUS_ON 1 }
+			cvarTest			"r_hdr"
+			hideCvar			{ 0 }
 			visible				0
-			descText			"Map HDR lighting into the displayable color range."
+			descText			"Map HDR lighting into the displayable color range. Requires HDR Rendering."
 			mouseenter			{ show highlight2 }
 			mouseexit			{ hide highlight2 }
 			action				{ play "sound/interface/button1.wav" ; setcvar ui_r_modified 1 ; setcvar ui_vidrestart 1 ; show applyChanges }
@@ -1616,8 +1652,10 @@
 			forecolor			.615 .615 .956 1
 			cvar				"r_autoExposure"
 			cvarFloatList		{ @MENUS_OFF 0 @MENUS_ON 1 }
+			cvarTest			"r_hdr"
+			hideCvar			{ 0 }
 			visible				0
-			descText			"Automatically adapt exposure to scene brightness."
+			descText			"Automatically adapt exposure to scene brightness. Requires HDR Rendering and Tonemapping."
 			mouseenter			{ show highlight3 }
 			mouseexit			{ hide highlight3 }
 			action				{ play "sound/interface/button1.wav" }
@@ -1661,7 +1699,7 @@
 			cvar				"r_deluxeMapping"
 			cvarFloatList		{ @MENUS_OFF 0 @MENUS_ON 1 }
 			visible				0
-			descText			"Enable normal and specular mapping on static geometry."
+			descText			"Use the light direction stored in deluxemaps for per-pixel lighting on map surfaces."
 			mouseenter			{ show highlight5 }
 			mouseexit			{ hide highlight5 }
 			action				{ play "sound/interface/button1.wav" ; setcvar ui_r_modified 1 ; setcvar ui_vidrestart 1 ; show applyChanges }
@@ -1751,7 +1789,7 @@
 			descText			"Enable parallax occlusion mapping for Rend2 materials."
 			mouseenter			{ show highlight9 }
 			mouseexit			{ hide highlight9 }
-			action				{ play "sound/interface/button1.wav" ; setcvar ui_r_modified 1 ; setcvar ui_vidrestart 1 ; show applyChanges }
+			action				{ play "sound/interface/button1.wav" }
 		}
 
 		itemDef
