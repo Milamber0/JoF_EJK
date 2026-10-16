@@ -105,6 +105,10 @@ pub(crate) struct Scene {
     pub(crate) polys: Vec<Poly>,
     pub(crate) poly_verts: Vec<PolyVert>,
     pub(crate) decals: Vec<Decal>,
+    /// Entities of the main view, the rest belonging to `previews`.
+    pub(crate) main_entities: std::ops::Range<usize>,
+    /// The model views without a world (`RDF_NOWORLDMODEL`) of this frame.
+    pub(crate) previews: Vec<super::preview::PreviewView>,
 }
 
 /// `sjkHostDecal_t`: an `RE_AddDecalToScene` mark.
@@ -218,7 +222,10 @@ fn instance(entity: &Entity, rotation: Quat, scale: [f32; 3]) -> ActorInstance {
 /// Add the engine's scene to this frame's submissions; `time` is the view's clock in
 /// milliseconds. Runs where SJK submits its own session's entities.
 pub(crate) fn submit(gpu: &mut GpuState, time: i64) {
-    let scene = SCENE.with(|cell| std::mem::take(&mut *cell.borrow_mut()));
+    let mut scene = SCENE.with(|cell| std::mem::take(&mut *cell.borrow_mut()));
+    let main = scene.main_entities.start.min(scene.entities.len())
+        ..scene.main_entities.end.min(scene.entities.len());
+    scene.entities = scene.entities[main].to_vec();
     WORLD.with(|cell| {
         let mut world = cell.borrow_mut();
         let now = Instant::now();

@@ -42,6 +42,9 @@ pub(crate) const KIND_STRETCH: i32 = 0;
 pub(crate) const KIND_ROTATE: i32 = 1;
 /// `RE_RotatePic2`: `x`, `y` is the centre the picture turns about.
 pub(crate) const KIND_ROTATE2: i32 = 2;
+/// A model view without a world (`RDF_NOWORLDMODEL`) drawn here: `shader` is its
+/// index in the frame's views ([`super::preview`]).
+pub(crate) const KIND_VIEW: i32 = 3;
 
 /// How a picture mixes with what is under it.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -174,6 +177,7 @@ pub(crate) struct Layer {
     /// Images by path and clamping, shared between the shaders using them.
     images: HashMap<(String, bool), Rc<wgpu::BindGroup>>,
     epoch: std::time::Instant,
+    previews: super::preview::Previews,
     buffer: wgpu::Buffer,
     capacity: usize,
     names: HashMap<i32, String>,
@@ -264,6 +268,7 @@ impl Layer {
             crate::gpu_texture::upload_display_image(device, queue, "host 2D white", &white_image);
         let white = std::rc::Rc::new(bind(device, &layout, &sampler, &white_view));
         let capacity = 4096;
+        let previews = super::preview::Previews::new(device, queue, layout.clone());
         Self {
             device: device.clone(),
             pipelines,
@@ -273,6 +278,7 @@ impl Layer {
             white,
             images: HashMap::new(),
             epoch: std::time::Instant::now(),
+            previews,
             buffer: vertex_buffer(device, capacity),
             capacity,
             names: HashMap::new(),
@@ -297,11 +303,27 @@ impl Layer {
         vfs: &VirtualFileSystem,
         shaders: &ShaderCatalog,
         pictures: &[Picture],
+        scene: &super::entities::Scene,
     ) {
         self.vertices.clear();
         self.batches.clear();
+        let views = self.previews.render(queue, vfs, shaders, scene);
         let now = self.epoch.elapsed().as_secs_f32();
         for picture in pictures {
+            if picture.kind == KIND_VIEW {
+                let Some(Some(bind_group)) = usize::try_from(picture.shader).ok().and_then(|index| views.get(index)) else {
+                    continue;
+                };
+                let start = self.vertices.len() as u32;
+                push_quad(&mut self.vertices, &Picture { kind: KIND_STRETCH, ..*picture }, &[], [1.0; 4], now);
+                let end = self.vertices.len() as u32;
+                self.batches.push(Batch {
+                    bind_group: bind_group.clone(),
+                    blend: Blend::Alpha,
+                    vertices: start..end,
+                });
+                continue;
+            }
             if picture.color[3] <= 0.0 && picture.w != 0.0 {
                 continue;
             }

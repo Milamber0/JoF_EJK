@@ -273,6 +273,10 @@ pub struct HostScene {
     pub num_poly_verts: c_int,
     pub decals: *const Decal,
     pub num_decals: c_int,
+    pub first_main_entity: c_int,
+    pub num_main_entities: c_int,
+    pub previews: *const super::preview::PreviewView,
+    pub num_previews: c_int,
 }
 
 /// `pointer[..count]` copied, empty for null or a non-positive count.
@@ -321,6 +325,11 @@ pub unsafe extern "C" fn SJK_HostFrame(
             polys: copied(scene.polys, scene.num_polys),
             poly_verts: copied(scene.poly_verts, scene.num_poly_verts),
             decals: copied(scene.decals, scene.num_decals),
+            main_entities: {
+                let first = usize::try_from(scene.first_main_entity).unwrap_or(0);
+                first..first + usize::try_from(scene.num_main_entities).unwrap_or(0)
+            },
+            previews: copied(scene.previews, scene.num_previews),
         }
     });
     // SAFETY: as documented.

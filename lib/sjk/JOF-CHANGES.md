@@ -31,6 +31,9 @@ are kept as they are. Only the files below differ from upstream, and only the
   - `layer.rs`: the engine's 2D (menus, HUD, console, fonts) in a 640x480 virtual
     screen, with shader stages, `animMap`, `videoMap` (RoQ), `tcMod` and colour
     generators.
+  - `preview.rs`: the engine's model views without a world (`RDF_NOWORLDMODEL`,
+    the menus' player model and sabers), skinned with the engine's bones and lit
+    as rd-vanilla lights a model with no world, for the 2D layer to draw.
   - `queries.rs`: `R_MarkFragments`, `R_LightForPoint` and `R_inPVS` from the
     BSP SJK loaded.
 - `main.rs`, `frame_overlays.rs`, `gpu_context.rs`, `platform.rs`, `log.rs`: build

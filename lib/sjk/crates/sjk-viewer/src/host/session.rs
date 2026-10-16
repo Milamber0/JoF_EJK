@@ -218,10 +218,10 @@ impl Host {
         scene: super::entities::Scene,
         pictures: &[Picture],
     ) {
-        super::entities::set_scene(scene);
         super::with_layer(|layer| {
-            layer.prepare(&self.context.queue, &self.vfs, &self.shaders, pictures);
+            layer.prepare(&self.context.queue, &self.vfs, &self.shaders, pictures, &scene);
         });
+        super::entities::set_scene(scene);
         if let (Some(view), Some(gpu)) = (view, self.gpu.as_mut()) {
             super::set_view(Some(view));
             let status = gpu.render(&mut None);

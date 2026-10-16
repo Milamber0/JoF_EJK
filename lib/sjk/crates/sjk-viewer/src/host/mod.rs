@@ -16,6 +16,7 @@
 pub(crate) mod entities;
 mod ffi;
 pub(crate) mod layer;
+mod preview;
 mod queries;
 mod session;
 
