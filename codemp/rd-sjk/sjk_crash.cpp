@@ -82,15 +82,33 @@ void SJK_InstallCrashLog( const char *path ) {
 	handler = AddVectoredExceptionHandler( 1, SJK_CrashHandler );
 }
 
+// One line into the crash log, written through at once.
+void SJK_Trace( const char *line ) {
+	if ( !crashPath[0] ) {
+		return;
+	}
+	FILE *f = fopen( crashPath, "a" );
+	if ( f ) {
+		fprintf( f, "%s\n", line );
+		fclose( f );
+	}
+}
+
 // Before the DLL unloads: the handler is code in it.
 void SJK_RemoveCrashLog( void ) {
-	crashPath[0] = 0;
 	if ( handler ) {
 		RemoveVectoredExceptionHandler( handler );
 		handler = NULL;
 	}
 }
+extern "C" BOOL WINAPI DllMain( HINSTANCE instance, DWORD reason, LPVOID reserved ) {
+	if ( reason == DLL_PROCESS_DETACH ) {
+		SJK_Trace( reserved ? "unload at exit" : "unload" );
+	}
+	return TRUE;
+}
 #else
 void SJK_InstallCrashLog( const char *path ) {}
 void SJK_RemoveCrashLog( void ) {}
+void SJK_Trace( const char *line ) {}
 #endif

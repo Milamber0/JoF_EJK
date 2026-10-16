@@ -34,6 +34,7 @@ static int		modelsSent, skinsSent;
 static void		SJK_AllocScene( void );
 void			SJK_InstallCrashLog( const char *path );	// sjk_crash.cpp
 void			SJK_RemoveCrashLog( void );
+void			SJK_Trace( const char *line );
 static void		SJK_FreeScene( void );
 static void		SJK_SendAssetNames( void );
 qboolean		G2API_HaveWeGhoul2Models( CGhoul2Info_v &ghoul2 );
@@ -89,10 +90,10 @@ static void SJK_StartHost( void ) {
 	Q_strncpyz( game, ri.Cvar_VariableString( "fs_game" ), sizeof( game ) );
 	// The hosted renderer's own settings, beside EternalJK's; SJK's own profile is
 	// read once to start them from what the player chose there.
-	Com_sprintf( config, sizeof( config ), "%s/" ETERNALJKGAME "/rd-sjk/config.cfg", home[0] ? home : base );
+	Com_sprintf( config, sizeof( config ), "%s/" ETERNALJKGAME "/rd-freedom/config.cfg", home[0] ? home : base );
 	Com_sprintf( sjkConfig, sizeof( sjkConfig ), "%s/SJK/config.cfg", base );
 	char crashLog[MAX_OSPATH];
-	Com_sprintf( crashLog, sizeof( crashLog ), "%s/" ETERNALJKGAME "/rd-sjk/rd-sjk-crash.log", home[0] ? home : base );
+	Com_sprintf( crashLog, sizeof( crashLog ), "%s/" ETERNALJKGAME "/rd-freedom/crash.log", home[0] ? home : base );
 	SJK_InstallCrashLog( crashLog );
 
 	sjkHostStart_t start;
@@ -112,7 +113,7 @@ static void SJK_StartHost( void ) {
 	hostStarted = (qboolean)( SJK_HostInit( &start ) != 0 );
 	SJK_FlushLog();
 	if ( !hostStarted ) {
-		ri.Error( ERR_FATAL, "rd-sjk: SJK's renderer could not start on this window (see the console)" );
+		ri.Error( ERR_FATAL, "rd-freedom: the renderer could not start on this window (see the console)" );
 	}
 	static char adapter[256];
 	SJK_HostAdapter( adapter, sizeof( adapter ) );
@@ -148,11 +149,11 @@ static void SJK_InitWindow( void ) {
 	memset( &glConfig, 0, sizeof( glConfig ) );
 	window = ri.WIN_Init( &windowDesc, &glConfig );
 	if ( !window.handle ) {
-		ri.Error( ERR_FATAL, "rd-sjk: the engine gave no native window" );
+		ri.Error( ERR_FATAL, "rd-freedom: the engine gave no native window" );
 	}
 	glConfig.vendor_string = "SJK";
 	glConfig.renderer_string = "SJK renderer";
-	glConfig.version_string = "rd-sjk";
+	glConfig.version_string = "rd-freedom";
 	glConfig.extensions_string = "";
 	glConfig.maxTextureSize = 16384;
 	glConfig.maxActiveTextures = 8;
@@ -168,12 +169,122 @@ static void SJK_InitWindow( void ) {
 
 extern void R_SJK_ResetShaderExistence( void );	// tr_shader.cpp
 
+/*
+==================
+Graphics settings
+
+The hosted renderer keeps its settings in its own profile. Each one is mirrored as
+an engine cvar of the same name, so the menus and the console set it as any other
+cvar; a change is handed over at the next frame, and the mirrors follow the
+renderer after a quality level sets many at once.
+==================
+*/
+
+#define SJK_MAX_SETTINGS	128
+typedef struct {
+	cvar_t	*cvar;
+	int		modificationCount;
+} sjkSetting_t;
+static sjkSetting_t	settings[SJK_MAX_SETTINGS];
+static int			numSettings;
+
+static char *SJK_SettingsText( void ) {
+	const int size = SJK_HostSettings( NULL, 0 );
+	if ( size <= 1 ) {
+		return NULL;
+	}
+	char *text = (char *)Z_Malloc( size, TAG_GENERAL, qfalse );
+	SJK_HostSettings( text, size );
+	return text;
+}
+
+// Register or refresh every mirror from the renderer's values.
+static void SJK_SyncSettings( void ) {
+	char *text = SJK_SettingsText();
+	if ( !text ) {
+		return;
+	}
+	for ( char *line = text; line && *line; ) {
+		char *next = strchr( line, '\n' );
+		if ( next ) {
+			*next++ = 0;
+		}
+		char *fields[4] = { line, NULL, NULL, NULL };
+		for ( int i = 1; i < 4; i++ ) {
+			char *tab = fields[i - 1] ? strchr( fields[i - 1], '\t' ) : NULL;
+			if ( tab ) {
+				*tab = 0;
+				fields[i] = tab + 1;
+			}
+		}
+		line = next;
+		if ( !fields[1] || !fields[0][0] ) {
+			continue;
+		}
+		int index = 0;
+		while ( index < numSettings && Q_stricmp( settings[index].cvar->name, fields[0] ) ) {
+			index++;
+		}
+		if ( index == numSettings ) {
+			if ( numSettings == SJK_MAX_SETTINGS ) {
+				continue;
+			}
+			settings[numSettings].cvar = ri.Cvar_Get( fields[0], fields[2] ? fields[2] : fields[1], CVAR_NONE, fields[3] ? fields[3] : "" );
+			numSettings++;
+		}
+		sjkSetting_t *setting = &settings[index];
+		if ( strcmp( setting->cvar->string, fields[1] ) ) {
+			ri.Cvar_Set( fields[0], fields[1] );
+		}
+		setting->modificationCount = setting->cvar->modificationCount;
+	}
+	Z_Free( text );
+}
+
+// Hand the renderer the settings changed since the last frame.
+static void SJK_PushSettings( void ) {
+	qboolean changed = qfalse;
+	for ( int i = 0; i < numSettings; i++ ) {
+		sjkSetting_t *setting = &settings[i];
+		if ( setting->cvar->modificationCount == setting->modificationCount ) {
+			continue;
+		}
+		setting->modificationCount = setting->cvar->modificationCount;
+		// The menus write numbers as "%f"; an on/off or whole-number setting takes
+		// them rounded.
+		const char *value = setting->cvar->string;
+		char *end = NULL;
+		const double number = strtod( value, &end );
+		if ( !SJK_HostSetCvar( setting->cvar->name, value )
+			&& !( end && end != value && !*end && SJK_HostSetCvar( setting->cvar->name, va( "%d", (int)floor( number + 0.5 ) ) ) ) ) {
+			ri.Printf( PRINT_WARNING, "%s: \"%s\" is not a value it takes\n", setting->cvar->name, setting->cvar->string );
+		}
+		changed = qtrue;
+	}
+	if ( changed ) {
+		SJK_SyncSettings();
+	}
+}
+
+// graphicsquality [vanilla|performance|balanced|high|ultra]
+static void SJK_Quality_f( void ) {
+	char args[256];
+	ri.Cmd_ArgsBuffer( args, sizeof( args ) );
+	SJK_PushSettings();
+	static char reply[1024];
+	SJK_HostQuality( args, reply, sizeof( reply ) );
+	if ( reply[0] ) {
+		ri.Printf( PRINT_ALL, "%s\n", reply );
+	}
+	SJK_SyncSettings();
+}
+
 void RE_BeginRegistration( glconfig_t *glconfigOut ) {
 	R_Init();
 	R_InitShaders( qfalse );
 	R_InitSkins();
 	R_SJK_ResetShaderExistence();
-	r_sjkDebug = ri.Cvar_Get( "r_sjkDebug", "0", CVAR_NONE, "Log rd-sjk frame details" );
+	r_sjkDebug = ri.Cvar_Get( "r_freedomDebug", "0", CVAR_NONE, "Log the renderer's frame details (2: list the entities once)" );
 	r_aspectCorrectFonts = ri.Cvar_Get( "r_aspectCorrectFonts", "0", CVAR_ARCHIVE, "" );
 	r_ratioFix = ri.Cvar_Get( "cl_ratioFix", "1", CVAR_ARCHIVE, "" );
 	r_fontOverride = ri.Cvar_Get( "r_fontOverride", "0", CVAR_NONE, "" );
@@ -182,6 +293,8 @@ void RE_BeginRegistration( glconfig_t *glconfigOut ) {
 	SJK_InitWindow();
 	R_Set2DRatio();
 	SJK_StartHost();
+	SJK_SyncSettings();
+	ri.Cmd_AddCommand( "graphicsquality", SJK_Quality_f, "Show or set graphics quality: vanilla, performance, balanced, high or ultra" );
 
 	// The shaders 2D code uses before any are registered.
 	int lightmaps2d[MAXLIGHTMAPS] = { LIGHTMAP_2D, LIGHTMAP_2D, LIGHTMAP_2D, LIGHTMAP_2D };
@@ -245,7 +358,7 @@ static void SJK_ReadWorld( const char *name ) {
 	void *buffer = NULL;
 	const int length = ri.FS_ReadFile( name, &buffer );
 	if ( length <= 0 || !buffer ) {
-		ri.Error( ERR_DROP, "rd-sjk: %s not found", name );
+		ri.Error( ERR_DROP, "rd-freedom: %s not found", name );
 		return;
 	}
 	const dheader_t *header = (const dheader_t *)buffer;
@@ -274,7 +387,7 @@ void RE_LoadWorldMap( const char *name ) {
 	const int loaded = SJK_HostLoadWorld( name );
 	SJK_FlushLog();
 	if ( !loaded ) {
-		ri.Printf( PRINT_WARNING, "rd-sjk: SJK could not build %s; it shows no world\n", name );
+		ri.Printf( PRINT_WARNING, "rd-freedom: could not build %s; it shows no world\n", name );
 	}
 }
 
@@ -750,6 +863,7 @@ void RE_BeginFrame( stereoFrame_t stereoFrame ) {
 	tr.frameSceneNum = 0;
 	numFramePics = 0;
 	frameHasView = qfalse;
+	SJK_PushSettings();
 	if ( !framePics ) {
 		framePics = (sjkHostPic_t *)Z_Malloc( sizeof( sjkHostPic_t ) * MAX_SJK_PICS, TAG_GENERAL, qfalse );
 	}
@@ -769,7 +883,7 @@ void RE_EndFrame( int *frontEndMsec, int *backEndMsec ) {
 	}
 	SJK_SendAssetNames();
 	if ( r_sjkDebug && r_sjkDebug->integer ) {
-		ri.Printf( PRINT_ALL, "rd-sjk frame: view %d, %d pictures, %d entities, %d bones, %d lights, %d polys\n",
+		ri.Printf( PRINT_ALL, "rd-freedom frame: view %d, %d pictures, %d entities, %d bones, %d lights, %d polys\n",
 			frameHasView, numFramePics, numSceneEntities, numSceneBoneFloats / 12, numSceneLights, numScenePolys );
 	}
 	if ( r_sjkDebug && r_sjkDebug->integer >= 2 && frameHasView ) {
@@ -779,7 +893,7 @@ void RE_EndFrame( int *frontEndMsec, int *backEndMsec ) {
 			ri.Printf( PRINT_ALL, "  %d: kind %d model %d %s shader %d skin %d bones %d rfx %#x at %.0f %.0f %.0f\n", i, e->kind, e->model,
 				mod ? mod->name : "", e->shader, e->skin, e->numBones, e->renderfx, e->origin[0], e->origin[1], e->origin[2] );
 		}
-		ri.Cvar_Set( "r_sjkDebug", "1" );
+		ri.Cvar_Set( "r_freedomDebug", "1" );
 	}
 	sjkHostScene_t scene;
 	scene.entities = sceneEntities;
@@ -872,6 +986,12 @@ Shutdown
 */
 
 void SJK_Shutdown( qboolean destroyWindow, qboolean restarting ) {
+	// A restart (vid_restart) unloads this DLL even when it keeps the window, and
+	// nothing of the renderer may outlive its code: stop it all and let the next
+	// instance make the window again.
+	if ( restarting ) {
+		destroyWindow = qtrue;
+	}
 	if ( entityString ) {
 		Z_Free( entityString );
 		entityString = NULL;
@@ -882,8 +1002,12 @@ void SJK_Shutdown( qboolean destroyWindow, qboolean restarting ) {
 	R_ShutdownFonts();
 	if ( hostStarted ) {
 		if ( destroyWindow ) {
+			SJK_Trace( "shutdown: renderer" );
 			SJK_HostShutdown();
+			SJK_Trace( "shutdown: renderer stopped" );
 			SJK_RemoveCrashLog();
+			ri.Cmd_RemoveCommand( "graphicsquality" );
+			numSettings = 0;
 			hostStarted = qfalse;
 		} else {
 			SJK_HostUnloadWorld();
@@ -898,9 +1022,11 @@ void SJK_Shutdown( qboolean destroyWindow, qboolean restarting ) {
 	numPendingEntities = 0;
 	numPendingLights = 0;
 	if ( destroyWindow ) {
+		SJK_Trace( "shutdown: window" );
 		ri.WIN_Shutdown();
 		memset( &glConfig, 0, sizeof( glConfig ) );
 		memset( &window, 0, sizeof( window ) );
+		SJK_Trace( "shutdown: done" );
 	}
 	shadersSent = 0;
 	modelsSent = 0;

@@ -1099,7 +1099,7 @@
 			font 				4
 			textscale 			1
 			forecolor			.615 .615 .956 1
-			cvarStrList			{  "Default Mode (Vanilla)" , "rd-eternaljk" , "Performance Mode (Vulkan)", "rd-vulkan" , "Quality Mode (Rend2)", "rd-rend2-etjk" }
+			cvarStrList			{  "Default Mode (Vanilla)" , "rd-eternaljk" , "Performance Mode (Vulkan)", "rd-vulkan" , "Quality Mode (Rend2)", "rd-rend2-etjk" , "Freedom Renderer", "rd-freedom" }
 			descText			"Change the renderer library to use. (Vulkan only supported on newer GPUs and Rend2 is highly experimental)."
 			cvarTest			"ui_vulkan_supported"
 			showCvar
@@ -1139,7 +1139,7 @@
 			font 				4
 			textscale 			1
 			forecolor			.615 .615 .956 1
-			cvarStrList			{  "Default Mode (Vanilla)" , "rd-eternaljk" , "Quality Mode (Rend2)", "rd-rend2-etjk" }
+			cvarStrList			{  "Default Mode (Vanilla)" , "rd-eternaljk" , "Quality Mode (Rend2)", "rd-rend2-etjk" , "Freedom Renderer", "rd-freedom" }
 			descText			"Change the renderer library to use. (Rend2 is highly experimental)."
 			cvarTest			"ui_vulkan_supported"
 			showCvar
@@ -1592,6 +1592,29 @@
 				show			rend2video ;
 				hide			applybutton_glow ;
 			}
+		}
+
+		itemDef
+		{
+			name				freedomvideobutton
+			group				video
+			type				ITEM_TYPE_BUTTON
+			text				"Freedom Renderer Settings"
+			rect				260 370 340 14
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			170
+			textaligny			0
+			font				4
+			textscale			1
+			forecolor			1 .682 0 1
+			visible				0
+			cvarTest			"ui_cl_renderer"
+			showCvar			{ "rd-freedom" }
+			descText			"Lighting, shadows, image and weather settings of the Freedom renderer."
+			mouseenter			{ show highlight14 }
+			mouseexit			{ hide highlight14 }
+			action
+			{ play "sound/interface/button1.wav" ; open freedomgraphics ; }
 		}
 
 		itemDef

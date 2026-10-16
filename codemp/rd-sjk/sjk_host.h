@@ -142,6 +142,12 @@ void	SJK_HostAdapter( char *buffer, int size );
 int		SJK_HostSetCvar( const char *name, const char *value );
 int		SJK_HostShaderExists( const char *name );	// a script or an image by that name
 
+// Graphics settings: "cvar\tvalue\tdefault\thelp\n" lines; returns the size the whole
+// text needs (call with NULL, 0 first).
+int		SJK_HostSettings( char *buffer, int size );
+// graphicsquality [level]: its reply into buffer.
+void	SJK_HostQuality( const char *args, char *buffer, int size );
+
 // World queries, answered from the loaded map (0 / nothing without one).
 int		SJK_HostMarkFragments( int numPoints, const float *points, const float *projection, int maxPoints, float *pointBuffer, int maxFragments, int *fragmentBuffer );
 int		SJK_HostLightForPoint( const float *point, float *ambientDirectedDirection );	// 9 floats, 0..1

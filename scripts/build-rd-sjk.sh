@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build rd-sjk_x86_64.dll (SJK's renderer for JoF EJK) on Linux with MinGW-w64.
+# Build rd-freedom_x86_64.dll (the Freedom renderer, built on SJK, for JoF EJK) on Linux with MinGW-w64.
 #
 #   scripts/build-rd-sjk.sh [SJK source folder] [build folder]
 #
@@ -39,6 +39,6 @@ cmake -S "$here" -B "$build" -G Ninja \
 	-DSJK_HOST_LIBRARY="$library" \
 	"-DSJK_HOST_LINK_DIRECTORIES=$windows_lib;$winapi_lib" \
 	"-DSJK_HOST_EXTRA_LIBRARIES=$windows_name;winapi_advapi32;winapi_cfgmgr32;winapi_kernel32;winapi_user32"
-ninja -C "$build" rd-sjk_x86_64
-x86_64-w64-mingw32-strip --strip-debug "$build/rd-sjk_x86_64.dll"
-ls -la "$build/rd-sjk_x86_64.dll"
+ninja -C "$build" rd-freedom_x86_64
+x86_64-w64-mingw32-strip --strip-debug "$build/rd-freedom_x86_64.dll"
+ls -la "$build/rd-freedom_x86_64.dll"

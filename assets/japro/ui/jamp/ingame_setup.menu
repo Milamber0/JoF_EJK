@@ -959,7 +959,7 @@
 			textscale 		1
 			style			WINDOW_STYLE_FILLED
 			forecolor		.615 .615 .956 1
-			cvarStrList			{  "Default Mode (Vanilla)" , "rd-eternaljk" , "Performance Mode (Vulkan)", "rd-vulkan" , "Quality Mode (Rend2)", "rd-rend2-etjk" }
+			cvarStrList			{  "Default Mode (Vanilla)" , "rd-eternaljk" , "Performance Mode (Vulkan)", "rd-vulkan" , "Quality Mode (Rend2)", "rd-rend2-etjk" , "Freedom Renderer", "rd-freedom" }
 			descText			"Change the renderer library to use. (Vulkan only supported on newer GPUs and Rend2 is highly experimental)."
 			cvarTest			"ui_vulkan_supported"
 			showCvar
@@ -999,7 +999,7 @@
 			textscale 		1
 			style			WINDOW_STYLE_FILLED
 			forecolor		.615 .615 .956 1
-			cvarStrList			{  "Default Mode (Vanilla)" , "rd-eternaljk" , "Quality Mode (Rend2)", "rd-rend2-etjk" }
+			cvarStrList			{  "Default Mode (Vanilla)" , "rd-eternaljk" , "Quality Mode (Rend2)", "rd-rend2-etjk" , "Freedom Renderer", "rd-freedom" }
 			descText			"Change the renderer library to use. (Rend2 is highly experimental)."
 			cvarTest			"ui_vulkan_supported"
 			showCvar
@@ -1892,6 +1892,17 @@
 
 		itemDef
 		{
+			name				freedomvideobutton_glow
+			style				WINDOW_STYLE_SHADER
+			rect				260 205 200 16
+			background			"gfx/menus/menu_blendbox"
+			forecolor			1 0.5 0.5 1
+			visible				0
+			decoration
+		}
+
+		itemDef
+		{
 			name				rend2videobutton
 			group				advancedvideo
 			type				ITEM_TYPE_BUTTON
@@ -1915,6 +1926,28 @@
 				hide			rend2videobutton_glow
 				show			rend2video
 			}
+		}
+
+		itemDef
+		{
+			name				freedomvideobutton
+			group				advancedvideo
+			type				ITEM_TYPE_BUTTON
+			text				"Freedom Renderer Settings"
+			rect				260 203 200 20
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			100
+			font				4
+			textscale			1
+			forecolor			1 .682 0 1
+			visible				0
+			cvarTest			"ui_cl_renderer"
+			showCvar			{ "rd-freedom" }
+			descText			"Lighting, shadows, image and weather settings of the Freedom renderer."
+			mouseenter			{ show freedomvideobutton_glow }
+			mouseexit			{ hide freedomvideobutton_glow }
+			action
+			{ play "sound/interface/button1.wav" ; open freedomgraphics ; }
 		}
 
 
