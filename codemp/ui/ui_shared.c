@@ -5919,9 +5919,6 @@ void Item_ListBox_Paint(itemDef_t *item) {
 			// draw scrollbar to right side of the window
 			x = item->window.rect.x + item->window.rect.w - SCROLLBAR_SIZE - 1;
 
-			if ( (int)item->special == FEEDER_Q3HEADS )
-				x -= 2;
-
 			y = item->window.rect.y + 1;
 			DC->drawHandlePic(x, y, SCROLLBAR_SIZE, SCROLLBAR_SIZE, DC->Assets.scrollBarArrowUp);
 			y += SCROLLBAR_SIZE - 1;
@@ -5947,12 +5944,13 @@ void Item_ListBox_Paint(itemDef_t *item) {
 			//x = item->window.rect.x + item->window.rect.w - SCROLLBAR_SIZE - 1;
 			x = item->window.rect.x + item->window.rect.w - SCROLLBAR_SIZE - (1 * DC->widthRatioCoef);
 
-			if ( (int)item->special == FEEDER_Q3HEADS )
-				x -= 2;
-
 			if (xOffset < 0.0f)
 				xOffset *= -1.0f;
 			x += xOffset;
+
+			// Keep the Profile scrollbar against the border when aspect correction narrows it.
+			if ( (int)item->special == FEEDER_Q3HEADS )
+				x = item->window.rect.x + item->window.rect.w - width - (1 * DC->widthRatioCoef);
 
 			y = item->window.rect.y + 1;
 			DC->drawHandlePic(x, y, width, SCROLLBAR_SIZE, DC->Assets.scrollBarArrowUp);
