@@ -252,7 +252,7 @@
 			showCvar			{ 1 }
 			group				none
 			text				"Moves"
-			descText			"Browse moves and animations."
+			descText			"Browse moves and animations"
 			type				ITEM_TYPE_BUTTON
 			style				WINDOW_STYLE_EMPTY
 			rect				425 100 160 26
