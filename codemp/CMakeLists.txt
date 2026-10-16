@@ -140,6 +140,11 @@ if(BuildMPRend2)
 	add_subdirectory("${MPDir}/rd-rend2")
 endif(BuildMPRend2)
 
+#	Add the SJK renderer (rd-sjk)
+if(BuildMPRdSjk)
+	add_subdirectory("${MPDir}/rd-sjk")
+endif(BuildMPRdSjk)
+
 
 #    Common things between Engine and Dedicated Server
 if(BuildMPEngine OR BuildMPDed)
