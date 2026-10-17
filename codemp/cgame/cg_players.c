@@ -1284,34 +1284,16 @@ void CG_RegisterClientModelname_RandomCheck(clientInfo_t* ci, char* teamname, in
 				//newSkinName = ci->skinName;
 			}
 
-#if 1
 			if (!VALIDSTRING(newModelName) || strlen(newModelName) < 1) Q_strncpyz(newModelName, DEFAULT_MODEL, MAX_QPATH);
 			if (!VALIDSTRING(newSkinName) || strlen(newSkinName) < 1) Q_strncpyz(newSkinName, "default", MAX_QPATH);
+
+			//newModelName is derived from the player's own name, so a failure here must not
+			//drop everyone rendering them. Retry the fixed fallback, as the non-random path does.
 			if (!CG_RegisterClientModelname(ci, newModelName, newSkinName, teamname, clientNum)) {
-				trap->Error(ERR_DROP, "DEFAULT_MODEL / skin (%s/%s) failed to register", newModelName, newSkinName);
-			}
-#elif 0 //LOL fuck ni
-			if (!CG_RegisterClientModelname(ci, newModelName, newSkinName, teamname, clientNum)) {
-				//trap->Error(ERR_DROP, "DEFAULT_MODEL / skin (%s/%s) failed to register", newModelName, newSkinName);
-				trap->Print(S_COLOR_RED "DEFAULT_MODEL / skin (%s/%s) failed to register", newModelName, newSkinName);
-				switch (ci->team)
-				{
-					case TEAM_RED:
-						newSkinName = "red";
-					case TEAM_BLUE:
-						newSkinName = "blue";
-					default:
-						newSkinName = "default";
-				}
-				newModelName = DEFAULT_MODEL;
-				if (!CG_RegisterClientModelname(ci, newModelName, newSkinName, teamname, clientNum)) {
-					trap->Error(ERR_DROP, "lol i tried\n");
+				if (!CG_RegisterClientModelname(ci, fallbackModel, "default", teamname, clientNum)) {
+					trap->Error(ERR_DROP, "DEFAULT_MODEL / skin (%s/default) failed to register", fallbackModel);
 				}
 			}
-#else
-			if (!CG_RegisterClientModelname(ci, newModelName, newSkinName, teamname, clientNum))
-				trap->Error(ERR_DROP, "DEFAULT_MODEL / skin (%s/%s) failed to register", newModelName, newSkinName);
-#endif
 			* modelloaded = qtrue;
 		}
 		// fall back to default team name

@@ -53,32 +53,49 @@ return= true if three part skins found
 output= qualified names to three skins if return is true, undefined if false
 ===============
 */
-bool RE_SplitSkins(const char *INname, char *skinhead, char *skintorso, char *skinlower)
+bool RE_SplitSkins(const char *INname, char *skinhead, char *skintorso, char *skinlower, int bufSize)
 {	//INname= "models/players/jedi_tf/|head01_skin1|torso01|lower01";
 	if (strchr(INname, '|'))
 	{
 		char name[MAX_QPATH];
-		strcpy(name, INname);
-		char *p = strchr(name, '|');
+		char *p, *p2;
+		int baseLen;
+
+		Q_strncpyz(name, INname, sizeof(name));
+		p = strchr(name, '|');
 		*p=0;
 		p++;
+
+		//INname comes from the player's "model" userinfo, so bound the derived paths.
+		//Refuse rather than truncate - a short path would register the wrong skin.
+		baseLen = (int)strlen(name);
+		if (baseLen + 5 >= bufSize)
+		{
+			return false;
+		}
+
 		//fill in the base path
-		strcpy (skinhead, name);
-		strcpy (skintorso, name);
-		strcpy (skinlower, name);
+		Q_strncpyz (skinhead, name, bufSize);
+		Q_strncpyz (skintorso, name, bufSize);
+		Q_strncpyz (skinlower, name, bufSize);
 
 		//now get the the individual files
 
 		//advance to second
-		char *p2 = strchr(p, '|');
+		p2 = strchr(p, '|');
 		if (!p2)
 		{
 			return false;
 		}
 		*p2=0;
 		p2++;
-		strcat (skinhead, p);
-		strcat (skinhead, ".skin");
+
+		if (baseLen + (int)strlen(p) + 5 >= bufSize)
+		{
+			return false;
+		}
+		Q_strcat (skinhead, bufSize, p);
+		Q_strcat (skinhead, bufSize, ".skin");
 
 
 		//advance to third
@@ -89,11 +106,17 @@ bool RE_SplitSkins(const char *INname, char *skinhead, char *skintorso, char *sk
 		}
 		*p=0;
 		p++;
-		strcat (skintorso,p2);
-		strcat (skintorso, ".skin");
 
-		strcat (skinlower,p);
-		strcat (skinlower, ".skin");
+		if (baseLen + (int)strlen(p2) + 5 >= bufSize
+			|| baseLen + (int)strlen(p) + 5 >= bufSize)
+		{
+			return false;
+		}
+		Q_strcat (skintorso, bufSize, p2);
+		Q_strcat (skintorso, bufSize, ".skin");
+
+		Q_strcat (skinlower, bufSize, p);
+		Q_strcat (skinlower, bufSize, ".skin");
 
 		return true;
 	}
@@ -231,7 +254,7 @@ qhandle_t RE_RegisterSkin( const char *name ) {
 	char skinhead[MAX_QPATH]={0};
 	char skintorso[MAX_QPATH]={0};
 	char skinlower[MAX_QPATH]={0};
-	if ( RE_SplitSkins(name, (char*)&skinhead, (char*)&skintorso, (char*)&skinlower ) )
+	if ( RE_SplitSkins(name, (char*)&skinhead, (char*)&skintorso, (char*)&skinlower, sizeof( skinhead ) ) )
 	{//three part
 		hSkin = RE_RegisterIndividualSkin(skinhead, hSkin);
 		if (hSkin && strcmp(skinhead, skintorso))
