@@ -30,7 +30,7 @@ and `windows-x86_64`:
 | file | what it is |
 |------|------------|
 | `JoF-update-<platform>.zip` | the GameData files, paths relative to GameData |
-| `JoF-update-<platform>.json` | the manifest: tag, channel, platform, and the size and SHA-512 of the zip and of every file |
+| `JoF-update-<platform>.json` | the manifest: tag, channel, platform, the size and SHA-512 of the zip and of every file, and the files to remove |
 | `JoF-update-<platform>.json.sig` | the Ed25519 signature of the manifest |
 
 The player-facing `JoF-windows-*.zip` downloads are unchanged.
@@ -76,8 +76,29 @@ command line, and the `.old` files are deleted at the following start. A staged
 update older than the running build (one installed by hand meanwhile) is dropped.
 `jofupdate/lock` keeps two JoF windows from staging or swapping at the same time.
 
-An update only adds and replaces files, like unzipping a release by hand: a file
-a newer release no longer ships stays in GameData.
+**Removing files.** A file an earlier release shipped that a newer one no longer
+has, such as a renamed pk3, would otherwise stay in GameData and keep loading. The
+manifest's `remove` list names each one, with the size and SHA-512 of every version
+JoF shipped:
+- The client removes a file only if it is still byte for byte one of those
+  versions. A file the player changed or replaced stays, and the console says so.
+  So do the running program and the retail game's files (`base/assets0-3.pk3`,
+  `jamp.exe`, `jasp.exe`), whatever a manifest says, and the same path rules as
+  for installing apply.
+- The file is checked when `/update` downloads, and removed by the start-up swap
+  like any other: it is renamed to `<name>.old`, put back if the swap fails, and
+  left alone if it changed since it was checked.
+- `make_update_package.py` builds the list. `publish-update-files.sh` fetches the
+  manifests of the newest 100 earlier releases and keeps only those signed with a
+  listed key, since anyone who can push could replace a release's files and a
+  forged manifest must never get a file deleted. Every file those manifests ship,
+  or remove in turn, that this release lacks goes on the list, so a file stays on
+  it for good once dropped. A file shipped before releases had manifests (1.6.1
+  and earlier) goes in [retired-files.json](../scripts/update/retired-files.json)
+  by hand, with the size and SHA-512 of each version from the old release zips.
+
+Files a player added themselves are never touched: only what JoF itself shipped
+can be removed.
 
 The manifest is uploaded last, so a release whose files are still going up looks
 like one without update files, not like a broken one.

@@ -31,6 +31,10 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 // nothing is trusted that the release signing key did not sign: the manifest's
 // Ed25519 signature, its tag, channel and platform, and the SHA-512 of the
 // archive and of every file are all checked. Alpha builds are never offered.
+//
+// A manifest can also list files earlier releases shipped that this one no
+// longer has. Those are removed with the same swap, but only where the installed
+// file is still byte for byte a version JoF shipped: a player's own copy stays.
 
 #include "client.h"
 
@@ -83,6 +87,8 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 static const size_t		MAX_MANIFEST_BYTES	= 1024 * 1024;
 static const size_t		MAX_REFS_BYTES		= 4 * 1024 * 1024;
 static const uint64_t	MAX_ARCHIVE_BYTES	= 1024ull * 1024 * 1024;
+static const int		MAX_REMOVALS		= 256;		// files one manifest may remove
+static const int		MAX_REMOVAL_VERSIONS	= 1024;	// versions of one such file it may name
 static const int		MAX_BETA_TRIES		= 8;		// newest beta tags tried for one with update files
 static const int		MAX_APPLY_ATTEMPTS	= 3;		// starts that may fail to swap before the update is dropped
 static const DWORD		APPLY_WAIT_MS		= 10000;	// how long a swap waits for the exiting client to let go
@@ -350,6 +356,17 @@ static bool Update_HashFile( const std::wstring &path, uint64_t *size, uint8_t s
 	return ok;
 }
 
+// A file's size and last-write time, to tell at the swap whether it changed since
+// it was checked. False for a folder or a file that is not there.
+static bool Update_Stamp( const std::wstring &path, uint64_t *size, uint64_t *written ) {
+	WIN32_FILE_ATTRIBUTE_DATA data;
+	if ( !GetFileAttributesExW( path.c_str(), GetFileExInfoStandard, &data ) || ( data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY ) )
+		return false;
+	*size = ( (uint64_t)data.nFileSizeHigh << 32 ) | data.nFileSizeLow;
+	*written = ( (uint64_t)data.ftLastWriteTime.dwHighDateTime << 32 ) | data.ftLastWriteTime.dwLowDateTime;
+	return true;
+}
+
 // The only files an update may write: programs and libraries beside the client
 // and pk3s in base/ and EternalJK/, so not even a signed manifest can drop a
 // config or reach outside the install folder.
@@ -378,6 +395,17 @@ static bool Update_ValidPath( const std::string &path ) {
 	return false;
 }
 
+// Retail game files that sit where an update may write. JoF never ships them, so
+// no manifest may remove them, however it is signed.
+static bool Update_RetailFile( const std::string &path ) {
+	static const char *retail[] = { "base/assets0.pk3", "base/assets1.pk3", "base/assets2.pk3", "base/assets3.pk3", "jamp.exe", "jasp.exe" };
+	for ( const char *name : retail ) {
+		if ( !Q_stricmp( path.c_str(), name ) )
+			return true;
+	}
+	return false;
+}
+
 /*
 ===============================================================================
 
@@ -390,6 +418,12 @@ A release that the updater can install carries, per platform:
                                   size and SHA-512 of the zip and of every file
   JoF-update-<platform>.json.sig  the Ed25519 signature of the manifest's bytes
 
+The manifest's optional "remove" list names the files earlier releases shipped
+that this one no longer has, each with the size and SHA-512 of every version of
+it JoF shipped:
+
+  "remove": [ { "path": "EternalJK/old.pk3", "versions": [ { "size": 123, "sha512": "..." } ] } ]
+
 scripts/update/make_update_package.py writes them; build.yml signs them.
 
 ===============================================================================
@@ -401,6 +435,16 @@ struct updateFile_t {
 	uint8_t			sha512[64];
 };
 
+struct updateVersion_t {	// one version of a file, as JoF shipped it
+	uint64_t		size;
+	uint8_t			sha512[64];
+};
+
+struct updateRemove_t {		// a file this release no longer ships
+	std::string						path;
+	std::vector<updateVersion_t>	versions;	// every version of it JoF shipped
+};
+
 struct updateRelease_t {
 	std::string					tag;
 	releaseVersion_t			version;
@@ -408,6 +452,7 @@ struct updateRelease_t {
 	uint64_t					archiveSize;
 	uint8_t						archiveSha512[64];
 	std::vector<updateFile_t>	files;
+	std::vector<updateRemove_t>	remove;
 };
 
 static bool Update_ParseHex( const char *hex, uint8_t *out, size_t size ) {
@@ -543,6 +588,49 @@ static bool Update_ReadManifest( const cJSON *root, updateRelease_t *r, std::str
 	if ( !cJSON_IsArray( files ) || r->files.empty() ) {
 		*error = "the update manifest lists no files";
 		return false;
+	}
+
+	const cJSON *remove = cJSON_GetObjectItemCaseSensitive( root, "remove" );
+	r->remove.clear();
+	if ( remove && ( !cJSON_IsArray( remove ) || cJSON_GetArraySize( remove ) > MAX_REMOVALS ) ) {
+		*error = "the update manifest's remove list is malformed";
+		return false;
+	}
+	cJSON_ArrayForEach( item, remove ) {
+		updateRemove_t old;
+		const cJSON *path = cJSON_GetObjectItemCaseSensitive( item, "path" );
+		const cJSON *versions = cJSON_GetObjectItemCaseSensitive( item, "versions" );
+		bool ok = cJSON_IsString( path ) && Update_ValidPath( path->valuestring ) && !Update_RetailFile( path->valuestring )
+			&& cJSON_IsArray( versions ) && cJSON_GetArraySize( versions ) > 0 && cJSON_GetArraySize( versions ) <= MAX_REMOVAL_VERSIONS;
+		const cJSON *version, *known = ok ? versions : NULL;
+		cJSON_ArrayForEach( version, known ) {
+			updateVersion_t v;
+			if ( !Update_JSONSize( cJSON_GetObjectItemCaseSensitive( version, "size" ), MAX_ARCHIVE_BYTES, &v.size )
+				|| !Update_JSONHash( cJSON_GetObjectItemCaseSensitive( version, "sha512" ), v.sha512 ) ) {
+				ok = false;
+				break;
+			}
+			old.versions.push_back( v );
+		}
+		if ( !ok ) {
+			*error = Update_Format( "the update manifest asks to remove a file the updater may not touch (%s)",
+				cJSON_IsString( path ) ? path->valuestring : "?" );
+			return false;
+		}
+		old.path = path->valuestring;
+		for ( const updateFile_t &file : r->files ) {
+			if ( !Q_stricmp( file.path.c_str(), old.path.c_str() ) ) {
+				*error = "the update manifest both installs and removes " + old.path;
+				return false;
+			}
+		}
+		for ( const updateRemove_t &other : r->remove ) {
+			if ( !Q_stricmp( other.path.c_str(), old.path.c_str() ) ) {
+				*error = "the update manifest lists a file to remove twice";
+				return false;
+			}
+		}
+		r->remove.push_back( old );
 	}
 	return true;
 }
@@ -875,7 +963,7 @@ struct updateShared_t {
 	std::mutex			lock;
 	updateState_t		state = UPDATE_IDLE;
 	int					generation = 0;		// rises with every change of state
-	std::string			message;			// why it failed or is disabled
+	std::string			message;			// why it failed or is disabled, or a note on what it staged
 	bool				haveRelease = false;
 	updateRelease_t		release;			// the newer release, once found
 	uint64_t			done = 0, total = 0;	// download progress
@@ -1056,22 +1144,47 @@ static void Update_Check( const updateSettings_t &s ) {
 DOWNLOAD AND STAGE (worker)
 
 jofupdate/pending/files/ holds the files that differ from the installed ones,
-and jofupdate/pending/ready.txt lists them:
+and jofupdate/pending/ready.txt lists them, then the files to remove with the
+size and last-write time they had when they were found to be JoF's:
 
   jofupdate 1
   tag 1.6.2
   attempts 0
   file eternaljk.x86_64.exe
   file EternalJK/jofclient-win-x86_64.pk3
+  remove 123456 133420000000000000 EternalJK/old.pk3
 
 ===============================================================================
 */
 
-struct updatePending_t {
-	std::string					tag;
-	int							attempts = 0;
-	std::vector<std::string>	files;
+struct updateRemoval_t {
+	std::string		path;
+	uint64_t		size;
+	uint64_t		written;	// last-write time (FILETIME) when it was checked
 };
+
+struct updatePending_t {
+	std::string						tag;
+	int								attempts = 0;
+	std::vector<std::string>		files;
+	std::vector<updateRemoval_t>	remove;
+};
+
+// "remove <size> <written> <path>"
+static bool Update_ReadRemoval( const std::string &line, updateRemoval_t *removal ) {
+	const char *at = line.c_str() + 7;
+	char *end;
+	if ( *at < '0' || *at > '9' )
+		return false;
+	removal->size = _strtoui64( at, &end, 10 );
+	if ( *end != ' ' || end[1] < '0' || end[1] > '9' )
+		return false;
+	removal->written = _strtoui64( end + 1, &end, 10 );
+	if ( *end != ' ' )
+		return false;
+	removal->path = end + 1;
+	return Update_ValidPath( removal->path ) && !Update_RetailFile( removal->path );
+}
 
 static bool Update_ReadPending( const std::wstring &path, updatePending_t *p ) {
 	std::string text;
@@ -1082,22 +1195,27 @@ static bool Update_ReadPending( const std::wstring &path, updatePending_t *p ) {
 		return false;
 	for ( size_t i = 1; i < lines.size(); i++ ) {
 		const std::string &line = lines[i];
+		updateRemoval_t removal;
 		if ( !line.compare( 0, 4, "tag " ) )
 			p->tag = line.substr( 4 );
 		else if ( !line.compare( 0, 9, "attempts " ) )
 			p->attempts = atoi( line.c_str() + 9 );
 		else if ( !line.compare( 0, 5, "file " ) && Update_ValidPath( line.substr( 5 ) ) )
 			p->files.push_back( line.substr( 5 ) );
+		else if ( !line.compare( 0, 7, "remove " ) && Update_ReadRemoval( line, &removal ) )
+			p->remove.push_back( removal );
 		else
 			return false;
 	}
-	return !p->tag.empty() && !p->files.empty();
+	return !p->tag.empty() && ( !p->files.empty() || !p->remove.empty() );
 }
 
 static bool Update_WritePending( const std::wstring &path, const updatePending_t &p ) {
 	std::string text = "jofupdate 1\ntag " + p.tag + "\nattempts " + std::to_string( p.attempts ) + "\n";
 	for ( const std::string &file : p.files )
 		text += "file " + file + "\n";
+	for ( const updateRemoval_t &removal : p.remove )
+		text += "remove " + std::to_string( removal.size ) + " " + std::to_string( removal.written ) + " " + removal.path + "\n";
 	return Update_WriteFile( path, text );
 }
 
@@ -1151,10 +1269,50 @@ static bool Update_DownloadArchive( const updateSettings_t &s, const updateRelea
 	return ok;
 }
 
+// Whether the file at path, of that size, is one of these versions. It is only
+// hashed when its size is one of theirs.
+static bool Update_Shipped( const std::wstring &path, uint64_t size, const std::vector<updateVersion_t> &versions ) {
+	bool hashed = false;
+	uint64_t got;
+	uint8_t sha512[64];
+	for ( const updateVersion_t &v : versions ) {
+		if ( v.size != size )
+			continue;
+		if ( !hashed ) {
+			if ( !Update_HashFile( path, &got, sha512 ) || got != size )
+				return false;
+			hashed = true;
+		}
+		if ( !memcmp( v.sha512, sha512, sizeof( sha512 ) ) )
+			return true;
+	}
+	return false;
+}
+
+// Of the files the release no longer ships, the ones to remove: those still byte
+// for byte a version JoF shipped. A changed or replaced one is the player's and
+// stays, as does the running program; *kept names those.
+static void Update_PlanRemovals( const std::wstring &dir, const updateRelease_t &r, std::vector<updateRemoval_t> *remove,
+		std::vector<std::string> *kept ) {
+	const std::wstring program = Update_ProgramPath();
+	for ( const updateRemove_t &old : r.remove ) {
+		const std::wstring path = Update_Join( dir, old.path );
+		updateRemoval_t removal;
+		removal.path = old.path;
+		if ( !Update_Stamp( path, &removal.size, &removal.written ) )
+			continue;	// not there: nothing to remove
+		if ( Update_Shipped( path, removal.size, old.versions ) && _wcsicmp( path.c_str(), program.c_str() ) )
+			remove->push_back( removal );
+		else
+			kept->push_back( old.path );
+	}
+}
+
 // Unpacks the files that differ from the installed ones into pending/files/ and
-// lists them in pending/ready.txt. *staged: how many differ.
+// lists them in pending/ready.txt, with the files to remove. *staged: how many
+// files go in or out; *kept: files to remove that stay as they are not JoF's.
 static bool Update_Unpack( const updateSettings_t &s, const updateRelease_t &r, const std::wstring &archive,
-		const std::wstring &pending, int *staged, std::string *error ) {
+		const std::wstring &pending, int *staged, std::vector<std::string> *kept, std::string *error ) {
 	HANDLE zip = CreateFileW( archive.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL );
 	std::vector<zipEntry_t> entries;
 	if ( zip == INVALID_HANDLE_VALUE || !Update_ZipDirectory( zip, &entries ) ) {
@@ -1201,7 +1359,9 @@ static bool Update_Unpack( const updateSettings_t &s, const updateRelease_t &r, 
 	}
 	CloseHandle( zip );
 
-	*staged = (int)list.files.size();
+	if ( ok )
+		Update_PlanRemovals( s.dir, r, &list.remove, kept );
+	*staged = (int)( list.files.size() + list.remove.size() );
 	if ( ok && *staged && !Update_WritePending( pending + L"\\ready.txt", list ) ) {
 		*error = "cannot write " + Update_Narrow( pending );
 		ok = false;
@@ -1230,6 +1390,7 @@ static void Update_Download( const updateSettings_t &s, const updateRelease_t &r
 	}
 	std::string error;
 	int staged = 0;
+	std::vector<std::string> kept;
 	bool ok;
 	{
 		updateLock_t lock( root );
@@ -1244,18 +1405,23 @@ static void Update_Download( const updateSettings_t &s, const updateRelease_t &r
 		Update_MakeDirs( pending );
 
 		const std::wstring archive = downloads + L"\\" + Update_Widen( r.archive );
-		ok = Update_DownloadArchive( s, r, archive, &error ) && Update_Unpack( s, r, archive, pending, &staged, &error );
+		ok = Update_DownloadArchive( s, r, archive, &error ) && Update_Unpack( s, r, archive, pending, &staged, &kept, &error );
 		Update_RemoveTree( downloads );
 		if ( !ok || !staged )
 			Update_RemoveTree( pending );
 	}
 
+	std::string note;
+	for ( const std::string &file : kept )
+		note += ( note.empty() ? "" : ", " ) + file;
+	if ( !note.empty() )
+		note = "JoF " + Update_Display( r.tag ) + " no longer ships " + note + ", but the copy here was changed or is not JoF's, so it stays.";
 	if ( !ok )
 		Update_Set( UPDATE_FAILED, error );
 	else if ( !staged )
-		Update_Set( UPDATE_UP_TO_DATE, "Your files already match JoF " + Update_Display( r.tag ) + "." );
+		Update_Set( UPDATE_UP_TO_DATE, "Your files already match JoF " + Update_Display( r.tag ) + "." + ( note.empty() ? "" : " " + note ) );
 	else
-		Update_Set( UPDATE_STAGED );
+		Update_Set( UPDATE_STAGED, note );
 }
 
 /*
@@ -1312,20 +1478,19 @@ static void Update_CleanUp( const std::wstring &dir, const std::wstring &root ) 
 		Update_WriteFile( list, left );
 }
 
-// Puts each staged file in place, keeping the current one as <name>.old. Waits a
-// while for a client that is exiting to close its files; on failure, puts
-// everything back. Files no longer staged went in before a crash.
+// Puts each staged file in place, keeping the current one as <name>.old, and moves
+// each file to remove aside as <name>.old too. Waits a while for a client that is
+// exiting to close its files; on failure, puts everything back. Files no longer
+// staged went in before a crash; files to remove that are gone, or changed since
+// they were found to be JoF's, are left as they are.
 static bool Update_Swap( const std::wstring &dir, const std::wstring &staging, const std::vector<std::string> &files,
-		int *moved, std::string *error ) {
-	struct swapped_t { std::wstring target, old, staged; bool keptOld; };
+		const std::vector<updateRemoval_t> &remove, int *moved, std::string *error ) {
+	struct swapped_t { std::wstring target, old, staged; bool keptOld; };	// no staged file: a removal
 	std::vector<swapped_t> done;
 	const DWORD start = GetTickCount();
 
-	for ( const std::string &file : files ) {
-		swapped_t s = { Update_Join( dir, file ), Update_Join( dir, file ) + L".old", Update_Join( staging, file ), false };
-		if ( !Update_Exists( s.staged ) )
-			continue;
-		Update_MakeParentDirs( s.target );
+	// One file in or out: false once it has waited too long, with *error saying why.
+	auto swap = [&]( swapped_t &s, const std::string &file ) {
 		for ( ;; ) {
 			DWORD code = 0;
 			bool oldInUse = false;
@@ -1340,8 +1505,8 @@ static bool Update_Swap( const std::wstring &dir, const std::wstring &staging, c
 				}
 			}
 			if ( !code ) {
-				if ( MoveFileExW( s.staged.c_str(), s.target.c_str(), MOVEFILE_WRITE_THROUGH ) )
-					break;
+				if ( s.staged.empty() || MoveFileExW( s.staged.c_str(), s.target.c_str(), MOVEFILE_WRITE_THROUGH ) )
+					return true;
 				code = GetLastError();
 				if ( s.keptOld )
 					MoveFileExW( s.old.c_str(), s.target.c_str(), 0 );
@@ -1351,16 +1516,39 @@ static bool Update_Swap( const std::wstring &dir, const std::wstring &staging, c
 					: code == ERROR_SHARING_VIOLATION || code == ERROR_ACCESS_DENIED
 					? file + " is in use by another program (another JoF window?)."
 					: Update_Format( "%s could not be replaced (Windows error %lu).", file.c_str(), code );
-				for ( auto it = done.rbegin(); it != done.rend(); ++it ) {
-					MoveFileExW( it->target.c_str(), it->staged.c_str(), MOVEFILE_REPLACE_EXISTING );
-					if ( it->keptOld )
-						MoveFileExW( it->old.c_str(), it->target.c_str(), 0 );
-				}
-				*moved = 0;
 				return false;
 			}
 			Sleep( 250 );
 		}
+	};
+	auto putBack = [&]() {
+		for ( auto it = done.rbegin(); it != done.rend(); ++it ) {
+			if ( !it->staged.empty() )
+				MoveFileExW( it->target.c_str(), it->staged.c_str(), MOVEFILE_REPLACE_EXISTING );
+			if ( it->keptOld )
+				MoveFileExW( it->old.c_str(), it->target.c_str(), 0 );
+		}
+		*moved = 0;
+		return false;
+	};
+
+	for ( const std::string &file : files ) {
+		swapped_t s = { Update_Join( dir, file ), Update_Join( dir, file ) + L".old", Update_Join( staging, file ), false };
+		if ( !Update_Exists( s.staged ) )
+			continue;
+		Update_MakeParentDirs( s.target );
+		if ( !swap( s, file ) )
+			return putBack();
+		done.push_back( s );
+		( *moved )++;
+	}
+	for ( const updateRemoval_t &removal : remove ) {
+		swapped_t s = { Update_Join( dir, removal.path ), Update_Join( dir, removal.path ) + L".old", std::wstring(), false };
+		uint64_t size, written;
+		if ( !Update_Stamp( s.target, &size, &written ) || size != removal.size || written != removal.written )
+			continue;
+		if ( !swap( s, removal.path ) )
+			return putBack();
 		done.push_back( s );
 		( *moved )++;
 	}
@@ -1401,12 +1589,14 @@ void CL_Update_ApplyPending( void ) {
 
 	int moved = 0;
 	std::string error;
-	if ( Update_Swap( dir, pending + L"\\files", p.files, &moved, &error ) ) {
+	if ( Update_Swap( dir, pending + L"\\files", p.files, p.remove, &moved, &error ) ) {
 		std::string cleanup, previous;
 		if ( Update_ReadFile( root + L"\\cleanup.txt", &previous ) )
 			cleanup = previous;
 		for ( const std::string &file : p.files )
 			cleanup += file + "\n";
+		for ( const updateRemoval_t &removal : p.remove )
+			cleanup += removal.path + "\n";
 		Update_WriteFile( root + L"\\cleanup.txt", cleanup );
 		Update_WriteFile( root + L"\\installed.txt", p.tag + "\n" );
 		Update_RemoveTree( pending );
@@ -1563,6 +1753,8 @@ static void Update_Report( updateState_t state, const std::string &message, cons
 	case UPDATE_STAGED:
 		Com_Printf( S_COLOR_GREEN "JoF %s is downloaded. Type " S_COLOR_WHITE "/update" S_COLOR_GREEN
 			" to restart and install it now, or it installs the next time you start JoF.\n", Update_Display( release.tag ).c_str() );
+		if ( !message.empty() )
+			Com_Printf( S_COLOR_YELLOW "%s\n", message.c_str() );
 		break;
 	case UPDATE_FAILED:
 		s_installWhenFound = false;

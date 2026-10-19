@@ -11,9 +11,17 @@ against a stand-in for the engine headers, and checks:
   channel or platform, a bad or duplicate path and a newer format are refused;
 - the client's zip reader against the script's archive, file by file, against the
   manifest hashes and the original bytes;
-- the start-up swap: files go in with the old ones kept as `.old`, a resumed swap
-  skips what already went in, and a file held open by another program puts
-  everything back. That case waits out the 10-second retry window.
+- remove lists: the script lists a file a later release drops, and a retired one,
+  with the versions shipped, carries them into later releases and drops one that
+  is shipped again, and refuses a retail file. The client refuses a list that
+  removes a file it also installs, a retail file, a config, a path outside
+  GameData, a file with no versions or listed twice;
+- which files get removed: only one still as JoF shipped it, never one the player
+  changed (even at a shipped size), nor the running program;
+- the start-up swap: files go in with the old ones kept as `.old`, files to remove
+  go to `.old`, a resumed swap skips what already went in or out, a file changed
+  since it was checked is left alone, and a file held open by another program puts
+  everything back. The two held-open cases each wait out the 10-second retry window.
 
 ```text
 cmake -S tests/updater -B build/updater-check

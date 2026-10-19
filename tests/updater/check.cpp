@@ -1,6 +1,7 @@
 // Checks the in-client updater (codemp/client/cl_update.cpp) without the engine:
 // release ordering, the paths it may write, manifests and their signatures, its
-// zip reader against what make_update_package.py writes, and the start-up swap.
+// zip reader against what make_update_package.py writes, the remove lists the
+// script builds from earlier manifests, and the start-up swap.
 //
 //   updater_check <repo> <python> <work dir>
 
@@ -87,6 +88,16 @@ static void CheckPaths( void ) {
 	for ( const char *bad : { "", "../eternaljk.x86_64.exe", "base/../x.dll", "base/autoexec.cfg", "base/x.dll", "EternalJK/eternaljk.cfg",
 			"japlus/x.pk3", "base/sub/x.pk3", "x.pk3", ".x.dll", "readme.txt", "C:x.dll", "a\\b.dll", "/x.dll", "base/", "x.exe:stream" } )
 		require( !Update_ValidPath( bad ), std::string( "may not install '" ) + bad + "'" );
+	for ( const char *retail : { "base/assets0.pk3", "BASE/Assets3.PK3", "jamp.exe", "JaSP.exe" } )
+		require( Update_RetailFile( retail ), std::string( "never removes the retail " ) + retail );
+	require( !Update_RetailFile( "base/JoF_Animations.pk3" ) && !Update_RetailFile( "base/assets4.pk3" ), "JoF's own pk3s are not retail" );
+}
+
+static updateVersion_t Version( const std::string &bytes ) {
+	updateVersion_t v;
+	v.size = bytes.size();
+	crypto_sha512( v.sha512, (const uint8_t *)bytes.data(), bytes.size() );
+	return v;
 }
 
 static void CheckManifests( const std::string &repo, const std::string &python ) {
@@ -108,10 +119,13 @@ static void CheckManifests( const std::string &repo, const std::string &python )
 	};
 	for ( const auto &file : files )
 		WriteAll( Update_Join( gamedata, file.first ), file.second );
-	auto package = [&]( const std::wstring &folder ) {
+	auto packageAs = [&]( const std::wstring &folder, const std::string &tag, const std::wstring &output, const std::string &extra ) {
 		std::string command = "\"\"" + python + "\" -I \"" + repo + "/scripts/update/make_update_package.py\" --gamedata \"" + Update_Narrow( folder )
-			+ "\" --platform " UPDATE_PLATFORM " --tag 1.6.2-beta.4 --channel beta --output \"" + Update_Narrow( out ) + "\"\"";
+			+ "\" --platform " UPDATE_PLATFORM " --tag " + tag + " --channel beta --output \"" + Update_Narrow( output ) + "\" " + extra + "\"";
 		return system( command.c_str() );
+	};
+	auto package = [&]( const std::wstring &folder ) {
+		return packageAs( folder, "1.6.2-beta.4", out, "" );
 	};
 	WriteAll( work + L"\\Broken\\base\\JoF_Test.pk3", "<html>502 Bad Gateway</html>" );
 	require( package( work + L"\\Broken" ) != 0, "make_update_package.py refuses a pk3 that is not a zip (a failed download)" );
@@ -141,14 +155,17 @@ static void CheckManifests( const std::string &repo, const std::string &python )
 	require( Update_ParseManifest( manifest, &release, &error ), "the release script's manifest parses: " + error );
 	require( release.tag == "1.6.2-beta.4" && release.version.kind == RELEASE_BETA && release.files.size() == files.size(), "it lists every file" );
 
-	auto refuses = [&manifest]( const std::string &from, const std::string &to, const std::string &what ) {
-		std::string changed = manifest;
+	auto refusesIn = []( const std::string &text, const std::string &from, const std::string &to, const std::string &what ) {
+		std::string changed = text;
 		size_t at = changed.find( from );
 		require( at != std::string::npos, "the manifest holds " + from );
 		changed.replace( at, from.size(), to );
 		updateRelease_t r;
 		std::string e;
 		require( !Update_ParseManifest( changed, &r, &e ), what );
+	};
+	auto refuses = [&]( const std::string &from, const std::string &to, const std::string &what ) {
+		refusesIn( manifest, from, to, what );
 	};
 	refuses( "\"tag\": \"1.6.2-beta.4\"", "\"tag\": \"1.6.2-alpha.4\"", "an alpha release is refused" );
 	refuses( "\"channel\": \"beta\"", "\"channel\": \"stable\"", "a channel that does not match the tag is refused" );
@@ -178,6 +195,121 @@ static void CheckManifests( const std::string &repo, const std::string &python )
 		require( ReadAll( unpacked ) == files[file.path], file.path + " unpacks to its own bytes" );
 	}
 	CloseHandle( zip );
+
+	// A release that drops nothing has an empty remove list, and one without any parses.
+	std::string bare = manifest;
+	const std::string emptyRemove = ",\n  \"remove\": []";
+	require( bare.find( emptyRemove ) != std::string::npos, "a release that drops nothing has an empty remove list" );
+	bare.erase( bare.find( emptyRemove ), emptyRemove.size() );
+	require( Update_ParseManifest( bare, &release, &error ) && release.remove.empty(), "a manifest without a remove list parses: " + error );
+
+	// The next release no longer ships the EternalJK pk3, and a pk3 from before
+	// manifests is retired: its manifest removes both, with the versions shipped.
+	const std::wstring previous = work + L"\\previous", next = work + L"\\Next", nextOut = work + L"\\out-next";
+	const std::string pk3 = "EternalJK/jofclient-win-x86_64.pk3";
+	WriteAll( previous + L"\\1.6.2-beta.4\\" + Update_Widen( UPDATE_MANIFEST ), manifest );
+	for ( const auto &file : files ) {
+		if ( file.first != pk3 )
+			WriteAll( Update_Join( next, file.first ), file.second );
+	}
+	auto retiredJSON = []( const std::string &path, const updateVersion_t &v ) {
+		return "{\"files\": [{\"path\": \"" + path + "\", \"versions\": [{\"size\": " + std::to_string( v.size ) + ", \"sha512\": \"" + Hex( v.sha512, 64 ) + "\"}]}]}";
+	};
+	const updateVersion_t shipped = Version( emptyZip ), retired = Version( "an old pk3" );
+	WriteAll( work + L"\\retired.json", retiredJSON( "base/JoF_Old.pk3", retired ) );
+	require( packageAs( next, "1.6.2-beta.5", nextOut, "--previous \"" + Update_Narrow( previous ) + "\" --retired \"" + Update_Narrow( work + L"\\retired.json" ) + "\"" ) == 0,
+		"make_update_package.py packages the next release" );
+	const std::string nextManifest = ReadAll( nextOut + L"\\" + Update_Widen( UPDATE_MANIFEST ) );
+	updateRelease_t nextRelease;
+	require( Update_ParseManifest( nextManifest, &nextRelease, &error ), "its manifest parses: " + error );
+	auto removes = []( const updateRelease_t &r, const std::string &path, const updateVersion_t *v ) {
+		for ( const updateRemove_t &old : r.remove ) {
+			if ( old.path == path )
+				return !v || ( old.versions.size() == 1 && old.versions[0].size == v->size && !memcmp( old.versions[0].sha512, v->sha512, 64 ) );
+		}
+		return false;
+	};
+	require( nextRelease.remove.size() == 2 && removes( nextRelease, pk3, &shipped ) && removes( nextRelease, "base/JoF_Old.pk3", &retired ),
+		"it removes the dropped pk3 and the retired one, each with the version shipped, and nothing it still ships" );
+
+	// Later releases keep removing them from the remove list alone, for a player
+	// who skipped beta 5, until a release ships the file again.
+	const std::wstring onlyNext = work + L"\\previous-next", laterOut = work + L"\\out-later";
+	WriteAll( onlyNext + L"\\1.6.2-beta.5\\" + Update_Widen( UPDATE_MANIFEST ), nextManifest );
+	updateRelease_t later;
+	require( packageAs( next, "1.6.2-beta.6", laterOut, "--previous \"" + Update_Narrow( onlyNext ) + "\"" ) == 0
+		&& Update_ParseManifest( ReadAll( laterOut + L"\\" + Update_Widen( UPDATE_MANIFEST ) ), &later, &error )
+		&& later.remove.size() == 2 && removes( later, pk3, &shipped ), "an earlier release's remove list carries over: " + error );
+	require( packageAs( gamedata, "1.6.2-beta.7", laterOut, "--previous \"" + Update_Narrow( onlyNext ) + "\"" ) == 0
+		&& Update_ParseManifest( ReadAll( laterOut + L"\\" + Update_Widen( UPDATE_MANIFEST ) ), &later, &error )
+		&& later.remove.size() == 1 && !removes( later, pk3, NULL ), "a file shipped again is not removed: " + error );
+	WriteAll( work + L"\\retired-retail.json", retiredJSON( "base/assets0.pk3", retired ) );
+	require( packageAs( next, "1.6.2-beta.5", work + L"\\out-retail", "--retired \"" + Update_Narrow( work + L"\\retired-retail.json" ) + "\"" ) != 0,
+		"make_update_package.py refuses to remove a retail file" );
+
+	const std::string removed = "\"path\": \"" + pk3 + "\"";
+	refusesIn( nextManifest, removed, "\"path\": \"base/JoF_Test.pk3\"", "a manifest that installs and removes the same file is refused" );
+	refusesIn( nextManifest, removed, "\"path\": \"base/assets0.pk3\"", "removing a retail file is refused" );
+	refusesIn( nextManifest, removed, "\"path\": \"base/autoexec.cfg\"", "removing a config is refused" );
+	refusesIn( nextManifest, removed, "\"path\": \"../x.pk3\"", "removing outside GameData is refused" );
+	refusesIn( nextManifest, "\"remove\": [", "\"remove\": [{\"path\": \"base/x.pk3\", \"versions\": []}, ", "a file to remove with no versions is refused" );
+	refusesIn( nextManifest, "\"remove\": [", "\"remove\": [{\"path\": \"base/JoF_Old.pk3\", \"versions\": [{\"size\": 1, \"sha512\": \"" + std::string( 128, 'a' ) + "\"}]}, ",
+		"a file to remove listed twice is refused" );
+	refusesIn( nextManifest, "\"remove\": [", "\"remove\": 5, \"rest\": [", "a remove list that is not a list is refused" );
+}
+
+static void CheckRemovals( void ) {
+	// Only a file still as JoF shipped it goes: not one the player changed, not
+	// even to a shipped size, and nothing for one that is not there.
+	const std::wstring dir = work + L"\\removals";
+	WriteAll( dir + L"\\base\\shipped.pk3", "shipped v2" );
+	WriteAll( dir + L"\\base\\changed.pk3", "changed by the player" );
+	WriteAll( dir + L"\\EternalJK\\samesize.pk3", "shipped vX" );
+	updateRelease_t r;
+	r.remove = {
+		{ "base/shipped.pk3", { Version( "shipped v1" ), Version( "shipped v2" ) } },
+		{ "base/changed.pk3", { Version( "shipped" ) } },
+		{ "EternalJK/samesize.pk3", { Version( "shipped v1" ) } },
+		{ "base/missing.pk3", { Version( "anything" ) } },
+	};
+	std::vector<updateRemoval_t> remove;
+	std::vector<std::string> kept;
+	Update_PlanRemovals( dir, r, &remove, &kept );
+	require( remove.size() == 1 && remove[0].path == "base/shipped.pk3" && remove[0].size == 10, "only the file still as JoF shipped it is removed" );
+	require( kept == std::vector<std::string>( { "base/changed.pk3", "EternalJK/samesize.pk3" } ), "the changed ones are kept and named, the missing one neither" );
+
+	// The running program is never removed, even listed with its own bytes.
+	const std::wstring program = Update_ProgramPath();
+	const size_t slash = program.find_last_of( L'\\' );
+	updateVersion_t own;
+	require( slash != std::wstring::npos && Update_HashFile( program, &own.size, own.sha512 ), "hash this program" );
+	updateRelease_t self;
+	self.remove = { { Update_Narrow( program.substr( slash + 1 ) ), { own } } };
+	std::vector<updateRemoval_t> none;
+	std::vector<std::string> keptSelf;
+	Update_PlanRemovals( program.substr( 0, slash ), self, &none, &keptSelf );
+	require( none.empty() && keptSelf.size() == 1, "the running program is kept" );
+
+	// The swap moves it aside as .old, like a replaced file, and a resumed swap skips it.
+	const std::wstring noStaging = work + L"\\no-staging";
+	int moved = 0;
+	std::string error;
+	require( Update_Swap( dir, noStaging, {}, remove, &moved, &error ) && moved == 1, "the removal goes through: " + error );
+	require( !Update_Exists( dir + L"\\base\\shipped.pk3" ) && ReadAll( dir + L"\\base\\shipped.pk3.old" ) == "shipped v2",
+		"the file is gone, kept as .old until the next start" );
+	moved = 0;
+	require( Update_Swap( dir, noStaging, {}, remove, &moved, &error ) && moved == 0, "a removal done before a crash is skipped" );
+
+	// A file changed between the check and the swap stays, even at the same size.
+	WriteAll( dir + L"\\base\\shipped.pk3", "shipped v2" );
+	remove.clear();
+	kept.clear();
+	Update_PlanRemovals( dir, r, &remove, &kept );
+	require( remove.size() == 1, "the file is found to be JoF's again" );
+	Sleep( 50 );
+	WriteAll( dir + L"\\base\\shipped.pk3", "edited! v2" );
+	require( Update_Swap( dir, noStaging, {}, remove, &moved, &error ) && moved == 0 && ReadAll( dir + L"\\base\\shipped.pk3" ) == "edited! v2",
+		"a file changed since the check is left alone" );
 }
 
 static void CheckSwap( void ) {
@@ -191,21 +323,21 @@ static void CheckSwap( void ) {
 
 	int moved = 0;
 	std::string error;
-	require( Update_Swap( dir, staging, list, &moved, &error ) && moved == 3, "the staged files go in: " + error );
+	require( Update_Swap( dir, staging, list, {}, &moved, &error ) && moved == 3, "the staged files go in: " + error );
 	require( ReadAll( dir + L"\\a.dll" ) == "new a" && ReadAll( dir + L"\\base\\b.pk3" ) == "new b" && ReadAll( dir + L"\\EternalJK\\c.pk3" ) == "new c",
 		"each file holds its new bytes" );
 	require( ReadAll( dir + L"\\a.dll.old" ) == "old a" && !Update_Exists( dir + L"\\EternalJK\\c.pk3.old" ) && !Update_Exists( staging + L"\\a.dll" ),
 		"the old ones are kept as .old, and staging is empty" );
 	moved = 0;
-	require( Update_Swap( dir, staging, list, &moved, &error ) && moved == 0, "files no longer staged went in already (a crash mid-swap resumes)" );
+	require( Update_Swap( dir, staging, list, {}, &moved, &error ) && moved == 0, "files no longer staged went in already (a crash mid-swap resumes)" );
 
 	// A read-only file, and the read-only .old it leaves, do not stop the next update.
 	SetFileAttributesW( ( dir + L"\\a.dll" ).c_str(), FILE_ATTRIBUTE_READONLY );
 	WriteAll( staging + L"\\a.dll", "next a" );
-	require( Update_Swap( dir, staging, { "a.dll" }, &moved, &error ) && moved == 1, "a read-only file is replaced: " + error );
+	require( Update_Swap( dir, staging, { "a.dll" }, {}, &moved, &error ) && moved == 1, "a read-only file is replaced: " + error );
 	require( SetFileAttributesW( ( dir + L"\\a.dll.old" ).c_str(), FILE_ATTRIBUTE_READONLY ) != 0, "make the .old read-only" );
 	WriteAll( staging + L"\\a.dll", "new a" );
-	require( Update_Swap( dir, staging, { "a.dll" }, &moved, &error ) && ReadAll( dir + L"\\a.dll" ) == "new a", "a read-only .old is replaced: " + error );
+	require( Update_Swap( dir, staging, { "a.dll" }, {}, &moved, &error ) && ReadAll( dir + L"\\a.dll" ) == "new a", "a read-only .old is replaced: " + error );
 	WriteAll( work + L"\\jofupdate\\cleanup.txt", "a.dll\n" );
 	SetFileAttributesW( ( dir + L"\\a.dll.old" ).c_str(), FILE_ATTRIBUTE_READONLY );
 	Update_CleanUp( dir, work + L"\\jofupdate" );
@@ -229,11 +361,29 @@ static void CheckSwap( void ) {
 	HANDLE held = CreateFileW( ( dir + L"\\base\\b.pk3" ).c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL );
 	require( held != INVALID_HANDLE_VALUE, "hold b.pk3 open" );
 	printf( "(waiting %lu s on a file in use)\n", APPLY_WAIT_MS / 1000 );
-	require( !Update_Swap( dir, staging, list, &moved, &error ) && moved == 0, "a file in use stops the swap" );
+	require( !Update_Swap( dir, staging, list, {}, &moved, &error ) && moved == 0, "a file in use stops the swap" );
 	require( error.find( "base/b.pk3 is in use" ) == 0, "and says which file: " + error );
 	CloseHandle( held );
 	require( ReadAll( dir + L"\\a.dll" ) == "new a" && ReadAll( dir + L"\\base\\b.pk3" ) == "new b", "the installed files are back as they were" );
 	require( ReadAll( staging + L"\\a.dll" ) == "newer a" && ReadAll( staging + L"\\base\\b.pk3" ) == "newer b", "and the update is staged again for the next try" );
+
+	// A file to remove that another client has open stops the swap the same way,
+	// and what already went in and what already went out are put back.
+	WriteAll( dir + L"\\EternalJK\\gone.pk3", "gone" );
+	std::vector<updateRemoval_t> out( 2 );
+	out[0].path = "EternalJK/gone.pk3";
+	out[1].path = "base/b.pk3";
+	require( Update_Stamp( dir + L"\\EternalJK\\gone.pk3", &out[0].size, &out[0].written ) && Update_Stamp( dir + L"\\base\\b.pk3", &out[1].size, &out[1].written ),
+		"stamp the files to remove" );
+	held = CreateFileW( ( dir + L"\\base\\b.pk3" ).c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL );
+	require( held != INVALID_HANDLE_VALUE, "hold b.pk3 open again" );
+	printf( "(waiting %lu s on a file to remove in use)\n", APPLY_WAIT_MS / 1000 );
+	require( !Update_Swap( dir, staging, { "a.dll" }, out, &moved, &error ) && moved == 0, "a file to remove in use stops the swap" );
+	require( error.find( "base/b.pk3 is in use" ) == 0, "and says which file: " + error );
+	CloseHandle( held );
+	require( ReadAll( dir + L"\\a.dll" ) == "new a" && ReadAll( dir + L"\\EternalJK\\gone.pk3" ) == "gone" && ReadAll( dir + L"\\base\\b.pk3" ) == "new b",
+		"what went in and what went out are back" );
+	require( ReadAll( staging + L"\\a.dll" ) == "newer a", "and the update is staged again" );
 }
 
 static void CheckPending( void ) {
@@ -242,12 +392,21 @@ static void CheckPending( void ) {
 	p.tag = "1.6.2";
 	p.attempts = 2;
 	p.files = { "eternaljk.x86_64.exe", "base/JoF_Test.pk3" };
+	p.remove = { { "EternalJK/old.pk3", 123456, 133420000000000000ull } };
 	require( Update_WritePending( path, p ), "ready.txt writes" );
 	updatePending_t read;
 	require( Update_ReadPending( path, &read ) && read.tag == "1.6.2" && read.attempts == 2 && read.files == p.files, "ready.txt reads back" );
-	WriteAll( path, "jofupdate 1\ntag 1.6.2\nfile base/autoexec.cfg\n" );
-	updatePending_t refused;
-	require( !Update_ReadPending( path, &refused ), "ready.txt cannot name a file the updater may not write" );
+	require( read.remove.size() == 1 && read.remove[0].path == "EternalJK/old.pk3" && read.remove[0].size == 123456 && read.remove[0].written == 133420000000000000ull,
+		"with the file to remove, its size and time" );
+	WriteAll( path, "jofupdate 1\ntag 1.6.2\nremove 5 6 base/old.pk3\n" );
+	updatePending_t onlyRemove;
+	require( Update_ReadPending( path, &onlyRemove ) && onlyRemove.files.empty() && onlyRemove.remove.size() == 1, "an update may only remove files" );
+	for ( const char *bad : { "file base/autoexec.cfg", "remove 5 6 base/autoexec.cfg", "remove 5 6 base/assets0.pk3", "remove x 6 base/old.pk3",
+			"remove 5 base/old.pk3", "remove 5 6", "remove -5 6 base/old.pk3" } ) {
+		WriteAll( path, std::string( "jofupdate 1\ntag 1.6.2\n" ) + bad + "\n" );
+		updatePending_t refused;
+		require( !Update_ReadPending( path, &refused ), std::string( "ready.txt cannot say '" ) + bad + "'" );
+	}
 }
 
 int main( int argc, char **argv ) {
@@ -263,6 +422,7 @@ int main( int argc, char **argv ) {
 	CheckVersions();
 	CheckPaths();
 	CheckManifests( argv[1], argv[2] );
+	CheckRemovals();
 	CheckPending();
 	CheckSwap();
 
