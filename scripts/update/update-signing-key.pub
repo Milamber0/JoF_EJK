@@ -1,0 +1,8 @@
+# Ed25519 public keys of the release signing key, 64 hex digits per line.
+# The client accepts only update manifests signed with one of these, and CI
+# refuses to sign with a key not listed here. The private key lives in the
+# UPDATE_SIGNING_KEY secret of the release-signing environment. A second line
+# is only for rotating the key (docs/updater.md).
+#
+# A line of all zeros is no key; with no other, the updater stays off.
+7b09aeef49b164d8d8d093da7a1846fbf4be6fe7e24017616ed2e11ea82210fa

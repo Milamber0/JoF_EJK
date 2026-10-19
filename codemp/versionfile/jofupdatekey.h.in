@@ -1,0 +1,6 @@
+#pragma once
+
+// The Ed25519 public keys (64 hex digits each, run together) the updater accepts
+// update manifests from, read from scripts/update/update-signing-key.pub. A key
+// of all zeros is no key; with no other, the updater stays off.
+#define JOF_UPDATE_PUBKEYS "@JOF_UPDATE_PUBKEYS@"
