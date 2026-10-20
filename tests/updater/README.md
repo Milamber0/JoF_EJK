@@ -24,7 +24,9 @@ against a stand-in for the engine headers, and checks:
   go to `.old`, a resumed swap skips what already went in or out, a file changed
   since it was checked is left alone, and a file held open by another program puts
   everything back. That includes what a stopped swap had moved before a resumed one
-  fails. The three held-open cases each wait out the 10-second retry window.
+  fails, and a file stopped between its two renames: its backup goes back, as the
+  journal says, while a stale `.old` the journal does not name never does. The four
+  held-open cases each wait out the 10-second retry window.
 
 ```text
 cmake -S tests/updater -B build/updater-check

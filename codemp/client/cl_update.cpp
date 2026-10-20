@@ -1145,7 +1145,9 @@ DOWNLOAD AND STAGE (worker)
 
 jofupdate/pending/files/ holds the files that differ from the installed ones,
 and jofupdate/pending/ready.txt lists them, then the files to remove with the
-size and last-write time they had when they were found to be JoF's:
+size and last-write time they had when they were found to be JoF's. The swap
+renames it applying.txt and adds an "aside" line before it moves each file aside
+(Update_Swap):
 
   jofupdate 1
   tag 1.6.2
@@ -1153,6 +1155,7 @@ size and last-write time they had when they were found to be JoF's:
   file eternaljk.x86_64.exe
   file EternalJK/jofclient-win-x86_64.pk3
   remove 123456 133420000000000000 EternalJK/old.pk3
+  aside eternaljk.x86_64.exe
 
 ===============================================================================
 */
@@ -1168,6 +1171,7 @@ struct updatePending_t {
 	int								attempts = 0;
 	std::vector<std::string>		files;
 	std::vector<updateRemoval_t>	remove;
+	std::vector<std::string>		aside;		// the swap's journal: files it moved aside
 };
 
 // "remove <size> <written> <path>"
@@ -1204,6 +1208,8 @@ static bool Update_ReadPending( const std::wstring &path, updatePending_t *p ) {
 			p->files.push_back( line.substr( 5 ) );
 		else if ( !line.compare( 0, 7, "remove " ) && Update_ReadRemoval( line, &removal ) )
 			p->remove.push_back( removal );
+		else if ( !line.compare( 0, 6, "aside " ) && Update_ValidPath( line.substr( 6 ) ) )
+			p->aside.push_back( line.substr( 6 ) );
 		else
 			return false;
 	}
@@ -1216,6 +1222,8 @@ static bool Update_WritePending( const std::wstring &path, const updatePending_t
 		text += "file " + file + "\n";
 	for ( const updateRemoval_t &removal : p.remove )
 		text += "remove " + std::to_string( removal.size ) + " " + std::to_string( removal.written ) + " " + removal.path + "\n";
+	for ( const std::string &file : p.aside )
+		text += "aside " + file + "\n";
 	return Update_WriteFile( path, text );
 }
 
@@ -1483,45 +1491,82 @@ static void Update_CleanUp( const std::wstring &dir, const std::wstring &root ) 
 		Update_WriteFile( list, left );
 }
 
+// The swap's journal, in applying.txt: "aside <path>" is written, and on the disk,
+// before that file is moved aside as <path>.old, so a swap that was stopped (a crash,
+// the power) knows which .old files are its own backups and which are older ones.
+static std::vector<std::string> Update_JournalAside( const std::wstring &journal ) {
+	std::vector<std::string> aside;
+	std::string text;
+	if ( Update_ReadFile( journal, &text ) ) {
+		for ( const std::string &line : Update_Lines( text ) ) {
+			if ( !line.compare( 0, 6, "aside " ) )
+				aside.push_back( line.substr( 6 ) );
+		}
+	}
+	return aside;
+}
+
+static bool Update_JournalAppend( const std::wstring &journal, const std::string &line ) {
+	HANDLE file = CreateFileW( journal.c_str(), FILE_APPEND_DATA, FILE_SHARE_READ, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL );
+	if ( file == INVALID_HANDLE_VALUE )
+		return false;
+	const std::string text = line + "\n";
+	DWORD wrote = 0;
+	const bool ok = WriteFile( file, text.data(), (DWORD)text.size(), &wrote, NULL ) && wrote == text.size() && FlushFileBuffers( file );
+	const DWORD code = GetLastError();
+	CloseHandle( file );
+	SetLastError( code );
+	return ok;
+}
+
 // Puts each staged file in place, keeping the current one as <name>.old, and moves
-// each file to remove aside as <name>.old too. Waits a while for a client that is
-// exiting to close its files; on failure, puts everything back. Files no longer
-// staged went in before a crash; files to remove that are gone, or changed since
-// they were found to be JoF's, are left as they are.
+// each file to remove aside as <name>.old too, noting each in journal first. Waits a
+// while for a client that is exiting to close its files; on failure, puts everything
+// back. Files no longer staged went in before a crash; files to remove that are gone,
+// or changed since they were found to be JoF's, are left as they are.
 static bool Update_Swap( const std::wstring &dir, const std::wstring &staging, const std::vector<std::string> &files,
-		const std::vector<updateRemoval_t> &remove, int *moved, std::string *error ) {
+		const std::vector<updateRemoval_t> &remove, const std::wstring &journal, int *moved, std::string *error ) {
 	struct swapped_t { std::wstring target, old, staged; bool keptOld; };	// no staged file: a removal
 	std::vector<swapped_t> done;
 	const DWORD start = GetTickCount();
 
-	// What a swap that was stopped (a crash, the power) moved already goes back too if
-	// this one fails, so a failure leaves the old release whole, not half of each.
+	// What a swap that was stopped did already goes back too if this one fails, so a
+	// failure leaves the old release whole, not half of each. Only a .old the journal
+	// names is that swap's backup; any other is older, and never put back.
+	const std::vector<std::string> aside = Update_JournalAside( journal );
+	auto movedAside = [&aside]( const std::string &path ) {
+		return std::find( aside.begin(), aside.end(), path ) != aside.end();
+	};
 	for ( const std::string &file : files ) {
 		swapped_t s = { Update_Join( dir, file ), Update_Join( dir, file ) + L".old", Update_Join( staging, file ), false };
 		if ( !Update_Exists( s.staged ) && Update_Exists( s.target ) ) {
-			s.keptOld = Update_Exists( s.old );
+			s.keptOld = movedAside( file ) && Update_Exists( s.old );
 			done.push_back( s );
 		}
 	}
 	for ( const updateRemoval_t &removal : remove ) {
 		swapped_t s = { Update_Join( dir, removal.path ), Update_Join( dir, removal.path ) + L".old", std::wstring(), true };
-		uint64_t size, written;
-		if ( !Update_Exists( s.target ) && Update_Stamp( s.old, &size, &written ) && size == removal.size && written == removal.written )
+		if ( movedAside( removal.path ) && !Update_Exists( s.target ) && Update_Exists( s.old ) )
 			done.push_back( s );
 	}
 
 	// One file in or out: false once it has waited too long, with *error saying why.
 	auto swap = [&]( swapped_t &s, const std::string &file ) {
+		// Stopped between its two renames: the file is aside as .old, the new one still staged.
+		s.keptOld = !Update_Exists( s.target ) && movedAside( file ) && Update_Exists( s.old );
+		bool noted = false;
 		for ( ;; ) {
 			DWORD code = 0;
 			bool oldInUse = false;
-			s.keptOld = false;
 			if ( Update_Exists( s.target ) ) {
+				s.keptOld = false;
 				// A .old an earlier update left, which another JoF window may still run.
 				if ( Update_Exists( s.old ) && !Update_Delete( s.old ) ) {
 					code = GetLastError();
 					oldInUse = true;
-				} else if ( !( s.keptOld = MoveFileExW( s.target.c_str(), s.old.c_str(), 0 ) != 0 ) ) {
+				} else if ( !noted && !( noted = Update_JournalAppend( journal, "aside " + file ) ) ) {
+					code = GetLastError();
+				} else if ( !( s.keptOld = MoveFileExW( s.target.c_str(), s.old.c_str(), MOVEFILE_WRITE_THROUGH ) != 0 ) ) {
 					code = GetLastError();
 				}
 			}
@@ -1529,8 +1574,8 @@ static bool Update_Swap( const std::wstring &dir, const std::wstring &staging, c
 				if ( s.staged.empty() || MoveFileExW( s.staged.c_str(), s.target.c_str(), MOVEFILE_WRITE_THROUGH ) )
 					return true;
 				code = GetLastError();
-				if ( s.keptOld )
-					MoveFileExW( s.old.c_str(), s.target.c_str(), 0 );
+				if ( s.keptOld && MoveFileExW( s.old.c_str(), s.target.c_str(), 0 ) )
+					s.keptOld = false;
 			}
 			if ( GetTickCount() - start > APPLY_WAIT_MS ) {
 				*error = oldInUse ? file + ".old is in use by another program (another JoF window?)."
@@ -1636,7 +1681,7 @@ void CL_Update_ApplyPending( void ) {
 
 	int moved = 0;
 	std::string error;
-	if ( Update_Swap( dir, pending + L"\\files", p.files, p.remove, &moved, &error ) ) {
+	if ( Update_Swap( dir, pending + L"\\files", p.files, p.remove, applying, &moved, &error ) ) {
 		std::string cleanup, previous;
 		if ( Update_ReadFile( root + L"\\cleanup.txt", &previous ) )
 			cleanup = previous;
@@ -1662,6 +1707,9 @@ void CL_Update_ApplyPending( void ) {
 		Update_RemoveTree( pending );
 		s_applyError = error + " The update was discarded; type /update to download it again.";
 	} else {
+		// The journal goes with it: should a file not have gone back, the next try still
+		// knows whose backup its .old is.
+		p.aside = Update_JournalAside( applying );
 		Update_WritePending( ready, p );
 		DeleteFileW( applying.c_str() );
 		s_applyError = error + " Close every other JoF window, then restart JoF to try again.";

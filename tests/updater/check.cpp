@@ -57,6 +57,16 @@ static void WriteAll( const std::wstring &path, const std::string &data ) {
 	require( Update_WriteFile( path, data ), "write " + Update_Narrow( path ) );
 }
 
+// A swap's journal (the client's applying.txt), new for each update a check makes,
+// holding what a swap that was stopped had noted.
+static std::wstring Journal( const wchar_t *name, const std::string &noted = std::string() ) {
+	const std::wstring path = work + L"\\journal-" + name + L".txt";
+	DeleteFileW( path.c_str() );
+	if ( !noted.empty() )
+		WriteAll( path, noted );
+	return path;
+}
+
 static void CheckVersions( void ) {
 	releaseVersion_t v;
 	require( Update_ParseTag( "1.6.2", &v ) && v.kind == RELEASE_STABLE && v.major == 1 && v.minor == 6 && v.patch == 2, "1.6.2 is stable" );
@@ -303,11 +313,13 @@ static void CheckRemovals( void ) {
 	const std::wstring noStaging = work + L"\\no-staging";
 	int moved = 0;
 	std::string error;
-	require( Update_Swap( dir, noStaging, {}, remove, &moved, &error ) && moved == 1, "the removal goes through: " + error );
+	std::wstring journal = Journal( L"removal" );
+	require( Update_Swap( dir, noStaging, {}, remove, journal, &moved, &error ) && moved == 1, "the removal goes through: " + error );
 	require( !Update_Exists( dir + L"\\base\\shipped.pk3" ) && ReadAll( dir + L"\\base\\shipped.pk3.old" ) == "shipped v2",
 		"the file is gone, kept as .old until the next start" );
+	require( ReadAll( journal ) == "aside base/shipped.pk3\n", "noted in the journal before it went aside" );
 	moved = 0;
-	require( Update_Swap( dir, noStaging, {}, remove, &moved, &error ) && moved == 0, "a removal done before a crash is skipped" );
+	require( Update_Swap( dir, noStaging, {}, remove, journal, &moved, &error ) && moved == 0, "a removal done before a crash is skipped" );
 
 	// A file changed between the check and the swap stays, even at the same size.
 	WriteAll( dir + L"\\base\\shipped.pk3", "shipped v2" );
@@ -317,8 +329,8 @@ static void CheckRemovals( void ) {
 	require( remove.size() == 1, "the file is found to be JoF's again" );
 	Sleep( 50 );
 	WriteAll( dir + L"\\base\\shipped.pk3", "edited! v2" );
-	require( Update_Swap( dir, noStaging, {}, remove, &moved, &error ) && moved == 0 && ReadAll( dir + L"\\base\\shipped.pk3" ) == "edited! v2",
-		"a file changed since the check is left alone" );
+	require( Update_Swap( dir, noStaging, {}, remove, Journal( L"changed" ), &moved, &error ) && moved == 0
+		&& ReadAll( dir + L"\\base\\shipped.pk3" ) == "edited! v2", "a file changed since the check is left alone" );
 }
 
 static void CheckSwap( void ) {
@@ -332,21 +344,24 @@ static void CheckSwap( void ) {
 
 	int moved = 0;
 	std::string error;
-	require( Update_Swap( dir, staging, list, {}, &moved, &error ) && moved == 3, "the staged files go in: " + error );
+	const std::wstring journal = Journal( L"first" );
+	require( Update_Swap( dir, staging, list, {}, journal, &moved, &error ) && moved == 3, "the staged files go in: " + error );
 	require( ReadAll( dir + L"\\a.dll" ) == "new a" && ReadAll( dir + L"\\base\\b.pk3" ) == "new b" && ReadAll( dir + L"\\EternalJK\\c.pk3" ) == "new c",
 		"each file holds its new bytes" );
 	require( ReadAll( dir + L"\\a.dll.old" ) == "old a" && !Update_Exists( dir + L"\\EternalJK\\c.pk3.old" ) && !Update_Exists( staging + L"\\a.dll" ),
 		"the old ones are kept as .old, and staging is empty" );
+	require( ReadAll( journal ) == "aside a.dll\naside base/b.pk3\n", "the journal names each file moved aside, the new one not" );
 	moved = 0;
-	require( Update_Swap( dir, staging, list, {}, &moved, &error ) && moved == 0, "files no longer staged went in already (a crash mid-swap resumes)" );
+	require( Update_Swap( dir, staging, list, {}, journal, &moved, &error ) && moved == 0, "files no longer staged went in already (a crash mid-swap resumes)" );
 
 	// A read-only file, and the read-only .old it leaves, do not stop the next update.
 	SetFileAttributesW( ( dir + L"\\a.dll" ).c_str(), FILE_ATTRIBUTE_READONLY );
 	WriteAll( staging + L"\\a.dll", "next a" );
-	require( Update_Swap( dir, staging, { "a.dll" }, {}, &moved, &error ) && moved == 1, "a read-only file is replaced: " + error );
+	require( Update_Swap( dir, staging, { "a.dll" }, {}, Journal( L"read-only" ), &moved, &error ) && moved == 1, "a read-only file is replaced: " + error );
 	require( SetFileAttributesW( ( dir + L"\\a.dll.old" ).c_str(), FILE_ATTRIBUTE_READONLY ) != 0, "make the .old read-only" );
 	WriteAll( staging + L"\\a.dll", "new a" );
-	require( Update_Swap( dir, staging, { "a.dll" }, {}, &moved, &error ) && ReadAll( dir + L"\\a.dll" ) == "new a", "a read-only .old is replaced: " + error );
+	require( Update_Swap( dir, staging, { "a.dll" }, {}, Journal( L"read-only-old" ), &moved, &error ) && ReadAll( dir + L"\\a.dll" ) == "new a",
+		"a read-only .old is replaced: " + error );
 	WriteAll( work + L"\\jofupdate\\cleanup.txt", "a.dll\n" );
 	SetFileAttributesW( ( dir + L"\\a.dll.old" ).c_str(), FILE_ATTRIBUTE_READONLY );
 	Update_CleanUp( dir, work + L"\\jofupdate" );
@@ -370,7 +385,7 @@ static void CheckSwap( void ) {
 	HANDLE held = CreateFileW( ( dir + L"\\base\\b.pk3" ).c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL );
 	require( held != INVALID_HANDLE_VALUE, "hold b.pk3 open" );
 	printf( "(waiting %lu s on a file in use)\n", APPLY_WAIT_MS / 1000 );
-	require( !Update_Swap( dir, staging, list, {}, &moved, &error ) && moved == 0, "a file in use stops the swap" );
+	require( !Update_Swap( dir, staging, list, {}, Journal( L"held" ), &moved, &error ) && moved == 0, "a file in use stops the swap" );
 	require( error.find( "base/b.pk3 is in use" ) == 0, "and says which file: " + error );
 	CloseHandle( held );
 	require( ReadAll( dir + L"\\a.dll" ) == "new a" && ReadAll( dir + L"\\base\\b.pk3" ) == "new b", "the installed files are back as they were" );
@@ -387,7 +402,7 @@ static void CheckSwap( void ) {
 	held = CreateFileW( ( dir + L"\\base\\b.pk3" ).c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL );
 	require( held != INVALID_HANDLE_VALUE, "hold b.pk3 open again" );
 	printf( "(waiting %lu s on a file to remove in use)\n", APPLY_WAIT_MS / 1000 );
-	require( !Update_Swap( dir, staging, { "a.dll" }, out, &moved, &error ) && moved == 0, "a file to remove in use stops the swap" );
+	require( !Update_Swap( dir, staging, { "a.dll" }, out, Journal( L"held-removal" ), &moved, &error ) && moved == 0, "a file to remove in use stops the swap" );
 	require( error.find( "base/b.pk3 is in use" ) == 0, "and says which file: " + error );
 	CloseHandle( held );
 	require( ReadAll( dir + L"\\a.dll" ) == "new a" && ReadAll( dir + L"\\EternalJK\\gone.pk3" ) == "gone" && ReadAll( dir + L"\\base\\b.pk3" ) == "new b",
@@ -408,18 +423,48 @@ static void CheckSwap( void ) {
 	require( MoveFileExW( ( dir2 + L"\\x.dll" ).c_str(), ( dir2 + L"\\x.dll.old" ).c_str(), 0 )
 		&& MoveFileExW( ( staging2 + L"\\x.dll" ).c_str(), ( dir2 + L"\\x.dll" ).c_str(), 0 )
 		&& MoveFileExW( ( dir2 + L"\\base\\z.pk3" ).c_str(), ( dir2 + L"\\base\\z.pk3.old" ).c_str(), 0 ), "stop a swap halfway" );
+	const std::wstring journal2 = Journal( L"stopped", "aside x.dll\naside base/z.pk3\n" );
 	held = CreateFileW( ( dir2 + L"\\base\\y.pk3" ).c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL );
 	require( held != INVALID_HANDLE_VALUE, "hold y.pk3 open" );
 	printf( "(waiting %lu s on a file in use, resuming a stopped swap)\n", APPLY_WAIT_MS / 1000 );
-	require( !Update_Swap( dir2, staging2, { "x.dll", "base/y.pk3" }, zOut, &moved, &error ) && moved == 0, "a file in use stops the resumed swap" );
+	require( !Update_Swap( dir2, staging2, { "x.dll", "base/y.pk3" }, zOut, journal2, &moved, &error ) && moved == 0, "a file in use stops the resumed swap" );
 	CloseHandle( held );
 	require( ReadAll( dir2 + L"\\x.dll" ) == "old x" && ReadAll( dir2 + L"\\base\\y.pk3" ) == "old y" && ReadAll( dir2 + L"\\base\\z.pk3" ) == "shipped z",
 		"what the stopped swap had moved is back too" );
 	require( ReadAll( staging2 + L"\\x.dll" ) == "new x" && ReadAll( staging2 + L"\\base\\y.pk3" ) == "new y" && !Update_Exists( dir2 + L"\\x.dll.old" ),
 		"and the whole update is staged again" );
-	require( Update_Swap( dir2, staging2, { "x.dll", "base/y.pk3" }, zOut, &moved, &error ) && moved == 3
+	require( ReadAll( journal2 ) == "aside x.dll\naside base/z.pk3\naside base/y.pk3\n", "the journal notes a file once a try, not once a retry" );
+	require( Update_Swap( dir2, staging2, { "x.dll", "base/y.pk3" }, zOut, journal2, &moved, &error ) && moved == 3
 		&& ReadAll( dir2 + L"\\x.dll" ) == "new x" && ReadAll( dir2 + L"\\base\\y.pk3" ) == "new y" && !Update_Exists( dir2 + L"\\base\\z.pk3" ),
 		"and then goes in whole: " + error );
+
+	// A swap stopped between p.dll's two renames: p.dll is aside as .old, its new copy
+	// still staged. A stale n.pk3.old, from an update before, belongs to no swap. When
+	// the resumed swap then fails on q.pk3, p.dll's backup goes back, the stale .old
+	// does not, and the new n.pk3 goes back to staging.
+	const std::wstring dir3 = work + L"\\between", staging3 = work + L"\\between-staging";
+	const std::vector<std::string> list3 = { "p.dll", "EternalJK/n.pk3", "base/q.pk3" };
+	WriteAll( dir3 + L"\\p.dll", "old p" );
+	WriteAll( dir3 + L"\\EternalJK\\n.pk3.old", "stale n" );
+	WriteAll( dir3 + L"\\base\\q.pk3", "old q" );
+	WriteAll( staging3 + L"\\p.dll", "new p" );
+	WriteAll( staging3 + L"\\EternalJK\\n.pk3", "new n" );
+	WriteAll( staging3 + L"\\base\\q.pk3", "new q" );
+	require( MoveFileExW( ( dir3 + L"\\p.dll" ).c_str(), ( dir3 + L"\\p.dll.old" ).c_str(), 0 ), "stop a swap between p.dll's renames" );
+	const std::wstring journal3 = Journal( L"between", "aside p.dll\n" );
+	held = CreateFileW( ( dir3 + L"\\base\\q.pk3" ).c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL );
+	require( held != INVALID_HANDLE_VALUE, "hold q.pk3 open" );
+	printf( "(waiting %lu s on a file in use, resuming a swap stopped between two renames)\n", APPLY_WAIT_MS / 1000 );
+	require( !Update_Swap( dir3, staging3, list3, {}, journal3, &moved, &error ) && moved == 0, "a file in use stops it" );
+	CloseHandle( held );
+	require( ReadAll( dir3 + L"\\p.dll" ) == "old p" && !Update_Exists( dir3 + L"\\p.dll.old" ) && ReadAll( staging3 + L"\\p.dll" ) == "new p",
+		"the file stopped between its renames is back from its .old, its new copy staged again" );
+	require( !Update_Exists( dir3 + L"\\EternalJK\\n.pk3" ) && ReadAll( dir3 + L"\\EternalJK\\n.pk3.old" ) == "stale n"
+		&& ReadAll( staging3 + L"\\EternalJK\\n.pk3" ) == "new n", "a .old the journal does not name is never put back" );
+	require( ReadAll( dir3 + L"\\base\\q.pk3" ) == "old q" && ReadAll( staging3 + L"\\base\\q.pk3" ) == "new q", "the file in use is untouched" );
+	require( Update_Swap( dir3, staging3, list3, {}, journal3, &moved, &error ) && moved == 3 && ReadAll( dir3 + L"\\p.dll" ) == "new p"
+		&& ReadAll( dir3 + L"\\p.dll.old" ) == "old p" && ReadAll( dir3 + L"\\EternalJK\\n.pk3" ) == "new n" && ReadAll( dir3 + L"\\base\\q.pk3" ) == "new q",
+		"and then it goes in whole: " + error );
 }
 
 static void CheckPending( void ) {
@@ -429,16 +474,18 @@ static void CheckPending( void ) {
 	p.attempts = 2;
 	p.files = { "eternaljk.x86_64.exe", "base/JoF_Test.pk3" };
 	p.remove = { { "EternalJK/old.pk3", 123456, 133420000000000000ull } };
+	p.aside = { "eternaljk.x86_64.exe" };
 	require( Update_WritePending( path, p ), "ready.txt writes" );
 	updatePending_t read;
 	require( Update_ReadPending( path, &read ) && read.tag == "1.6.2" && read.attempts == 2 && read.files == p.files, "ready.txt reads back" );
 	require( read.remove.size() == 1 && read.remove[0].path == "EternalJK/old.pk3" && read.remove[0].size == 123456 && read.remove[0].written == 133420000000000000ull,
 		"with the file to remove, its size and time" );
+	require( read.aside == p.aside && Update_JournalAside( path ) == p.aside, "and the swap's journal, kept for the next try" );
 	WriteAll( path, "jofupdate 1\ntag 1.6.2\nremove 5 6 base/old.pk3\n" );
 	updatePending_t onlyRemove;
 	require( Update_ReadPending( path, &onlyRemove ) && onlyRemove.files.empty() && onlyRemove.remove.size() == 1, "an update may only remove files" );
 	for ( const char *bad : { "file base/autoexec.cfg", "remove 5 6 base/autoexec.cfg", "remove 5 6 base/assets0.pk3", "remove x 6 base/old.pk3",
-			"remove 5 base/old.pk3", "remove 5 6", "remove -5 6 base/old.pk3" } ) {
+			"remove 5 base/old.pk3", "remove 5 6", "remove -5 6 base/old.pk3", "aside ../x.dll" } ) {
 		WriteAll( path, std::string( "jofupdate 1\ntag 1.6.2\n" ) + bad + "\n" );
 		updatePending_t refused;
 		require( !Update_ReadPending( path, &refused ), std::string( "ready.txt cannot say '" ) + bad + "'" );
