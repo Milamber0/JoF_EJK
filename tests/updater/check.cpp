@@ -80,6 +80,15 @@ static void CheckVersions( void ) {
 	require( newer( "1.7.0", "1.6.99" ) && newer( "2.0.0", "1.99.99" ), "minor and major releases" );
 	require( !newer( "1.6.2-alpha.5", "1.6.2" ) && !newer( "1.6.2-beta.1", "1.6.2-alpha.5" ), "alpha numbers are not comparable" );
 	require( Update_Display( "1.6.2-beta.4" ) == "1.6.2 beta 4" && Update_Display( "1.6.2" ) == "1.6.2", "tags as players see them" );
+
+	// Whether a staged update still goes in under the running build.
+	require( Update_StillApplies( "1.6.1-beta.119", "1.6.1-beta.122", false ), "a newer staged release goes in" );
+	require( !Update_StillApplies( "1.6.1-beta.122", "1.6.1-beta.122", false ), "the running release is not installed again" );
+	require( Update_StillApplies( "1.6.1-beta.122", "1.6.1-beta.122", true ),
+		"but a stopped swap of it resumes, once its new program is the one running" );
+	require( !Update_StillApplies( "1.6.1-beta.123", "1.6.1-beta.122", true ) && !Update_StillApplies( "1.6.2", "1.6.1-beta.122", false ),
+		"an older staged release never goes in, resumed or not" );
+	require( Update_StillApplies( "", "1.6.1-beta.122", false ), "a development build takes what it staged" );
 }
 
 static void CheckPaths( void ) {
@@ -384,6 +393,33 @@ static void CheckSwap( void ) {
 	require( ReadAll( dir + L"\\a.dll" ) == "new a" && ReadAll( dir + L"\\EternalJK\\gone.pk3" ) == "gone" && ReadAll( dir + L"\\base\\b.pk3" ) == "new b",
 		"what went in and what went out are back" );
 	require( ReadAll( staging + L"\\a.dll" ) == "newer a", "and the update is staged again" );
+
+	// A swap stopped (a crash) after x.dll went in and z.pk3 went out: if the resumed
+	// swap then fails, those go back too, so the old release is whole again.
+	const std::wstring dir2 = work + L"\\stopped", staging2 = work + L"\\stopped-staging";
+	WriteAll( dir2 + L"\\x.dll", "old x" );
+	WriteAll( dir2 + L"\\base\\y.pk3", "old y" );
+	WriteAll( dir2 + L"\\base\\z.pk3", "shipped z" );
+	WriteAll( staging2 + L"\\x.dll", "new x" );
+	WriteAll( staging2 + L"\\base\\y.pk3", "new y" );
+	std::vector<updateRemoval_t> zOut( 1 );
+	zOut[0].path = "base/z.pk3";
+	require( Update_Stamp( dir2 + L"\\base\\z.pk3", &zOut[0].size, &zOut[0].written ), "stamp z.pk3" );
+	require( MoveFileExW( ( dir2 + L"\\x.dll" ).c_str(), ( dir2 + L"\\x.dll.old" ).c_str(), 0 )
+		&& MoveFileExW( ( staging2 + L"\\x.dll" ).c_str(), ( dir2 + L"\\x.dll" ).c_str(), 0 )
+		&& MoveFileExW( ( dir2 + L"\\base\\z.pk3" ).c_str(), ( dir2 + L"\\base\\z.pk3.old" ).c_str(), 0 ), "stop a swap halfway" );
+	held = CreateFileW( ( dir2 + L"\\base\\y.pk3" ).c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL );
+	require( held != INVALID_HANDLE_VALUE, "hold y.pk3 open" );
+	printf( "(waiting %lu s on a file in use, resuming a stopped swap)\n", APPLY_WAIT_MS / 1000 );
+	require( !Update_Swap( dir2, staging2, { "x.dll", "base/y.pk3" }, zOut, &moved, &error ) && moved == 0, "a file in use stops the resumed swap" );
+	CloseHandle( held );
+	require( ReadAll( dir2 + L"\\x.dll" ) == "old x" && ReadAll( dir2 + L"\\base\\y.pk3" ) == "old y" && ReadAll( dir2 + L"\\base\\z.pk3" ) == "shipped z",
+		"what the stopped swap had moved is back too" );
+	require( ReadAll( staging2 + L"\\x.dll" ) == "new x" && ReadAll( staging2 + L"\\base\\y.pk3" ) == "new y" && !Update_Exists( dir2 + L"\\x.dll.old" ),
+		"and the whole update is staged again" );
+	require( Update_Swap( dir2, staging2, { "x.dll", "base/y.pk3" }, zOut, &moved, &error ) && moved == 3
+		&& ReadAll( dir2 + L"\\x.dll" ) == "new x" && ReadAll( dir2 + L"\\base\\y.pk3" ) == "new y" && !Update_Exists( dir2 + L"\\base\\z.pk3" ),
+		"and then goes in whole: " + error );
 }
 
 static void CheckPending( void ) {

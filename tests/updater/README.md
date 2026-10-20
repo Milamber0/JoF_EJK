@@ -18,10 +18,13 @@ against a stand-in for the engine headers, and checks:
   GameData, a file with no versions or listed twice;
 - which files get removed: only one still as JoF shipped it, never one the player
   changed (even at a shipped size), nor the running program;
+- whether a staged update still goes in: never an older release, and the running
+  release only to finish a swap that was stopped;
 - the start-up swap: files go in with the old ones kept as `.old`, files to remove
   go to `.old`, a resumed swap skips what already went in or out, a file changed
   since it was checked is left alone, and a file held open by another program puts
-  everything back. The two held-open cases each wait out the 10-second retry window.
+  everything back. That includes what a stopped swap had moved before a resumed one
+  fails. The three held-open cases each wait out the 10-second retry window.
 
 ```text
 cmake -S tests/updater -B build/updater-check

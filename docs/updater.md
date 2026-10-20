@@ -74,7 +74,17 @@ at the next start, and dropped after three failures (typically another JoF windo
 holding the pk3s). After a swap the client starts the new program with the same
 command line, and the `.old` files are deleted at the following start. A staged
 update older than the running build (one installed by hand meanwhile) is dropped.
-`jofupdate/lock` keeps two JoF windows from staging or swapping at the same time.
+`jofupdate/lock` keeps two JoF windows from staging, swapping or cleaning up at the
+same time. The `.old` files stay while an update is pending, because a swap that
+was stopped needs them.
+
+A swap stopped halfway, by a crash or the power going, leaves
+`jofupdate/pending/applying.txt`. The next start finishes it, even when the new
+program went in first and is the one running. If the rest still cannot go in,
+everything goes back, including what the stopped swap had moved, so the old
+release is whole again. When that puts the old program back under a new one that
+is running, the client says so in a message box and exits, rather than run with
+half of each release.
 
 **Removing files.** A file an earlier release shipped that a newer one no longer
 has, such as a renamed pk3, would otherwise stay in GameData and keep loading. The

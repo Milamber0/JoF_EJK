@@ -1369,15 +1369,20 @@ static bool Update_Unpack( const updateSettings_t &s, const updateRelease_t &r, 
 	return ok;
 }
 
-// jofupdate/lock, held by the one client that stages or swaps files, so a second
-// JoF window cannot take the staged files from under it. Let go of when it goes
-// out of scope, or by Windows when the process ends.
+// jofupdate/lock, held by the one client that stages, swaps or cleans up files, so a
+// second JoF window cannot take the staged files or the .old backups from under it.
+// Let go of when it goes out of scope, by release(), or by Windows when the process ends.
 struct updateLock_t {
 	HANDLE	file;
 	explicit updateLock_t( const std::wstring &root )
 		: file( CreateFileW( ( root + L"\\lock" ).c_str(), GENERIC_WRITE, 0, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL ) ) {}
-	~updateLock_t() { if ( file != INVALID_HANDLE_VALUE ) CloseHandle( file ); }
+	~updateLock_t() { release(); }
 	bool held( void ) const { return file != INVALID_HANDLE_VALUE; }
+	void release( void ) {
+		if ( file != INVALID_HANDLE_VALUE )
+			CloseHandle( file );
+		file = INVALID_HANDLE_VALUE;
+	}
 };
 
 static void Update_Download( const updateSettings_t &s, const updateRelease_t &r ) {
@@ -1489,6 +1494,22 @@ static bool Update_Swap( const std::wstring &dir, const std::wstring &staging, c
 	std::vector<swapped_t> done;
 	const DWORD start = GetTickCount();
 
+	// What a swap that was stopped (a crash, the power) moved already goes back too if
+	// this one fails, so a failure leaves the old release whole, not half of each.
+	for ( const std::string &file : files ) {
+		swapped_t s = { Update_Join( dir, file ), Update_Join( dir, file ) + L".old", Update_Join( staging, file ), false };
+		if ( !Update_Exists( s.staged ) && Update_Exists( s.target ) ) {
+			s.keptOld = Update_Exists( s.old );
+			done.push_back( s );
+		}
+	}
+	for ( const updateRemoval_t &removal : remove ) {
+		swapped_t s = { Update_Join( dir, removal.path ), Update_Join( dir, removal.path ) + L".old", std::wstring(), true };
+		uint64_t size, written;
+		if ( !Update_Exists( s.target ) && Update_Stamp( s.old, &size, &written ) && size == removal.size && written == removal.written )
+			done.push_back( s );
+	}
+
 	// One file in or out: false once it has waited too long, with *error saying why.
 	auto swap = [&]( swapped_t &s, const std::string &file ) {
 		for ( ;; ) {
@@ -1555,22 +1576,43 @@ static bool Update_Swap( const std::wstring &dir, const std::wstring &staging, c
 	return true;
 }
 
+// Whether an update staged as stagedTag still goes in under the build running as
+// runningTag. Never back to an older release: one installed by hand meanwhile drops
+// it. The same release only to finish a swap that was stopped, by which time the new
+// program may be the one running, with the rest of its files still staged.
+static bool Update_StillApplies( const char *runningTag, const std::string &stagedTag, bool resuming ) {
+	releaseVersion_t running, staged;
+	if ( !runningTag[0] || !Update_ParseTag( runningTag, &running ) || !Update_ParseTag( stagedTag.c_str(), &staged ) )
+		return true;	// a development build
+	if ( Update_IsNewer( staged, running ) )
+		return true;
+	return resuming && stagedTag == runningTag;
+}
+
 void CL_Update_ApplyPending( void ) {
 	const std::wstring dir = Update_InstallDir();
 	if ( dir.empty() )
 		return;
 	const std::wstring root = dir + L"\\" UPDATE_DIR, pending = root + L"\\pending";
 	const std::wstring ready = pending + L"\\ready.txt", applying = pending + L"\\applying.txt";
-	Update_CleanUp( dir, root );
-	if ( !Update_Exists( ready ) && !Update_Exists( applying ) )
+	if ( !Update_Exists( root ) )
 		return;
-	// Another JoF window is staging or swapping: leave it to that one, or to the next start.
+
+	// Cleaning up too: another JoF window may be swapping right now, with fresh .old
+	// backups of the very files cleanup.txt names. What this start skips, the next does.
 	updateLock_t lock( root );
 	if ( !lock.held() )
 		return;
 
-	// applying.txt left behind means the last start crashed mid-swap: finish it.
-	if ( !Update_Exists( applying ) && !MoveFileExW( ready.c_str(), applying.c_str(), 0 ) )
+	// applying.txt left behind means the last start was stopped mid-swap: finish it.
+	const bool resuming = Update_Exists( applying );
+	if ( !resuming && !Update_Exists( ready ) ) {
+		Update_CleanUp( dir, root );
+		return;
+	}
+	// While an update is pending the .old files stay: its swap deletes stale ones
+	// itself, and a swap that was stopped needs the backups it already made.
+	if ( !resuming && !MoveFileExW( ready.c_str(), applying.c_str(), 0 ) )
 		return;
 	updatePending_t p;
 	if ( !Update_ReadPending( applying, &p ) ) {
@@ -1578,13 +1620,18 @@ void CL_Update_ApplyPending( void ) {
 		s_applyError = "the downloaded update was unreadable and has been discarded.";
 		return;
 	}
-
-	// Never go back: a newer build installed by hand meanwhile drops it.
-	releaseVersion_t running, staged;
-	if ( JOF_RELEASE_TAG[0] && Update_ParseTag( JOF_RELEASE_TAG, &running ) && Update_ParseTag( p.tag.c_str(), &staged )
-		&& !Update_IsNewer( staged, running ) ) {
+	if ( !Update_StillApplies( JOF_RELEASE_TAG, p.tag, resuming ) ) {
 		Update_RemoveTree( pending );
 		return;
+	}
+
+	// Whether this program is already the new one, swapped in before the last start was
+	// stopped: then, if the rest cannot go in, the old one goes back in its place.
+	const std::wstring program = Update_ProgramPath();
+	bool programSwapped = false;
+	for ( const std::string &file : p.files ) {
+		if ( !_wcsicmp( Update_Join( dir, file ).c_str(), program.c_str() ) && !Update_Exists( Update_Join( pending + L"\\files", file ) ) )
+			programSwapped = true;
 	}
 
 	int moved = 0;
@@ -1601,7 +1648,9 @@ void CL_Update_ApplyPending( void ) {
 		Update_WriteFile( root + L"\\installed.txt", p.tag + "\n" );
 		Update_RemoveTree( pending );
 		if ( moved ) {
-			// This process is the old program: start the new one in its place.
+			// This process started as the old program (or as the new one, finishing a
+			// stopped swap): start the new one fresh, which takes the lock to clean up.
+			lock.release();
 			if ( !Update_Relaunch() )
 				MessageBoxW( NULL, L"JoF has been updated. Please start it again.", L"JoF", MB_OK | MB_ICONINFORMATION );
 			ExitProcess( 0 );
@@ -1616,6 +1665,13 @@ void CL_Update_ApplyPending( void ) {
 		Update_WritePending( ready, p );
 		DeleteFileW( applying.c_str() );
 		s_applyError = error + " Close every other JoF window, then restart JoF to try again.";
+	}
+	if ( programSwapped ) {
+		// The old release went back under this program, the new one: running on
+		// would mix the two, and the console is not up yet to say why.
+		const std::wstring text = L"JoF could not finish installing the update: " + Update_Widen( s_applyError );
+		MessageBoxW( NULL, text.c_str(), L"JoF", MB_OK | MB_ICONWARNING );
+		ExitProcess( 0 );
 	}
 }
 
