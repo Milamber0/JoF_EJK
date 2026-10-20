@@ -73,6 +73,36 @@ if(NOT DEFINED JOF_VERSION_SUFFIX)
     set(JOF_VERSION_SUFFIX "")
 endif()
 
+# The exact release tag and channel, set by CI for release builds. The client's
+# updater compares the tag, so a build without one never offers an update.
+if(NOT DEFINED JOF_RELEASE_TAG)
+    set(JOF_RELEASE_TAG "")
+endif()
+
+if(NOT DEFINED JOF_RELEASE_CHANNEL)
+    set(JOF_RELEASE_CHANNEL "")
+endif()
+
+# The Ed25519 public keys update manifests may be signed with, one per line (a
+# second line lets the key be rotated, docs/updater.md). Pass
+# -DJOF_UPDATE_PUBKEY_HEX=<64 hex digits> to test against a throwaway key.
+set(JOF_UPDATE_PUBKEY_FILE "${CMAKE_SOURCE_DIR}/scripts/update/update-signing-key.pub")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${JOF_UPDATE_PUBKEY_FILE}")
+if(NOT DEFINED JOF_UPDATE_PUBKEY_HEX)
+    file(STRINGS "${JOF_UPDATE_PUBKEY_FILE}" JOF_UPDATE_PUBKEY_HEX REGEX "^[0-9a-fA-F]+$")
+endif()
+set(JOF_UPDATE_PUBKEYS "")
+foreach(_pubkey IN LISTS JOF_UPDATE_PUBKEY_HEX)
+    string(LENGTH "${_pubkey}" _pubkey_length)
+    if(NOT _pubkey_length EQUAL 64 OR NOT _pubkey MATCHES "^[0-9a-fA-F]+$")
+        message(FATAL_ERROR "Update signing keys must be 64 hex digits: ${JOF_UPDATE_PUBKEY_FILE}")
+    endif()
+    string(APPEND JOF_UPDATE_PUBKEYS "${_pubkey}")
+endforeach()
+if(NOT JOF_UPDATE_PUBKEYS)
+    message(FATAL_ERROR "No update signing key in ${JOF_UPDATE_PUBKEY_FILE}")
+endif()
+
 if(NOT DEFINED GIT_SHA)
     set(GIT_SHA "local")
 endif()
@@ -89,6 +119,14 @@ endif()
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/versionfile/jofversion.h.in
     ${CMAKE_CURRENT_BINARY_DIR}/versionfile/jofversion.h
+    @ONLY
+)
+
+# Kept out of jofversion.h, which every module includes, so a new key only
+# rebuilds the updater.
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/versionfile/jofupdatekey.h.in
+    ${CMAKE_CURRENT_BINARY_DIR}/versionfile/jofupdatekey.h
     @ONLY
 )
 
@@ -485,6 +523,13 @@ if(BuildMPEngine)
 		endif()
 	endif()
 
+	# The updater (client/cl_update.cpp) is Windows-only for now: WinHTTP for the
+	# downloads, cJSON for the manifest and Monocypher for its signature.
+	if(WIN32)
+		set(MPEngineIncludeDirectories ${MPEngineIncludeDirectories} ${CJSON_INCLUDE_DIRS} ${MONOCYPHER_INCLUDE_DIRS})
+		set(MPEngineLibraries ${MPEngineLibraries} ${CJSON_LIBRARIES} ${MONOCYPHER_LIBRARIES} "winhttp")
+	endif()
+
 	if(UseInternalSDL2)
 		if(CMAKE_SIZEOF_VOID_P EQUAL 4)
 			set(MPEngineLibraries
@@ -541,6 +586,7 @@ if(BuildMPEngine)
 		"${MPDir}/client/cl_ui.cpp"
 		"${MPDir}/client/cl_uiapi.cpp"
 		"${MPDir}/client/cl_uiapi.h"
+		"${MPDir}/client/cl_update.cpp"
 		"${MPDir}/client/FXExport.cpp"
 		"${MPDir}/client/FXExport.h"
 		"${MPDir}/client/FxPrimitives.cpp"

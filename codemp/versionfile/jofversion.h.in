@@ -11,3 +11,8 @@
 #define JOF_COMMIT_SHA "@GIT_SHA@"
 #define JOF_COMMIT_SHA_SHORT "@GIT_SHA_SHORT@"
 #define JOF_GIT_BRANCH "@GIT_BRANCH@"
+
+// The exact release tag CI built (1.6.2 or 1.6.2-beta.4) and its channel
+// (stable or beta). Both are empty for local builds, which never update.
+#define JOF_RELEASE_TAG "@JOF_RELEASE_TAG@"
+#define JOF_RELEASE_CHANNEL "@JOF_RELEASE_CHANNEL@"

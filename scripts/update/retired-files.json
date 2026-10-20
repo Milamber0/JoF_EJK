@@ -1,0 +1,4 @@
+{
+  "_comment": "Files JoF shipped before releases had update manifests (1.6.1 and earlier) that a release no longer has. List each with the size and SHA-512 of every version shipped, taken from the old release zips; make_update_package.py adds them to the manifest's remove list. Files dropped since then need no entry here: earlier manifests carry them. See docs/updater.md.",
+  "files": []
+}

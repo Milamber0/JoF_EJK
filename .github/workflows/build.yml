@@ -152,6 +152,8 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DJOF_VERSION_STRING="${{ needs.beta-version.outputs.base_version }}" \
             -DJOF_VERSION_SUFFIX="${{ needs.beta-version.outputs.version_suffix }}" \
+            -DJOF_RELEASE_TAG="${{ needs.beta-version.outputs.tag_version }}" \
+            -DJOF_RELEASE_CHANNEL=beta \
             -DGIT_SHA=${{ github.sha }} \
             -DGIT_BRANCH=${{ github.ref_name }} \
             -DEXTERNAL_RD_VULKAN_MODULE="$RD_VULKAN_MODULE"
@@ -258,6 +260,8 @@ jobs:
             -DBuildPortableVersion=OFF
             "-DJOF_VERSION_STRING=${{ needs.beta-version.outputs.base_version }}"
             "-DJOF_VERSION_SUFFIX=${{ needs.beta-version.outputs.version_suffix }}"
+            "-DJOF_RELEASE_TAG=${{ needs.beta-version.outputs.tag_version }}"
+            -DJOF_RELEASE_CHANNEL=beta
             -DGIT_SHA=${{ github.sha }}
             -DGIT_BRANCH=${{ github.ref_name }}
             "-DEXTERNAL_RD_VULKAN_MODULE=$RD_VULKAN_MODULE"
@@ -382,6 +386,8 @@ jobs:
             -DBuildPortableVersion=OFF \
             -DJOF_VERSION_STRING="${{ needs.beta-version.outputs.base_version }}" \
             -DJOF_VERSION_SUFFIX="${{ needs.beta-version.outputs.version_suffix }}" \
+            -DJOF_RELEASE_TAG="${{ needs.beta-version.outputs.tag_version }}" \
+            -DJOF_RELEASE_CHANNEL=beta \
             -DGIT_SHA=${{ github.sha }} \
             -DGIT_BRANCH=${{ github.ref_name }} \
             -DEXTERNAL_RD_VULKAN_MODULE="$RD_VULKAN_MODULE" \
@@ -539,6 +545,39 @@ jobs:
             '{username:"JoF Releases", embeds:[{title:$title, url:$url, description:$desc, color:15844367}]}')
           curl -sf -H "Content-Type: application/json" -X POST -d "$payload" "$DISCORD_WEBHOOK"
 
+  # The in-client updater's files for the release (docs/updater.md). A job of its
+  # own: the signing key lives in the release-signing environment, which only
+  # master and beta may use, and a failure here never holds the release back.
+  update-files-beta:
+    if: github.ref == 'refs/heads/beta' && github.event_name == 'push'
+    name: Signed Update Files (Beta)
+    needs: [beta-version, publish-beta]
+    runs-on: ubuntu-22.04
+    environment: release-signing
+    steps:
+      - name: Checkout triggering commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Download Windows x86 build
+        uses: actions/download-artifact@v4
+        with:
+          name: JoF-beta-windows-x86
+          path: artifacts/windows-x86
+
+      - name: Download Windows x86_64 build
+        uses: actions/download-artifact@v4
+        with:
+          name: JoF-beta-windows-x86_64
+          path: artifacts/windows-x86_64
+
+      - name: Build, sign and attach the update files
+        env:
+          GH_TOKEN: ${{ github.token }}
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: bash scripts/update/publish-update-files.sh "${{ needs.beta-version.outputs.tag_version }}" beta artifacts
+
   # =========================
   # MASTER (nightly/manual, only if changes)
   # =========================
@@ -678,6 +717,8 @@ jobs:
             -DCMAKE_INSTALL_PREFIX=bin \
             -DCMAKE_BUILD_TYPE=Release \
             -DJOF_VERSION_STRING="${{ needs.master-version.outputs.version }}" \
+            -DJOF_RELEASE_TAG="${{ needs.master-version.outputs.version }}" \
+            -DJOF_RELEASE_CHANNEL=stable \
             -DGIT_SHA=${{ github.sha }} \
             -DGIT_BRANCH=${{ github.ref_name }} \
             -DEXTERNAL_RD_VULKAN_MODULE="$RD_VULKAN_MODULE"
@@ -783,6 +824,8 @@ jobs:
             -DUseInternalLibs=OFF
             -DBuildPortableVersion=OFF
             "-DJOF_VERSION_STRING=${{ needs.master-version.outputs.version }}"
+            "-DJOF_RELEASE_TAG=${{ needs.master-version.outputs.version }}"
+            -DJOF_RELEASE_CHANNEL=stable
             -DGIT_SHA=${{ github.sha }}
             -DGIT_BRANCH=${{ github.ref_name }}
             "-DEXTERNAL_RD_VULKAN_MODULE=$RD_VULKAN_MODULE"
@@ -906,6 +949,8 @@ jobs:
             -DUseInternalLibs=OFF \
             -DBuildPortableVersion=OFF \
             -DJOF_VERSION_STRING="${{ needs.master-version.outputs.version }}" \
+            -DJOF_RELEASE_TAG="${{ needs.master-version.outputs.version }}" \
+            -DJOF_RELEASE_CHANNEL=stable \
             -DGIT_SHA=${{ github.sha }} \
             -DGIT_BRANCH=${{ github.ref_name }} \
             -DEXTERNAL_RD_VULKAN_MODULE="$RD_VULKAN_MODULE" \
@@ -1030,3 +1075,34 @@ jobs:
             --arg desc "A new stable build is available for download." \
             '{username:"JoF Releases", embeds:[{title:$title, url:$url, description:$desc, color:5763719}]}')
           curl -sf -H "Content-Type: application/json" -X POST -d "$payload" "$DISCORD_WEBHOOK"
+
+  # As update-files-beta, for the stable release.
+  update-files-master:
+    if: needs.check-master-changes.outputs.should_run == 'true'
+    name: Signed Update Files (Master)
+    needs: [check-master-changes, master-version, publish-master]
+    runs-on: ubuntu-22.04
+    environment: release-signing
+    steps:
+      - name: Checkout triggering commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Download Windows x86 build
+        uses: actions/download-artifact@v4
+        with:
+          name: JoF-master-windows-x86
+          path: artifacts/windows-x86
+
+      - name: Download Windows x86_64 build
+        uses: actions/download-artifact@v4
+        with:
+          name: JoF-master-windows-x86_64
+          path: artifacts/windows-x86_64
+
+      - name: Build, sign and attach the update files
+        env:
+          GH_TOKEN: ${{ github.token }}
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: bash scripts/update/publish-update-files.sh "${{ needs.master-version.outputs.version }}" stable artifacts

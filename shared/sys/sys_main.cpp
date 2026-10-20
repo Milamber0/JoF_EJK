@@ -760,6 +760,11 @@ int main ( int argc, char* argv[] )
 	Sys_SetBinaryPath( Sys_Dirname( argv[ 0 ] ) );
 	Sys_SetDefaultInstallPath( DEFAULT_BASEDIR );
 
+#ifndef DEDICATED
+	// Before Com_Init opens any pk3: Windows cannot replace a file in use.
+	CL_Update_ApplyPending();
+#endif
+
 	// Concatenate the command line for passing to Com_Init
 	for( i = 1; i < argc; i++ )
 	{

@@ -3079,6 +3079,8 @@ void CL_Frame ( int msec ) {
 		cls.discordInitialized = qfalse;
 	}
 #endif
+
+	CL_Update_Frame();
 }
 
 
@@ -4290,6 +4292,8 @@ void CL_Init( void ) {
 	}
 #endif
 
+	CL_Update_Init();
+
 	Com_Printf( "----- Client Initialization Complete -----\n" );
 }
 
@@ -4365,6 +4369,8 @@ void CL_Shutdown( void ) {
 	if (cl_discordRichPresence->integer || cls.discordInitialized)
 		CL_DiscordShutdown();
 #endif
+
+	CL_Update_Shutdown();
 
 	CL_ShutdownInput();
 	Con_Shutdown();

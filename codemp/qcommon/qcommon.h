@@ -960,6 +960,10 @@ void CL_Disconnect( qboolean showMainMenu );
 void CL_Shutdown( void );
 void CL_Frame( int msec );
 
+void CL_Update_ApplyPending( void );
+// called first thing in main(), before anything opens a pk3: swaps in an
+// update /update downloaded, and restarts into it (client/cl_update.cpp)
+
 qboolean CL_GameCommand( void );
 void CL_KeyEvent (int key, qboolean down, unsigned time);
 

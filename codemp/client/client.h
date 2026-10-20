@@ -600,6 +600,11 @@ void CL_DiscordShutdown(void);
 void CL_DiscordUpdatePresence(void);
 #endif
 
+// cl_update.cpp
+void CL_Update_Init(void);
+void CL_Update_Frame(void);
+void CL_Update_Shutdown(void);
+
 qboolean CL_CheckPaused(void);
 
 extern int		cl_nameModifiedTime;

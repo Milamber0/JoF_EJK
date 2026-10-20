@@ -442,6 +442,10 @@ add_subdirectory(lib/minizip)
 # per-model cosmetic offset files with it
 add_subdirectory(lib/cJSON)
 
+# Always use bundled Monocypher (sets MONOCYPHER_{LIBRARIES,INCLUDE_DIRS}) - the
+# client's updater checks release signatures with it
+add_subdirectory(lib/monocypher)
+
 # Add projects
 add_subdirectory(${MPDir})
 # Windows Symbol Server tools
