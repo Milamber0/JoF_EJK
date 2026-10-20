@@ -317,7 +317,7 @@ static void CheckRemovals( void ) {
 	require( Update_Swap( dir, noStaging, {}, remove, journal, &moved, &error ) && moved == 1, "the removal goes through: " + error );
 	require( !Update_Exists( dir + L"\\base\\shipped.pk3" ) && ReadAll( dir + L"\\base\\shipped.pk3.old" ) == "shipped v2",
 		"the file is gone, kept as .old until the next start" );
-	require( ReadAll( journal ) == "aside base/shipped.pk3\n", "noted in the journal before it went aside" );
+	require( Update_JournalAside( journal ) == std::vector<std::string>( { "base/shipped.pk3" } ), "noted in the journal before it went aside" );
 	moved = 0;
 	require( Update_Swap( dir, noStaging, {}, remove, journal, &moved, &error ) && moved == 0, "a removal done before a crash is skipped" );
 
@@ -350,7 +350,7 @@ static void CheckSwap( void ) {
 		"each file holds its new bytes" );
 	require( ReadAll( dir + L"\\a.dll.old" ) == "old a" && !Update_Exists( dir + L"\\EternalJK\\c.pk3.old" ) && !Update_Exists( staging + L"\\a.dll" ),
 		"the old ones are kept as .old, and staging is empty" );
-	require( ReadAll( journal ) == "aside a.dll\naside base/b.pk3\n", "the journal names each file moved aside, the new one not" );
+	require( Update_JournalAside( journal ) == std::vector<std::string>( { "a.dll", "base/b.pk3" } ), "the journal names each file moved aside, the new one not" );
 	moved = 0;
 	require( Update_Swap( dir, staging, list, {}, journal, &moved, &error ) && moved == 0, "files no longer staged went in already (a crash mid-swap resumes)" );
 
@@ -433,7 +433,8 @@ static void CheckSwap( void ) {
 		"what the stopped swap had moved is back too" );
 	require( ReadAll( staging2 + L"\\x.dll" ) == "new x" && ReadAll( staging2 + L"\\base\\y.pk3" ) == "new y" && !Update_Exists( dir2 + L"\\x.dll.old" ),
 		"and the whole update is staged again" );
-	require( ReadAll( journal2 ) == "aside x.dll\naside base/z.pk3\naside base/y.pk3\n", "the journal notes a file once a try, not once a retry" );
+	require( Update_JournalAside( journal2 ) == std::vector<std::string>( { "x.dll", "base/z.pk3", "base/y.pk3" } ),
+		"the journal notes a file once a try, not once a retry" );
 	require( Update_Swap( dir2, staging2, { "x.dll", "base/y.pk3" }, zOut, journal2, &moved, &error ) && moved == 3
 		&& ReadAll( dir2 + L"\\x.dll" ) == "new x" && ReadAll( dir2 + L"\\base\\y.pk3" ) == "new y" && !Update_Exists( dir2 + L"\\base\\z.pk3" ),
 		"and then goes in whole: " + error );
@@ -465,6 +466,30 @@ static void CheckSwap( void ) {
 	require( Update_Swap( dir3, staging3, list3, {}, journal3, &moved, &error ) && moved == 3 && ReadAll( dir3 + L"\\p.dll" ) == "new p"
 		&& ReadAll( dir3 + L"\\p.dll.old" ) == "old p" && ReadAll( dir3 + L"\\EternalJK\\n.pk3" ) == "new n" && ReadAll( dir3 + L"\\base\\q.pk3" ) == "new q",
 		"and then it goes in whole: " + error );
+
+	// A swap that had put s.dll in, then lost power while noting t.pk3: the journal
+	// ends in a torn record. The update still reads; t.pk3 was not moved aside yet; a
+	// failed resume still puts s.dll's backup back; then it goes in whole.
+	const std::wstring dir4 = work + L"\\torn", staging4 = work + L"\\torn-staging", applying = work + L"\\torn-applying.txt";
+	WriteAll( dir4 + L"\\s.dll.old", "old s" );
+	WriteAll( dir4 + L"\\s.dll", "new s" );
+	WriteAll( dir4 + L"\\base\\t.pk3", "old t" );
+	WriteAll( staging4 + L"\\base\\t.pk3", "new t" );
+	WriteAll( applying, "jofupdate 1\ntag 1.6.2\nattempts 0\nfile s.dll\nfile base/t.pk3\n\naside s.dll\n\naside base/t." );
+	updatePending_t p;
+	require( Update_ReadPending( applying, &p ) && p.files.size() == 2 && p.aside == std::vector<std::string>( { "s.dll" } ),
+		"an update whose journal ends in a torn record still reads" );
+	held = CreateFileW( ( dir4 + L"\\base\\t.pk3" ).c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL );
+	require( held != INVALID_HANDLE_VALUE, "hold t.pk3 open" );
+	printf( "(waiting %lu s on a file in use, resuming after a torn journal record)\n", APPLY_WAIT_MS / 1000 );
+	require( !Update_Swap( dir4, staging4, p.files, p.remove, applying, &moved, &error ) && moved == 0, "a file in use stops the resumed swap" );
+	CloseHandle( held );
+	require( ReadAll( dir4 + L"\\s.dll" ) == "old s" && ReadAll( staging4 + L"\\s.dll" ) == "new s" && ReadAll( dir4 + L"\\base\\t.pk3" ) == "old t",
+		"what went in before the power cut goes back, as its intact record says" );
+	require( Update_Swap( dir4, staging4, p.files, p.remove, applying, &moved, &error ) && moved == 2
+		&& ReadAll( dir4 + L"\\s.dll" ) == "new s" && ReadAll( dir4 + L"\\base\\t.pk3" ) == "new t", "and then it goes in whole: " + error );
+	updatePending_t after;
+	require( Update_ReadPending( applying, &after ), "the journal still reads after more records went on after the torn one" );
 }
 
 static void CheckPending( void ) {
@@ -484,8 +509,31 @@ static void CheckPending( void ) {
 	WriteAll( path, "jofupdate 1\ntag 1.6.2\nremove 5 6 base/old.pk3\n" );
 	updatePending_t onlyRemove;
 	require( Update_ReadPending( path, &onlyRemove ) && onlyRemove.files.empty() && onlyRemove.remove.size() == 1, "an update may only remove files" );
+	// A journal record a power cut tore as it was appended is passed over, and the
+	// intact records stay: anything of it, garbage, or a path the updater may not write.
+	const std::string list = "jofupdate 1\ntag 1.6.2\nattempts 0\nfile x.dll\nfile base/y.pk3\n";
+	const std::vector<std::string> justX = { "x.dll" };
+	for ( const std::string &tail : { std::string( "\naside x.dll\n\naside base/y" ), "\naside x.dll\n" + std::string( 9, '\0' ),
+			std::string( "\naside x.dll\n\nasi" ), std::string( "\naside x.dll\n\naside ../x.dll\n" ) } ) {
+		WriteAll( path, list + tail );
+		updatePending_t torn;
+		require( Update_ReadPending( path, &torn ) && torn.files.size() == 2 && torn.aside == justX && Update_JournalAside( path ) == justX,
+			"a torn journal record is passed over, and the intact ones kept" );
+	}
+	WriteAll( path, list + "\naside ba" );
+	updatePending_t tornFirst;
+	require( Update_ReadPending( path, &tornFirst ) && tornFirst.aside.empty(), "so is the first record, torn" );
+	// The next record goes on a line of its own, not onto the torn one.
+	WriteAll( path, list + "\naside x.dll\n\naside base/y" );
+	require( Update_JournalAppend( path, "aside base/y.pk3" ) && Update_JournalAside( path ) == std::vector<std::string>( { "x.dll", "base/y.pk3" } ),
+		"a record appended after a torn one is read" );
+	// But the list after a torn record is no journal's tail.
+	WriteAll( path, list + "garbage\nfile z.dll\n" );
+	updatePending_t notTail;
+	require( !Update_ReadPending( path, &notTail ), "a list line after a torn record makes the list unreadable" );
+
 	for ( const char *bad : { "file base/autoexec.cfg", "remove 5 6 base/autoexec.cfg", "remove 5 6 base/assets0.pk3", "remove x 6 base/old.pk3",
-			"remove 5 base/old.pk3", "remove 5 6", "remove -5 6 base/old.pk3", "aside ../x.dll" } ) {
+			"remove 5 base/old.pk3", "remove 5 6", "remove -5 6 base/old.pk3" } ) {
 		WriteAll( path, std::string( "jofupdate 1\ntag 1.6.2\n" ) + bad + "\n" );
 		updatePending_t refused;
 		require( !Update_ReadPending( path, &refused ), std::string( "ready.txt cannot say '" ) + bad + "'" );

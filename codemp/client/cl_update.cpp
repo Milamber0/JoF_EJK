@@ -1190,6 +1190,11 @@ static bool Update_ReadRemoval( const std::string &line, updateRemoval_t *remova
 	return Update_ValidPath( removal->path ) && !Update_RetailFile( removal->path );
 }
 
+// The list is written whole (Update_WriteFile); only the swap's journal is appended
+// to it as the swap goes, and a power cut can tear the record being appended. Such
+// a record is passed over: its file was not moved aside, which comes only once its
+// record is on the disk. A list line that makes no sense, or one after a torn
+// record, makes the list unreadable.
 static bool Update_ReadPending( const std::wstring &path, updatePending_t *p ) {
 	std::string text;
 	if ( !Update_ReadFile( path, &text ) )
@@ -1197,10 +1202,19 @@ static bool Update_ReadPending( const std::wstring &path, updatePending_t *p ) {
 	std::vector<std::string> lines = Update_Lines( text );
 	if ( lines.empty() || lines[0] != "jofupdate 1" )
 		return false;
+	bool torn = false;
 	for ( size_t i = 1; i < lines.size(); i++ ) {
 		const std::string &line = lines[i];
+		const bool listLine = !line.compare( 0, 4, "tag " ) || !line.compare( 0, 9, "attempts " )
+			|| !line.compare( 0, 5, "file " ) || !line.compare( 0, 7, "remove " );
 		updateRemoval_t removal;
-		if ( !line.compare( 0, 4, "tag " ) )
+		if ( !line.compare( 0, 6, "aside " ) && Update_ValidPath( line.substr( 6 ) ) )
+			p->aside.push_back( line.substr( 6 ) );
+		else if ( !listLine )
+			torn = true;
+		else if ( torn )
+			return false;
+		else if ( !line.compare( 0, 4, "tag " ) )
 			p->tag = line.substr( 4 );
 		else if ( !line.compare( 0, 9, "attempts " ) )
 			p->attempts = atoi( line.c_str() + 9 );
@@ -1208,8 +1222,6 @@ static bool Update_ReadPending( const std::wstring &path, updatePending_t *p ) {
 			p->files.push_back( line.substr( 5 ) );
 		else if ( !line.compare( 0, 7, "remove " ) && Update_ReadRemoval( line, &removal ) )
 			p->remove.push_back( removal );
-		else if ( !line.compare( 0, 6, "aside " ) && Update_ValidPath( line.substr( 6 ) ) )
-			p->aside.push_back( line.substr( 6 ) );
 		else
 			return false;
 	}
@@ -1494,12 +1506,13 @@ static void Update_CleanUp( const std::wstring &dir, const std::wstring &root ) 
 // The swap's journal, in applying.txt: "aside <path>" is written, and on the disk,
 // before that file is moved aside as <path>.old, so a swap that was stopped (a crash,
 // the power) knows which .old files are its own backups and which are older ones.
+// A record the power cut tore names nothing; its file was not moved aside yet.
 static std::vector<std::string> Update_JournalAside( const std::wstring &journal ) {
 	std::vector<std::string> aside;
 	std::string text;
 	if ( Update_ReadFile( journal, &text ) ) {
 		for ( const std::string &line : Update_Lines( text ) ) {
-			if ( !line.compare( 0, 6, "aside " ) )
+			if ( !line.compare( 0, 6, "aside " ) && Update_ValidPath( line.substr( 6 ) ) )
 				aside.push_back( line.substr( 6 ) );
 		}
 	}
@@ -1510,7 +1523,8 @@ static bool Update_JournalAppend( const std::wstring &journal, const std::string
 	HANDLE file = CreateFileW( journal.c_str(), FILE_APPEND_DATA, FILE_SHARE_READ, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL );
 	if ( file == INVALID_HANDLE_VALUE )
 		return false;
-	const std::string text = line + "\n";
+	// On a line of its own, so the rest of a record a power cut tore cannot run into it.
+	const std::string text = "\n" + line + "\n";
 	DWORD wrote = 0;
 	const bool ok = WriteFile( file, text.data(), (DWORD)text.size(), &wrote, NULL ) && wrote == text.size() && FlushFileBuffers( file );
 	const DWORD code = GetLastError();

@@ -83,7 +83,10 @@ A swap stopped halfway, by a crash or the power going, leaves
 program went in first and is the one running. Before the swap moves a file aside,
 it notes `aside <path>` in that file's journal and writes it to the disk. So a
 resumed swap knows which `.old` files are its own backups, even for a file stopped
-between its two renames, and never takes an older `.old` for one. If the rest still cannot go in,
+between its two renames, and never takes an older `.old` for one. Each record goes
+on a line of its own. One the power cut tore while it was being written is passed
+over, since its file was not moved aside yet. The intact records before and after
+it still count. If the rest still cannot go in,
 everything goes back, including what the stopped swap had moved, so the old
 release is whole again. When that puts the old program back under a new one that
 is running, the client says so in a message box and exits, rather than run with
