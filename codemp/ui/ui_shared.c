@@ -3558,6 +3558,28 @@ void Leaving_EditField(itemDef_t *item)
 	}
 }
 
+// Starts editing an edit field as a click on it would, with the cursor after its text: for
+// a menu that opens ready to type in (the SJK chat menu).
+void Item_TextField_Begin( itemDef_t *item )
+{
+	char buff[2048];
+	editFieldDef_t *editPtr;
+	int len;
+
+	if ( !item || item->type != ITEM_TYPE_EDITFIELD || !item->cvar || !item->typeData.edit )
+		return;
+	editPtr = item->typeData.edit;
+	buff[0] = 0;
+	DC->getCVarString( item->cvar, buff, sizeof( buff ) );
+	len = (int)strlen( buff );
+	if ( editPtr->maxChars && len > editPtr->maxChars )
+		len = editPtr->maxChars;
+	item->cursorPos = len;
+	editPtr->paintOffset = editPtr->maxPaintChars && len > editPtr->maxPaintChars ? len - editPtr->maxPaintChars : 0;
+	g_editingField = qtrue;
+	g_editItem = item;
+}
+
 #ifdef UI_BUILD
 qboolean Item_TextField_HandleKey( itemDef_t *item, int key );
 void Item_TextField_Paste( itemDef_t *item ) {

@@ -1737,6 +1737,16 @@ void CL_BindUI( void ) {
 		uii.ext.R_Font_StrLenPixels				= re->ext.Font_StrLenPixels;
 		uii.ext.AddCommand						= CL_AddUICommand;
 		uii.ext.RemoveCommand					= UIVM_Cmd_RemoveCommand;
+		// The SJK chat menu (client/cl_sjk.cpp), only on Windows, as SJK chat is. The ui
+		// checks this cvar first: an older engine ends the table before these.
+		uii.ext.SJK_ChatLineCount				= CL_SJK_ChatLineCount;
+		uii.ext.SJK_ChatLine					= CL_SJK_ChatLine;
+		uii.ext.SJK_SayText						= CL_SJK_SayText;
+#ifdef _WIN32
+		Cvar_Get( "cl_sjkChatUI", "1", CVAR_ROM, "The SJK chat menu supported by this client (0 = none)" );
+#else
+		Cvar_Get( "cl_sjkChatUI", "0", CVAR_ROM, "The SJK chat menu supported by this client (0 = none)" );
+#endif
 
 		GetUIAPI = (GetUIAPI_t)uivm->GetModuleAPI;
 		ret = GetUIAPI( UI_API_VERSION, &uii );

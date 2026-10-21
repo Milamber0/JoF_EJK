@@ -523,11 +523,12 @@ if(BuildMPEngine)
 		endif()
 	endif()
 
-	# The updater (client/cl_update.cpp) is Windows-only for now: WinHTTP for the
-	# downloads, cJSON for the manifest and Monocypher for its signature.
+	# The updater (client/cl_update.cpp) and SJK chat (client/cl_sjk.cpp) are
+	# Windows-only for now: WinHTTP for the hub and the downloads, cJSON, Monocypher
+	# for the signatures, and BCrypt for SJK chat's SHA-256 and nonces.
 	if(WIN32)
 		set(MPEngineIncludeDirectories ${MPEngineIncludeDirectories} ${CJSON_INCLUDE_DIRS} ${MONOCYPHER_INCLUDE_DIRS})
-		set(MPEngineLibraries ${MPEngineLibraries} ${CJSON_LIBRARIES} ${MONOCYPHER_LIBRARIES} "winhttp")
+		set(MPEngineLibraries ${MPEngineLibraries} ${CJSON_LIBRARIES} ${MONOCYPHER_LIBRARIES} "winhttp" "bcrypt")
 	endif()
 
 	if(UseInternalSDL2)
@@ -586,6 +587,7 @@ if(BuildMPEngine)
 		"${MPDir}/client/cl_ui.cpp"
 		"${MPDir}/client/cl_uiapi.cpp"
 		"${MPDir}/client/cl_uiapi.h"
+		"${MPDir}/client/cl_sjk.cpp"
 		"${MPDir}/client/cl_update.cpp"
 		"${MPDir}/client/FXExport.cpp"
 		"${MPDir}/client/FXExport.h"

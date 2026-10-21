@@ -8360,6 +8360,9 @@ void UI_UpdateSaberHiltInfo( void ) {
 	WP_SaberGetHiltInfo(saberSingleHiltInfo, saberStaffHiltInfo);
 }
 
+static void UI_SJKChatSay( void );
+static void UI_SJKChatOpen( void );
+
 static void UI_RunMenuScript(char **args)
 {
 	const char *name, *name2;
@@ -8370,6 +8373,14 @@ static void UI_RunMenuScript(char **args)
 		if (Q_stricmp(name, "clearcosmetics") == 0)
 		{
 			UI_ClearCosmetics();
+		}
+		else if (Q_stricmp(name, "sjkSay") == 0)
+		{
+			UI_SJKChatSay();
+		}
+		else if (Q_stricmp(name, "sjkChatOpen") == 0)
+		{
+			UI_SJKChatOpen();
 		}
 		else if (Q_stricmp(name, "getcosmetics") == 0)
 		{
@@ -11029,6 +11040,161 @@ void UI_DrawCosmeticsOnCharacter( itemDef_t *item, vec3_t origin, vec3_t angles 
 	}
 }
 
+/*
+=================
+SJK chat menu (ui/jamp/sjkchat.menu): the engine's SJK chat history (client/cl_sjk.cpp)
+in a list, wrapped to the list's width, each message after the icon of the client it
+came from, in place of its SJK word; its field says a line on SJK chat. Only with an engine that has it
+(cl_sjkChatUI): an older one ends the import table before these.
+=================
+*/
+#define SJK_CHAT_ROWS_MAX	400
+#define SJK_CHAT_LIST		"sjkchat_list"	// the list's name in sjkchat.menu
+#define SJK_CHAT_FIELD		"sjkchat_field"	// and its field's
+#define SJK_CHAT_WIDTH		510				// its text's room there, the scroll bar left out
+#define SJK_CHAT_SCALE		0.85f			// and its textscale
+#define SJK_CHAT_FONT		4				// and its font
+
+typedef struct sjkChatRow_s {
+	char		text[256];
+	qhandle_t	icon;
+} sjkChatRow_t;
+
+static sjkChatRow_t	sjkChatRows[SJK_CHAT_ROWS_MAX];
+static int			sjkChatRowCount;
+static int			sjkChatRevision = -1;
+static qboolean		sjkChatToBottom;	// the menu opened: show the newest rows
+
+static qboolean UI_SJKChatAvailable( void ) {
+	return (qboolean)( trap->Cvar_VariableValue( "cl_sjkChatUI" ) != 0 );
+}
+
+static void UI_SJKChatAddRow( const char *text, qhandle_t icon ) {
+	if ( sjkChatRowCount == SJK_CHAT_ROWS_MAX ) {
+		memmove( sjkChatRows, sjkChatRows + 1, sizeof( sjkChatRows ) - sizeof( sjkChatRows[0] ) );
+		sjkChatRowCount--;
+	}
+	Q_strncpyz( sjkChatRows[sjkChatRowCount].text, text, sizeof( sjkChatRows[0].text ) );
+	sjkChatRows[sjkChatRowCount].icon = icon;
+	sjkChatRowCount++;
+}
+
+// One line of the history as rows of the list's width, cut at a space where one is
+// near and never between "^" and its digit, each after the colour the last one ended
+// in; the icon goes on the first.
+static void UI_SJKChatWrap( const char *line, qhandle_t icon ) {
+	char row[256];
+	char colour = 0;
+	const char *at = line;
+
+	while ( *at ) {
+		const int prefix = colour ? 2 : 0;
+		int take = 0, fitted, i;
+
+		row[0] = Q_COLOR_ESCAPE;
+		row[1] = colour;
+		// The longest start of what is left that fits the width.
+		while ( at[take] && prefix + take + 1 < (int)sizeof( row ) ) {
+			memcpy( row + prefix, at, take + 1 );
+			row[prefix + take + 1] = '\0';
+			if ( Text_Width( row, SJK_CHAT_SCALE, SJK_CHAT_FONT ) > SJK_CHAT_WIDTH )
+				break;
+			take++;
+		}
+		fitted = take;
+		if ( at[take] ) {
+			for ( i = take; i > fitted / 2; i-- ) {
+				if ( at[i] == ' ' ) {
+					take = i;
+					break;
+				}
+			}
+			if ( take > 1 && at[take - 1] == Q_COLOR_ESCAPE )
+				take--;
+		}
+		if ( take < 1 )
+			take = 1;
+		memcpy( row + prefix, at, take );
+		row[prefix + take] = '\0';
+		UI_SJKChatAddRow( row, icon );
+		icon = -1;
+		for ( i = 0; i + 1 < take; i++ ) {
+			if ( at[i] == Q_COLOR_ESCAPE && at[i + 1] >= '0' && at[i + 1] <= '9' )
+				colour = at[i + 1];
+		}
+		at += take;
+		while ( *at == ' ' )
+			at++;
+	}
+}
+
+// The history's rows, rebuilt when the engine's history changed; a list scrolled to its
+// newest row stays there.
+static void UI_SJKChatRefresh( void ) {
+	static qhandle_t sjkIcon, ejkIcon;
+	char text[1024], client[16];
+	int revision = 0, count, i;
+	itemDef_t *list;
+	int oldMax = 0;
+
+	if ( !UI_SJKChatAvailable() )
+		return;
+	count = trap->ext.SJK_ChatLineCount( &revision );
+	if ( revision == sjkChatRevision )
+		return;
+	sjkChatRevision = revision;
+	if ( !sjkIcon ) {
+		sjkIcon = trap->R_RegisterShaderNoMip( "gfx/sjk/sjk" );
+		ejkIcon = trap->R_RegisterShaderNoMip( "gfx/sjk/ejk" );
+	}
+
+	list = Menu_FindItemByName( Menus_FindByName( "sjkchat" ), SJK_CHAT_LIST );
+	if ( list && list->typeData.listbox && list->typeData.listbox->elementHeight > 0 )
+		oldMax = sjkChatRowCount - (int)( list->window.rect.h / list->typeData.listbox->elementHeight ) + 1;
+
+	sjkChatRowCount = 0;
+	for ( i = 0; i < count; i++ ) {
+		const char *shown = text;
+		qhandle_t icon;
+
+		if ( !trap->ext.SJK_ChatLine( i, text, sizeof( text ), client, sizeof( client ) ) )
+			break;
+		// The icon takes the place of the SJK word a message starts with; one that did
+		// not load leaves the word.
+		icon = !strcmp( client, "sjk" ) ? sjkIcon : !strcmp( client, "ejk" ) ? ejkIcon : 0;
+		if ( icon && !Q_strncmp( shown, SJK_CHAT_MARK, (int)strlen( SJK_CHAT_MARK ) ) )
+			shown += strlen( SJK_CHAT_MARK );
+		UI_SJKChatWrap( shown, icon ? icon : -1 );
+	}
+
+	if ( list && list->typeData.listbox && list->typeData.listbox->elementHeight > 0 ) {
+		listBoxDef_t *listPtr = list->typeData.listbox;
+		const int newMax = sjkChatRowCount - (int)( list->window.rect.h / listPtr->elementHeight ) + 1;
+
+		if ( sjkChatToBottom || listPtr->startPos >= oldMax )
+			listPtr->startPos = newMax > 0 ? newMax : 0;
+		sjkChatToBottom = qfalse;
+	}
+}
+
+// The menu opened: its list is built again and shows the newest rows, and its field takes
+// what is typed straight away.
+static void UI_SJKChatOpen( void ) {
+	sjkChatRevision = -1;
+	sjkChatToBottom = qtrue;
+	Item_TextField_Begin( Menu_FindItemByName( Menus_FindByName( "sjkchat" ), SJK_CHAT_FIELD ) );
+}
+
+// The field's line (ui_sjkChatText) on SJK chat; the field empties.
+static void UI_SJKChatSay( void ) {
+	char text[MAX_CVAR_VALUE_STRING];
+
+	trap->Cvar_VariableStringBuffer( "ui_sjkChatText", text, sizeof( text ) );
+	if ( text[0] && UI_SJKChatAvailable() )
+		trap->ext.SJK_SayText( text );
+	trap->Cvar_Set( "ui_sjkChatText", "" );
+}
+
 static int UI_FeederCount(float feederID)
 {
 	int team,baseClass,count=0,i;
@@ -11043,6 +11209,10 @@ static int UI_FeederCount(float feederID)
 		case FEEDER_COSMETIC_CAPES:
 			count = UI_InstalledCosmeticCount( uiInfo.capes, uiInfo.totalCapes );
 			return count + ( count < uiInfo.totalCapes );
+
+		case FEEDER_SJK_CHAT:
+			UI_SJKChatRefresh();
+			return sjkChatRowCount;
 
 		case FEEDER_SABER_SINGLE_INFO:
 
@@ -11381,6 +11551,16 @@ static const char *UI_FeederItemText(float feederID, int index, int column,
 	static int lastColumn = -1;
 	static int lastTime = 0;
 	*handle1 = *handle2 = *handle3 = -1;
+
+	// The SJK chat menu's list: the row in its first column, with the client's icon, which
+	// the list draws just before where its second, empty column starts.
+	if (feederID == FEEDER_SJK_CHAT)
+	{
+		if ( index < 0 || index >= sjkChatRowCount || column != 0 )
+			return "";
+		*handle1 = sjkChatRows[index].icon;
+		return sjkChatRows[index].text;
+	}
 
 	if (feederID == FEEDER_COSMETIC_HATS)
 	{

@@ -59,6 +59,7 @@ extern field_t		historyEditLines[COMMAND_HISTORY];
 extern field_t		chatField;
 extern qboolean		chat_team;
 extern int			chat_playerNum;
+extern qboolean		chat_sjk;		// the line goes to SJK chat (cl_sjk.cpp), in a match to the server too
 
 void	Field_KeyDownEvent	( field_t *edit, int key );
 void	Field_CharEvent		( field_t *edit, int ch );

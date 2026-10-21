@@ -477,6 +477,10 @@ typedef enum cgameExportLegacy_e {
 	CG_LAST_WHISPERER,
 } cgameExportLegacy_t;
 
+// How an SJK chat message's line starts (SJK_SetChatSink, and the ui's SJK_ChatLine).
+// Where the icon of the client it came from is drawn, the icon takes its place.
+#define SJK_CHAT_MARK	S_COLOR_YELLOW "SJK "
+
 typedef struct cgameImport_s {
 	// common
 	void			(*Print)								( const char *msg, ... );
@@ -730,6 +734,11 @@ typedef struct cgameImport_s {
 	// first change, so anything that moves shifts every slot after it.
 	// Only valid when the "cl_soundLength" cvar is non-zero: older engines end the table before this.
 	int				(*S_GetSampleLengthMs)					( sfxHandle_t sfx );
+	// Only valid when the "cl_sjkChatSink" cvar is non-zero. The engine hands SJK chat
+	// lines (client/cl_sjk.cpp) to sink until the cgame unloads, each with the client
+	// its message came from ("sjk", "ejk") and its id in the feed, both "" for none and
+	// for SJK chat's own lines.
+	void			(*SJK_SetChatSink)						( void (*sink)( const char *line, const char *client, const char *id ) );
 
 } cgameImport_t;
 

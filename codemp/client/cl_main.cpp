@@ -3081,6 +3081,7 @@ void CL_Frame ( int msec ) {
 #endif
 
 	CL_Update_Frame();
+	CL_SJK_Frame();
 }
 
 
@@ -3162,6 +3163,8 @@ void CL_InitRenderer( void ) {
 
 	cls.whiteShader = re->RegisterShader( "white" );
 	cls.consoleShader = re->RegisterShader("console");
+	cls.conIconShaders[CON_ICON_SJK] = re->RegisterShaderNoMip("gfx/sjk/sjk");
+	cls.conIconShaders[CON_ICON_EJK] = re->RegisterShaderNoMip("gfx/sjk/ejk");
 
 	CL_UpdateWidescreen();
 
@@ -4293,6 +4296,7 @@ void CL_Init( void ) {
 #endif
 
 	CL_Update_Init();
+	CL_SJK_Init();
 
 	Com_Printf( "----- Client Initialization Complete -----\n" );
 }
@@ -4371,6 +4375,7 @@ void CL_Shutdown( void ) {
 #endif
 
 	CL_Update_Shutdown();
+	CL_SJK_Shutdown();
 
 	CL_ShutdownInput();
 	Con_Shutdown();

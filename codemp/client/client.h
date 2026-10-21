@@ -407,6 +407,7 @@ typedef struct clientStatic_s {
 	qhandle_t	charSetShader;
 	qhandle_t	whiteShader;
 	qhandle_t	consoleShader;
+	qhandle_t	conIconShaders[3];	// by conIcon_t, for Con_SetPrintIcon
 
 	// Cursor
 	qboolean	cursorActive;
@@ -605,6 +606,17 @@ void CL_Update_Init(void);
 void CL_Update_Frame(void);
 void CL_Update_Shutdown(void);
 
+// cl_sjk.cpp
+void CL_SJK_Init(void);
+void CL_SJK_Frame(void);
+void CL_SJK_Shutdown(void);
+qboolean CL_SJK_SayText(const char *text);
+int CL_SJK_ChatLineCount(int *revision);	// the SJK chat menu's history (ui)
+qboolean CL_SJK_ChatLine(int index, char *text, int textSize, char *client, int clientSize);
+qboolean CL_SJK_ToChatBox(const char *line, const char *client, const char *id);	// cl_cgameapi.cpp
+qboolean CL_SJK_ServerSession(char *serverId, int serverIdSize, char *mapname, int mapnameSize);	// cl_parse.cpp
+void CL_SayToServer(const char *text);	// cl_keys.cpp
+
 qboolean CL_CheckPaused(void);
 
 extern int		cl_nameModifiedTime;
@@ -677,6 +689,14 @@ void Con_Close( void );
 void Con_SetFrac(const float conFrac);
 void Con_Copy(void);
 void Con_CopyLink(void);
+
+// The icon the next console print starts with: an SJK chat message's client.
+typedef enum {
+	CON_ICON_NONE,
+	CON_ICON_SJK,	// gfx/sjk/sjk
+	CON_ICON_EJK,	// gfx/sjk/ejk
+} conIcon_t;
+void Con_SetPrintIcon( conIcon_t icon );
 
 #ifdef _WIN32
 extern qboolean con_alert;

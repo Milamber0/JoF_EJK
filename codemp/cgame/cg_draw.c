@@ -10306,6 +10306,11 @@ char *Q_strtokm(char *str, const char *delim)
     return tok;
 }
 
+// The icon the next chat box item is drawn after (CG_SJKChatLine), 0 for none, and
+// whether its text leaves room for one all the same (the rest of a long message).
+static qhandle_t chatBoxNextIcon;
+static qboolean chatBoxNextIndent;
+
 //add chatbox string
 void CG_ChatBox_AddString(char *chatStr, qboolean isPrivate)
 {
@@ -10366,8 +10371,15 @@ void CG_ChatBox_AddString(char *chatStr, qboolean isPrivate)
 		return;
 	}
 
+	// The icon takes the place of the SJK word an SJK chat message starts with
+	// (CG_SJKChatLine); the log and the console's copy above keep it.
+	if (chatBoxNextIcon && !Q_strncmp(chatStr, SJK_CHAT_MARK, (int)strlen(SJK_CHAT_MARK)))
+		chatStr += strlen(SJK_CHAT_MARK);
+
 	Com_Memset(chat, 0, sizeof(chatBoxItem_t));
 	chat->isPrivate = isPrivate;
+	chat->icon = chatBoxNextIcon;
+	chat->indented = (qboolean)(chatBoxNextIcon || chatBoxNextIndent);
 
 	if (strlen(chatStr) > sizeof(chat->string))
 	{ //too long, terminate at proper len.
@@ -10650,6 +10662,198 @@ void CG_ChatBox_AddString(char *chatStr, qboolean isPrivate)
 	}
 }
 
+// SJK chat said on the game server too (client/cl_sjk.cpp; the hub's protocol, "Chat"):
+// the server's copy ends with the message's id in colour codes, ^9, then ^ and the
+// number of digits, then ^ and each digit. While SJK chat is read, such a line waits up
+// to SJK_HELD_MS for the message itself, which then shows in its place, whole and with
+// its client's icon, and the server's lines of it are neither shown nor logged. A
+// message that came first drops the lines that come after it. Lines without the end
+// are never held.
+#define SJK_HELD_MAX	8
+#define SJK_SEEN_MAX	16
+#define SJK_HELD_MS		2500
+#define SJK_SEEN_MS		15000
+
+typedef struct sjkHeldLine_s {
+	char		id[10];
+	char		text[MAX_NETNAME + MAX_SAY_TEXT];
+	qboolean	isPrivate;
+	int			until;		// trap->Milliseconds
+} sjkHeldLine_t;
+
+typedef struct sjkSeenMessage_s {
+	char		id[10];
+	int			until;
+} sjkSeenMessage_t;
+
+static sjkHeldLine_t	sjkHeld[SJK_HELD_MAX];
+static sjkSeenMessage_t	sjkSeen[SJK_SEEN_MAX];
+
+// The id a server chat line ends with, and where that end starts; qfalse for none.
+static qboolean CG_SJKLineId(const char *text, char *id, int *at)
+{
+	const int len = (int)strlen(text);
+	int digits;
+
+	for (digits = 1; digits <= 9; digits++) {
+		const int start = len - 4 - 2 * digits;
+		const char *p = text + start;
+		int i;
+
+		if (start < 0)
+			break;
+		if (p[0] != Q_COLOR_ESCAPE || p[1] != '9' || p[2] != Q_COLOR_ESCAPE || p[3] != '0' + digits)
+			continue;
+		for (i = 0; i < digits; i++) {
+			if (p[4 + 2 * i] != Q_COLOR_ESCAPE || p[5 + 2 * i] < '0' || p[5 + 2 * i] > '9')
+				break;
+			id[i] = p[5 + 2 * i];
+		}
+		if (i < digits)
+			continue;
+		id[digits] = '\0';
+		*at = start;
+		return qtrue;
+	}
+	return qfalse;
+}
+
+static qboolean CG_SJKReading(void)
+{
+	char value[8];
+
+	if (!cgs.media.sjkClientIcon && !cgs.media.ejkClientIcon)
+		return qfalse;	// no SJK chat from this engine (cg_main.c)
+	trap->Cvar_VariableStringBuffer("cl_sjkChat", value, sizeof(value));
+	return (qboolean)(atoi(value) != 0);
+}
+
+static void CG_SJKShowHeld(sjkHeldLine_t *held)
+{
+	char text[MAX_NETNAME + MAX_SAY_TEXT];
+
+	Q_strncpyz(text, held->text, sizeof(text));
+	held->id[0] = '\0';
+	if (cg_chatSounds.integer)
+		trap->S_StartLocalSound(cgs.media.talkSound, CHAN_LOCAL_SOUND);
+	CG_ChatBox_AddString(text, held->isPrivate);
+}
+
+// A server chat line (CG_Chat_f): qtrue when it is the server's copy of an SJK chat
+// message, held for the message or dropped as the message showed; the caller then
+// leaves it alone.
+qboolean CG_SJKServerLine(const char *text, qboolean isPrivate)
+{
+	const int now = trap->Milliseconds();
+	char id[10];
+	int at, i, slot = -1;
+
+	if (!CG_SJKReading() || !CG_SJKLineId(text, id, &at))
+		return qfalse;
+	for (i = 0; i < SJK_SEEN_MAX; i++) {
+		if (sjkSeen[i].id[0] && sjkSeen[i].until - now > 0 && !strcmp(sjkSeen[i].id, id))
+			return qtrue;
+	}
+	for (i = 0; i < SJK_HELD_MAX; i++) {
+		if (!sjkHeld[i].id[0]) {
+			slot = i;
+			break;
+		}
+		if (slot < 0 || sjkHeld[i].until - sjkHeld[slot].until < 0)
+			slot = i;
+	}
+	if (sjkHeld[slot].id[0])
+		CG_SJKShowHeld(&sjkHeld[slot]);	// no room: the oldest goes now
+	Q_strncpyz(sjkHeld[slot].id, id, sizeof(sjkHeld[slot].id));
+	Q_strncpyz(sjkHeld[slot].text, text, sizeof(sjkHeld[slot].text));
+	if (at < (int)sizeof(sjkHeld[slot].text))
+		sjkHeld[slot].text[at] = '\0';
+	sjkHeld[slot].isPrivate = isPrivate;
+	sjkHeld[slot].until = now + SJK_HELD_MS;
+	return qtrue;
+}
+
+// An SJK chat message with this id shows: the server's lines of it go unshown, now and
+// for a while after.
+static void CG_SJKSawMessage(const char *id)
+{
+	const int now = trap->Milliseconds();
+	int i, slot = 0;
+
+	for (i = 0; i < SJK_HELD_MAX; i++) {
+		if (sjkHeld[i].id[0] && !strcmp(sjkHeld[i].id, id))
+			sjkHeld[i].id[0] = '\0';
+	}
+	for (i = 0; i < SJK_SEEN_MAX; i++) {
+		if (sjkSeen[i].until - sjkSeen[slot].until < 0)
+			slot = i;
+	}
+	Q_strncpyz(sjkSeen[slot].id, id, sizeof(sjkSeen[slot].id));
+	sjkSeen[slot].until = now + SJK_SEEN_MS;
+}
+
+// Every frame: a held line whose message did not come shows as it was.
+void CG_SJKServerLinesFrame(void)
+{
+	const int now = trap->Milliseconds();
+	int i;
+
+	for (i = 0; i < SJK_HELD_MAX; i++) {
+		if (sjkHeld[i].id[0] && sjkHeld[i].until - now <= 0)
+			CG_SJKShowHeld(&sjkHeld[i]);
+	}
+}
+
+// A line of SJK chat from the engine (client/cl_sjk.cpp, SJK_SetChatSink) into the
+// chat box. CG_ChatBox_AddString copies into MAX_SAY_TEXT + MAX_NETNAME, which a
+// server's chat never fills but an SJK message of 300 characters does, so a long one
+// goes in as several items, the rest in SJK's gold, cut at a space where one is near
+// and never inside a colour code. A message goes after the icon of the client it came
+// from, "sjk" or "ejk" as the hub says, which takes the place of its SJK word; SJK chat's
+// own lines, and messages from other clients, have none. A message with an id takes the
+// place of the server's copy of it (CG_SJKServerLine).
+void CG_SJKChatLine(const char *line, const char *client, const char *id)
+{
+	char piece[MAX_SAY_TEXT + MAX_NETNAME];
+	const size_t room = sizeof(piece) - 3;	// a colour code before the rest, and the end
+	const char *at = line;
+	const qhandle_t icon = !strcmp(client, "sjk") ? cgs.media.sjkClientIcon
+		: !strcmp(client, "ejk") ? cgs.media.ejkClientIcon : 0;
+	qboolean first = qtrue;
+
+	if (id[0])
+		CG_SJKSawMessage(id);
+
+	while (*at) {
+		size_t take = strlen(at);
+		if (take > room) {
+			size_t space;
+			take = room;
+			if (at[take - 1] == Q_COLOR_ESCAPE)
+				take--;
+			for (space = take; space > take / 2; space--) {
+				if (at[space] == ' ') {
+					take = space;
+					break;
+				}
+			}
+		}
+		Com_sprintf(piece, sizeof(piece), "%s%.*s", first ? "" : S_COLOR_YELLOW, (int)take, at);
+		chatBoxNextIcon = first ? icon : 0;
+		chatBoxNextIndent = (qboolean)(icon != 0);
+		CG_ChatBox_AddString(piece, qfalse);
+		at += take;
+		while (*at == ' ')
+			at++;
+		first = qfalse;
+	}
+	chatBoxNextIcon = 0;
+	chatBoxNextIndent = qfalse;
+
+	if (cg_chatSounds.integer)
+		trap->S_StartLocalSound(cgs.media.talkSound, CHAN_LOCAL_SOUND);
+}
+
 //insert item into array (rearranging the array if necessary)
 void CG_ChatBox_ArrayInsert(chatBoxItem_t **array, int insPoint, int maxNum, chatBoxItem_t *item)
 {
@@ -10690,10 +10894,14 @@ static QINLINE void CG_ChatBox_DrawStrings(void)
 		return;
 	}
 
+	// Oldest first, from where the next item goes: items added in the same frame (an SJK
+	// chat message in pieces, or several at once) share a time and keep that order.
 	while (i < cg_chatBoxLines.integer)
 	{
-		if ((!cg.pmOnlyChat || cg.chatItems[i].isPrivate) &&
-			(cg.chatItems[i].time >= cg.time || drawAnyway))
+		chatBoxItem_t *item = &cg.chatItems[(cg.chatItemActive + i) % cg_chatBoxLines.integer];
+
+		if ((!cg.pmOnlyChat || item->isPrivate) &&
+			(item->time >= cg.time || drawAnyway))
 		{
 			int check = numToDraw;
 			int insertionPoint = numToDraw;
@@ -10701,15 +10909,15 @@ static QINLINE void CG_ChatBox_DrawStrings(void)
 			while (check >= 0)
 			{
 				if (drawThese[check] &&
-					cg.chatItems[i].time < drawThese[check]->time)
+					item->time < drawThese[check]->time)
 				{ //insert here
 					insertionPoint = check;
 				}
 				check--;
 			}
-			CG_ChatBox_ArrayInsert(drawThese, insertionPoint, cg_chatBoxLines.integer, &cg.chatItems[i]);
+			CG_ChatBox_ArrayInsert(drawThese, insertionPoint, cg_chatBoxLines.integer, item);
 			numToDraw++;
-			linesToDraw += cg.chatItems[i].lines;
+			linesToDraw += item->lines;
 		}
 		i++;
 	}
@@ -10726,6 +10934,17 @@ static QINLINE void CG_ChatBox_DrawStrings(void)
 	i = 0;
 	while (i < numToDraw)
 	{
+		// An icon (an SJK chat message's client) the size of an emoji, before the text.
+		const float iconSize = 17 * fontScale;
+		const float textX = x + (drawThese[i]->indented ? (iconSize + 3 * fontScale) * cgs.widthRatioCoef : 0);
+
+		if (drawThese[i]->icon) {
+			const float iconY = y + 3.7f * fontScale + (cg_newFont.integer == 1 ? 1 : cg_newFont.integer == 2 ? -1 : 2);
+
+			trap->R_SetColor(NULL);
+			CG_DrawPic(x, iconY, iconSize * cgs.widthRatioCoef, iconSize, drawThese[i]->icon);
+		}
+
 		//draw available emoji's
 		if (cg_chatBoxEmojis.integer) {
 			int k;
@@ -10735,7 +10954,7 @@ static QINLINE void CG_ChatBox_DrawStrings(void)
 				if (!drawThese[i]->emoji[k].emoji)
 					break;
 
-				CG_DrawPic((x + drawThese[i]->emoji[k].xOffset),
+				CG_DrawPic((textX + drawThese[i]->emoji[k].xOffset),
 							(y + drawThese[i]->emoji[k].yOffset),
 							17 * fontScale * cgs.widthRatioCoef,
 							17 * fontScale,
@@ -10745,13 +10964,13 @@ static QINLINE void CG_ChatBox_DrawStrings(void)
 
 		switch (cg_newFont.integer) {
 			case 0:
-				CG_Text_Paint(x, y, fontScale, colorWhite, drawThese[i]->string, 0, 0, ITEM_TEXTSTYLE_OUTLINED, FONT_SMALL);
+				CG_Text_Paint(textX, y, fontScale, colorWhite, drawThese[i]->string, 0, 0, ITEM_TEXTSTYLE_OUTLINED, FONT_SMALL);
 				break;
 			case 1:
-				CG_Text_Paint(x, y, fontScale, colorWhite, drawThese[i]->string, 0, 0, ITEM_TEXTSTYLE_OUTLINED, FONT_MEDIUM);
+				CG_Text_Paint(textX, y, fontScale, colorWhite, drawThese[i]->string, 0, 0, ITEM_TEXTSTYLE_OUTLINED, FONT_MEDIUM);
 				break;
 			case 2:
-				CG_Text_Paint(x, y, fontScale, colorWhite, drawThese[i]->string, 0, 0, ITEM_TEXTSTYLE_OUTLINED, FONT_SMALL2);
+				CG_Text_Paint(textX, y, fontScale, colorWhite, drawThese[i]->string, 0, 0, ITEM_TEXTSTYLE_OUTLINED, FONT_SMALL2);
 				break;
 		}
 

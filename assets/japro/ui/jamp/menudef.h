@@ -137,6 +137,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define FEEDER_COSMETIC_HATS				0x2E
 #define FEEDER_COSMETIC_CAPES				0x2F
 #define FEEDER_PLAYER_SPECIES_BROWSER		0x30
+#define FEEDER_SJK_CHAT					0x31			// the SJK chat menu's history (sjkchat.menu)
 
 
 // Xbox specific, hope no one minds

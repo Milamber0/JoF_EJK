@@ -2,6 +2,7 @@
 // 
 {	
 	loadMenu { "ui/jamp/main.menu" }
+	loadMenu { "ui/jamp/sjkchat.menu" }
 	loadMenu { "ui/jamp/joinserver.menu" }
 	loadMenu { "ui/jamp/player.menu" }
 	loadMenu { "ui/jamp/player2.menu" }

@@ -1068,6 +1068,8 @@ typedef struct chatBoxItem_s
 	int				lines;
 	qboolean		isPrivate;
 	chatBoxEmoji_t emoji[MAX_CHATBOX_ITEM_EMOJIS];
+	qhandle_t		icon;		// drawn before the text, which moves over for it; 0 for none
+	qboolean		indented;	// the text after an icon's room (an icon's, or the item before's)
 } chatBoxItem_t;
 
 #define	MAX_CLIENT_SPEEDPOINTS		32
@@ -1812,6 +1814,8 @@ typedef struct cgMedia_s {
 	sfxHandle_t	teleOutSound;
 	sfxHandle_t	respawnSound;
 	sfxHandle_t talkSound;
+	qhandle_t	sjkClientIcon;	// before an SJK chat message from SJK's client (CG_SJKChatLine)
+	qhandle_t	ejkClientIcon;	// before one from JoF's
 	sfxHandle_t	teamChatSound;
 	sfxHandle_t	privateChatSound;
 	sfxHandle_t landSound;
@@ -2472,6 +2476,9 @@ void CG_AddLagometerSnapshotInfo( snapshot_t *snap );
 void CG_CenterPrint( const char *str, int y, int charWidth );
 void CG_CenterPrintMultiKill(const char *str, int y, int charWidth);
 void CG_ChatBox_AddString(char *chatStr, qboolean isPrivate);
+void CG_SJKChatLine(const char *line, const char *client, const char *id);
+qboolean CG_SJKServerLine(const char *text, qboolean isPrivate);
+void CG_SJKServerLinesFrame(void);
 void CG_DrawHead( float x, float y, float w, float h, int clientNum, vec3_t headAngles );
 void CG_DrawActive( stereoFrame_t stereoView );
 void CG_DrawFlagModel( float x, float y, float w, float h, int team, qboolean force2D );

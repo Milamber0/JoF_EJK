@@ -1722,6 +1722,10 @@ static void CG_Chat_f( void ) {
 		if ( !Q_stricmp( cmd, "chat" ) &&
 			(!cg_teamChatsOnly.integer || cg.pmOnlyChat) )
 		{
+			// The server's copy of an SJK chat message waits for the message (cg_draw.c).
+			if ( CG_SJKServerLine( text, isPrivate ) )
+				return;
+
 			if (cg_cleanChatbox.integer) {
 				char cleanMsg[MAX_NETNAME + MAX_SAY_TEXT];
 
