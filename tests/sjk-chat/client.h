@@ -14,7 +14,18 @@ typedef enum { qfalse, qtrue } qboolean;
 #define S_COLOR_GREEN		"^2"
 #define S_COLOR_YELLOW		"^3"
 #define S_COLOR_WHITE		"^7"
-#define SJK_CHAT_MARK		S_COLOR_YELLOW "SJK "	// as cgame/cg_public.h
+#define S_COLOR_ORANGE		"^8"
+#define Q_COLOR_ESCAPE		'^'
+
+// As cgame/cg_public.h.
+typedef struct sjkChatLine_s {
+	const char		*who;
+	const char		*text;
+	const char		*nameWords;
+	const char		*words;
+	const char		*client;
+	const char		*id;
+} sjkChatLine_t;
 
 #define JOF_RELEASE_TAG		"1.0.0-beta.1"
 #define JOF_VERSION_STRING	"1.0.0"
@@ -40,7 +51,7 @@ void		Cmd_RemoveCommand( const char *name );
 int			Cmd_Argc( void );
 char		*Cmd_ArgsFrom( int arg );
 void		Com_Printf( const char *fmt, ... );
-qboolean	CL_SJK_ToChatBox( const char *line, const char *client, const char *id );
+qboolean	CL_SJK_ToChatBox( const sjkChatLine_t *line );
 qboolean	CL_SJK_ServerSession( char *serverId, int serverIdSize, char *mapname, int mapnameSize );
 void		CL_SayToServer( const char *text );
 int			Sys_Milliseconds( bool baseTime = false );
@@ -58,4 +69,8 @@ inline void Q_strncpyz( char *dest, const char *src, int destsize ) {
 
 inline int Q_stricmp( const char *a, const char *b ) {
 	return _stricmp( a, b );
+}
+
+inline int Q_stricmpn( const char *a, const char *b, int n ) {
+	return _strnicmp( a, b, n );
 }

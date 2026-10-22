@@ -109,17 +109,17 @@ int CGVM_LastWhisperer(void) {
 // SJK chat lines (cl_sjk.cpp) go to the chat box of a cgame that asked for them; one
 // that never did, as a server mod's, leaves them to the console. Cleared when the
 // cgame unloads (CL_UnbindCGame), so it never names code that is gone.
-static void (*cl_sjkChatSink)( const char *line, const char *client, const char *id );
+static void (*cl_sjkChatSink)( const sjkChatLine_t *line );
 
-static void CL_SJK_SetChatSink( void (*sink)( const char *line, const char *client, const char *id ) ) {
+static void CL_SJK_SetChatSink( void (*sink)( const sjkChatLine_t *line ) ) {
 	cl_sjkChatSink = sink;
 }
 
-qboolean CL_SJK_ToChatBox( const char *line, const char *client, const char *id ) {
+qboolean CL_SJK_ToChatBox( const sjkChatLine_t *line ) {
 	if ( !cl_sjkChatSink || !cgvm || !cls.cgameStarted )
 		return qfalse;
 	VMSwap v( cgvm );
-	cl_sjkChatSink( line, client, id );
+	cl_sjkChatSink( line );
 	return qtrue;
 }
 
@@ -1961,6 +1961,7 @@ void CL_BindCGame( void ) {
 		// registered it ends the import table before that slot.
 		Cvar_Get( "cl_soundLength", "1", CVAR_ROM, "Sound length query supported by this client (0 = none)" );
 		cgi.SJK_SetChatSink						= CL_SJK_SetChatSink;
+		cgi.SJK_SaidInAll						= CL_SJK_SaidInAll;
 		Cvar_Get( "cl_sjkChatSink", "1", CVAR_ROM, "SJK chat into the chat box supported by this client (0 = none)" );
 
 		GetCGameAPI = (GetCGameAPI_t)cgvm->GetModuleAPI;

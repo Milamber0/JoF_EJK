@@ -1723,7 +1723,10 @@ static void CG_Chat_f( void ) {
 			(!cg_teamChatsOnly.integer || cg.pmOnlyChat) )
 		{
 			// The server's copy of an SJK chat message waits for the message (cg_draw.c).
-			if ( CG_SJKServerLine( text, isPrivate ) )
+			// A server says whose line it is after it.
+			char sender[8] = { 0 };
+			trap->Cmd_Argv( 2, sender, sizeof( sender ) );
+			if ( CG_SJKServerLine( text, isPrivate, sender[0] >= '0' && sender[0] <= '9' ? atoi( sender ) : -1 ) )
 				return;
 
 			if (cg_cleanChatbox.integer) {

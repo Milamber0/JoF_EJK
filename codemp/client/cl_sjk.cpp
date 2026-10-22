@@ -472,15 +472,18 @@ struct sjkAnswer_t {
 	int64_t			serverTime = 0;	// the hub's clock, with a refusal for this one's
 };
 
-// A line for the chat box or the console: game text, the client a message came from
-// ("sjk" or "ejk", SJK_MessageClient) and its id in the feed, both empty for SJK
-// chat's own lines. A line of the backlog, what was said before this client came,
-// goes only to the SJK chat menu's history.
+// A line for the chat box or the console, in game text: a message of the feed, or SJK
+// chat's own notice (who empty). A line of the backlog, what was said before this client
+// came, goes only to the SJK chat menu's history.
 struct sjkLine_t {
-	std::string		text;
-	std::string		client;
-	std::string		id;
+	std::string		text;		// a notice, or the message without colour codes, GIFs as <GIF>
+	std::string		client;		// the client it came from, "sjk" or "ejk" (SJK_MessageClient)
+	std::string		id;			// its id in the feed, empty for a notice
+	std::string		who;		// the sender's name with its colours and verified mark
+	std::string		nameWords;	// the sender's name's letters and digits (SJK_Words) and
+	std::string		words;		// the message's, to tell the server's copy of it
 	bool			backlog = false;
+	bool			inAll = false;	// said in the game server's All chat too: ALL/SJK
 };
 
 // A message to send: UTF-8 text for the hub and, said in a match (SJK_CurrentMatch),
@@ -701,18 +704,11 @@ static void SJK_Release( sjkSession_t *s ) {
 }
 
 // The hub cannot be reached: what waits to be sent goes no later, since it would go out
-// long after it was said. Each line is told, and in a match said in the server's chat
-// only, as CL_SJK_SayText does with one said while the hub cannot be reached. Called
-// with s->lock held.
+// long after it was said, and nowhere else, not being SJK chat's. Each line is told.
+// Called with s->lock held.
 static void SJK_DropOutgoing( sjkSession_t *s ) {
-	for ( const sjkOutgoing_t &item : s->outgoing ) {
-		if ( item.match.empty() ) {
-			s->lines.push_back( { S_COLOR_YELLOW "SJK chat: not sent, the hub could not be reached: " S_COLOR_WHITE + item.gameText, std::string() } );
-		} else {
-			s->lines.push_back( { S_COLOR_YELLOW "SJK chat: the hub could not be reached; said in this server's chat only: " S_COLOR_WHITE + item.gameText, std::string() } );
-			s->serverCopies.push_back( { item.gameText, item.match, std::string() } );
-		}
-	}
+	for ( const sjkOutgoing_t &item : s->outgoing )
+		s->lines.push_back( { S_COLOR_YELLOW "SJK chat: not sent, the hub could not be reached: " S_COLOR_WHITE + item.gameText, std::string() } );
 	s->outgoing.clear();
 }
 
@@ -727,21 +723,176 @@ static void SJK_Nap( sjkSession_t *s, int ms ) {
 		Sleep( 100 );
 }
 
-// One chat message of the feed as the console shows it: SJK's mark (SJK_CHAT_MARK,
-// which the client's icon takes the place of on screen), the name with its colours,
-// then the text in SJK's gold with the colours its sender put in left out.
-static std::string SJK_MessageLine( const cJSON *message ) {
+// A GIPHY media file's name (`giphy.gif`, `200w.webp`, `giphy-downsized.gif`) and the
+// `v1.<token>` segment of GIPHY's share links, as SJK reads them (chat_gifs/link.rs).
+static bool SJK_GifFileName( const std::string &file ) {
+	if ( file.empty() || file.size() > 48 || file.find( '.' ) == std::string::npos )
+		return false;
+	for ( unsigned char c : file ) {
+		if ( !isalnum( c ) && c != '.' && c != '_' && c != '-' )
+			return false;
+	}
+	return true;
+}
+
+static bool SJK_GifShareToken( const std::string &token ) {
+	if ( token.compare( 0, 3, "v1." ) || token.size() < 4 || token.size() > 259 )
+		return false;
+	for ( size_t i = 3; i < token.size(); i++ ) {
+		const unsigned char c = token[i];
+		if ( !isalnum( c ) && c != '_' && c != '-' && c != '=' )
+			return false;
+	}
+	return true;
+}
+
+// A GIPHY id: 6 to 40 ASCII letters and digits, at least one a capital or a digit (a
+// slug's last word such as `birthday` is none).
+static bool SJK_GifId( const std::string &id ) {
+	if ( id.size() < 6 || id.size() > 40 )
+		return false;
+	bool mark = false;
+	for ( unsigned char c : id ) {
+		if ( c > 127 || !isalnum( c ) )
+			return false;
+		mark = mark || isupper( c ) || isdigit( c );
+	}
+	return mark;
+}
+
+// Whether `word` (its sentence's end punctuation left out) links to a GIPHY GIF, as SJK
+// tells one (chat_gifs/link.rs, `parse`): https:// or http://, the host whole with no
+// user or port, and one of `giphy.com/gifs|stickers/<slug>-<id>`, `giphy.com/embed/<id>`
+// (also www.), `media[0-4].giphy.com/media/[v1.<token>/]<id>/<file>`, `i.giphy.com/<id>.gif`
+// (.webp) or `i.giphy.com/media/[v1.<token>/]<id>/<file>`; query and fragment ignored.
+static bool SJK_GiphyLink( const std::string &word ) {
+	std::string rest;
+	if ( !Q_stricmpn( word.c_str(), "https://", 8 ) )
+		rest = word.substr( 8 );
+	else if ( !Q_stricmpn( word.c_str(), "http://", 7 ) )
+		rest = word.substr( 7 );
+	else
+		return false;
+	rest = rest.substr( 0, rest.find_first_of( "?#" ) );
+	const size_t slash = rest.find( '/' );
+	std::string host = rest.substr( 0, slash );
+	const std::string path = slash == std::string::npos ? std::string() : rest.substr( slash + 1 );
+	if ( host.find_first_of( "@:" ) != std::string::npos )
+		return false;
+	for ( char &c : host )
+		c = (char)tolower( (unsigned char)c );
+	std::vector<std::string> segments;
+	size_t at = 0;
+	for ( ;; ) {
+		const size_t end = path.find( '/', at );
+		segments.push_back( path.substr( at, end == std::string::npos ? std::string::npos : end - at ) );
+		if ( end == std::string::npos )
+			break;
+		at = end + 1;
+	}
+	if ( segments.size() > 1 && segments.back().empty() )
+		segments.pop_back();	// one trailing slash
+	for ( const std::string &segment : segments ) {
+		if ( segment.empty() )
+			return false;
+	}
+	auto media = [&segments]( void ) {
+		if ( segments.size() == 3 && segments[0] == "media" )
+			return SJK_GifFileName( segments[2] ) && SJK_GifId( segments[1] );
+		if ( segments.size() == 4 && segments[0] == "media" )
+			return SJK_GifShareToken( segments[1] ) && SJK_GifFileName( segments[3] ) && SJK_GifId( segments[2] );
+		return false;
+	};
+	if ( host == "giphy.com" || host == "www.giphy.com" ) {
+		if ( segments.size() == 2 && ( segments[0] == "gifs" || segments[0] == "stickers" ) ) {
+			const size_t dash = segments[1].rfind( '-' );
+			return SJK_GifId( dash == std::string::npos ? segments[1] : segments[1].substr( dash + 1 ) );
+		}
+		return segments.size() == 2 && segments[0] == "embed" && SJK_GifId( segments[1] );
+	}
+	if ( host == "media.giphy.com" || ( host.size() == 16 && !host.compare( 0, 5, "media" ) && host[5] >= '0' && host[5] <= '4' && !host.compare( 6, 10, ".giphy.com" ) ) )
+		return media();
+	if ( host == "i.giphy.com" ) {
+		if ( segments.size() == 1 ) {
+			const std::string &file = segments[0];
+			for ( const char *extension : { ".gif", ".webp" } ) {
+				const size_t length = strlen( extension );
+				if ( file.size() > length && !file.compare( file.size() - length, length, extension ) )
+					return SJK_GifId( file.substr( 0, file.size() - length ) );
+			}
+			return false;
+		}
+		return media();
+	}
+	return false;
+}
+
+// text (UTF-8) with each GIPHY link as <GIF>: JoF EJK shows no GIFs. Words split on
+// spaces, as SJK's chat tidies them; the punctuation ending a sentence after a link stays.
+static std::string SJK_GifText( const std::string &text ) {
+	std::string out;
+	size_t at = 0;
+	for ( ;; ) {
+		const size_t end = text.find( ' ', at );
+		const std::string word = text.substr( at, end == std::string::npos ? std::string::npos : end - at );
+		size_t length = word.find_last_not_of( ".,!?;:)]>'\"" );
+		length = length == std::string::npos ? 0 : length + 1;
+		if ( length && SJK_GiphyLink( word.substr( 0, length ) ) )
+			out += "<GIF>" + word.substr( length );
+		else
+			out += word;
+		if ( end == std::string::npos )
+			break;
+		out += ' ';
+		at = end + 1;
+	}
+	return out;
+}
+
+// A text's letters and digits, lower case, without colour codes: what of an SJK chat
+// message survives the game server's old code pages, to know its copy there (as SJK's
+// server_copy.rs `words`).
+static std::string SJK_Words( const std::string &text ) {
+	std::string words;
+	for ( size_t i = 0; i < text.size(); i++ ) {
+		const unsigned char c = text[i];
+		if ( c == Q_COLOR_ESCAPE && i + 1 < text.size() && text[i + 1] >= '0' && text[i + 1] <= '9' ) {
+			i++;
+			continue;
+		}
+		if ( c < 128 && isalnum( c ) )
+			words += (char)tolower( c );
+	}
+	return words;
+}
+
+// One chat message of the feed in its parts (sjkLine_t; text empty when it has none):
+// the name with its colours and a green + for a verified sender, the text without the
+// colours its sender put in and with GIFs as <GIF>, and what tells its server's copy.
+static sjkLine_t SJK_MessageParts( const cJSON *message ) {
+	sjkLine_t line;
 	const cJSON *name = cJSON_GetObjectItemCaseSensitive( message, "name" );
 	const cJSON *text = cJSON_GetObjectItemCaseSensitive( message, "text" );
 	if ( !cJSON_IsString( text ) )
-		return std::string();
-	std::string shown = SJK_FromUTF8( text->valuestring );
-	char *plain = &shown[0];
-	Q_StripColor( plain );
-	std::string who = cJSON_IsString( name ) ? SJK_FromUTF8( name->valuestring ) : "?";
+		return line;
+	std::string shown = SJK_FromUTF8( SJK_GifText( text->valuestring ) );
+	Q_StripColor( &shown[0] );
+	line.text = shown.c_str();
+	line.who = cJSON_IsString( name ) ? SJK_FromUTF8( name->valuestring ) : "?";
+	line.nameWords = cJSON_IsString( name ) ? SJK_Words( name->valuestring ) : std::string();
 	if ( cJSON_IsTrue( cJSON_GetObjectItemCaseSensitive( message, "verified" ) ) )
-		who += S_COLOR_GREEN "+";
-	return SJK_CHAT_MARK S_COLOR_WHITE + who + S_COLOR_WHITE ": " S_COLOR_YELLOW + std::string( plain );
+		line.who += S_COLOR_GREEN "+";
+	line.words = SJK_Words( text->valuestring );
+	return line;
+}
+
+// A line as the console and the log show it, in the game's colours: a notice as it is; a
+// message as the name, its label (SJK, or ALL/SJK when said in All chat too) and the text
+// in the codes nearest SJK's golds, which the chat box and the SJK chat menu draw exactly.
+static std::string SJK_ConsoleLine( const sjkLine_t &line ) {
+	if ( line.who.empty() )
+		return line.text;
+	return line.who + S_COLOR_WHITE " " S_COLOR_ORANGE + ( line.inAll ? "ALL/SJK" : "SJK" ) + S_COLOR_WHITE ": " S_COLOR_YELLOW + line.text;
 }
 
 // The client a message of the feed came from, as the hub names it from the sender's
@@ -871,9 +1022,13 @@ static void SJK_FeedWorker( sjkSession_t *s ) {
 				// What was said before this client was here is not replayed in the game,
 				// only kept for the SJK chat menu.
 				if ( first || ( cJSON_IsNumber( id ) && (int64_t)id->valuedouble > after ) ) {
-					std::string line = SJK_MessageLine( message );
-					if ( !line.empty() )
-						shown.push_back( { line, SJK_MessageClient( message ), SJK_MessageId( message ), first } );
+					sjkLine_t line = SJK_MessageParts( message );
+					if ( !line.text.empty() ) {
+						line.client = SJK_MessageClient( message );
+						line.id = SJK_MessageId( message );
+						line.backlog = first;
+						shown.push_back( line );
+					}
 				}
 			}
 			{
@@ -941,17 +1096,16 @@ static void SJK_SendWorker( sjkSession_t *s ) {
 		sent = true;
 		if ( a.status != 200 )
 			SJK_Say( s, S_COLOR_YELLOW "SJK chat: not sent: " + SJK_Refusal( a ) );
-		if ( !item.match.empty() ) {
-			// Said in a match: now the server's copy, with the id the hub gave the message
-			// (none when it refused it), for the main thread to say.
-			std::string id;
-			if ( a.status == 200 ) {
-				cJSON *root = cJSON_ParseWithLength( a.body.data(), a.body.size() );
-				id = SJK_MessageId( root );
-				cJSON_Delete( root );
+		if ( !item.match.empty() && a.status == 200 ) {
+			// Said in a match and taken: now the server's copy, with the id the hub gave the
+			// message, for the main thread to say. A refused one goes nowhere.
+			cJSON *root = cJSON_ParseWithLength( a.body.data(), a.body.size() );
+			const std::string id = SJK_MessageId( root );
+			cJSON_Delete( root );
+			if ( !id.empty() ) {
+				std::lock_guard<std::mutex> hold( s->lock );
+				s->serverCopies.push_back( { item.gameText, item.match, id } );
 			}
-			std::lock_guard<std::mutex> hold( s->lock );
-			s->serverCopies.push_back( { item.gameText, item.match, id } );
 		}
 	}
 	SJK_Release( s );
@@ -982,6 +1136,19 @@ static void SJK_Remember( const sjkLine_t &line ) {
 	s_historyRevision++;
 }
 
+// Whether the history holds this message already, as a new session's backlog brings
+// again what the hub still holds (SJK chat turned off and on, a new cl_hubUrl). Its id,
+// sender and text all match, so another hub's message of the same id is not taken for it.
+static bool SJK_Remembered( const sjkLine_t &line ) {
+	if ( line.id.empty() )
+		return false;
+	for ( const sjkLine_t &old : s_history ) {
+		if ( old.id == line.id && old.who == line.who && old.text == line.text )
+			return true;
+	}
+	return false;
+}
+
 // A line of SJK chat's own (game text, without the newline): to the console, and to the
 // menu's history, where what is typed there gets its answer.
 static void SJK_Notice( const std::string &line ) {
@@ -1002,20 +1169,22 @@ static std::string SJK_CurrentMatch( void ) {
 	return std::string( serverId ) + "\n" + mapname;
 }
 
-// The server's copy of a line, in the says it goes as: each piece after SJK_SERVER_TAG
-// and before the marker of the id the hub gave the message. A line SJK chat did not take
-// (no id) goes plainly, as it never reached SJK chat.
+// The server's copy of a message the hub took, in the says it goes as: each piece after
+// SJK_SERVER_TAG and before the marker of the id the hub gave it. None without a marker
+// (no id, or one of more than 9 digits): a copy that could not be told from a plain line
+// is not said, as a line SJK chat did not take is said nowhere.
 static std::vector<std::string> SJK_ServerCopyLines( const std::string &gameText, const std::string &id ) {
 	const std::string marker = SJK_ServerMarker( id );
-	const std::string tag = marker.empty() ? std::string() : SJK_SERVER_TAG;
 	std::vector<std::string> says;
-	for ( const std::string &piece : SJK_ServerPieces( gameText, SJK_SERVER_SAY_MAX - tag.size() - marker.size() ) )
-		says.push_back( tag + piece + marker );
+	if ( marker.empty() )
+		return says;
+	for ( const std::string &piece : SJK_ServerPieces( gameText, SJK_SERVER_SAY_MAX - strlen( SJK_SERVER_TAG ) - marker.size() ) )
+		says.push_back( SJK_SERVER_TAG + piece + marker );
 	return says;
 }
 
-// Queues the server's copy of a line said in match, with the id the hub gave the
-// message (empty to say it plainly), unless that match is over.
+// Queues the server's copy of a message said in match, with the id the hub gave it,
+// unless that match is over.
 static void SJK_QueueServerCopy( const std::string &gameText, const std::string &match, const std::string &id ) {
 	if ( match.empty() || match != SJK_CurrentMatch() )
 		return;
@@ -1110,8 +1279,8 @@ static void SJK_Start( void ) {
 // Says text (game text, as the chat field holds it) on SJK chat and, in a match, in the
 // game server's chat too, so its players on other clients read it: once the hub took
 // it, with the message's id at the end (SJK_ServerMarker), so SJK readers on that
-// server show the message once (cgame's CG_SJKServerLine). False, with the reason
-// printed, when it went nowhere.
+// server show the message once (cgame's CG_SJKServerLine). A line the hub refuses or
+// cannot get is said nowhere. False, with the reason printed, when it went nowhere.
 qboolean CL_SJK_SayText( const char *text ) {
 	if ( !cl_sjkChat || !cl_sjkChat->integer ) {
 		SJK_Notice( S_COLOR_YELLOW "SJK chat is off (Setup, SJK, or cl_sjkChat 1 turns it on)" );
@@ -1139,12 +1308,7 @@ qboolean CL_SJK_SayText( const char *text ) {
 		}
 	}
 	if ( !reachable ) {
-		// The server's copy at once, plainly: no message of SJK chat will show it.
-		SJK_QueueServerCopy( text, match, std::string() );
-		if ( !match.empty() ) {
-			SJK_Notice( S_COLOR_YELLOW "SJK chat: the hub cannot be reached right now; said in this server's chat only" );
-			return qtrue;
-		}
+		// Not SJK chat's then, so nowhere else either.
 		SJK_Notice( S_COLOR_YELLOW "SJK chat: not sent: the hub cannot be reached right now" );
 		return qfalse;
 	}
@@ -1243,17 +1407,21 @@ void CL_SJK_Frame( void ) {
 	}
 
 	// Into the chat box (which copies a line to the console) when the cgame takes them,
-	// with the icon of the client a message came from and its id, by which the cgame
-	// drops the server's copy of it, else to the console and the notify lines. Every
-	// line joins the SJK chat menu's history; the backlog only that.
+	// with what tells the server's copy of a message and the icon of the client it came
+	// from, else to the console and the notify lines. Every line joins the SJK chat menu's
+	// history; the backlog only that, and only what it does not hold yet.
 	for ( const sjkLine_t &line : lines ) {
-		SJK_Remember( line );
-		if ( line.backlog )
+		if ( line.backlog ) {
+			if ( !SJK_Remembered( line ) )
+				SJK_Remember( line );
 			continue;
+		}
+		SJK_Remember( line );
 		// The console copy, the chat box's or this one, starts with the icon too.
 		Con_SetPrintIcon( line.client == "sjk" ? CON_ICON_SJK : line.client == "ejk" ? CON_ICON_EJK : CON_ICON_NONE );
-		if ( !CL_SJK_ToChatBox( line.text.c_str(), line.client.c_str(), line.id.c_str() ) )
-			Com_Printf( "%s\n", line.text.c_str() );
+		const sjkChatLine_t parts = { line.who.c_str(), line.text.c_str(), line.nameWords.c_str(), line.words.c_str(), line.client.c_str(), line.id.c_str() };
+		if ( !CL_SJK_ToChatBox( &parts ) )
+			Com_Printf( "%s\n", SJK_ConsoleLine( line ).c_str() );
 		Con_SetPrintIcon( CON_ICON_NONE );
 	}
 
@@ -1267,14 +1435,31 @@ int CL_SJK_ChatLineCount( int *revision ) {
 	return (int)s_history.size();
 }
 
-// The history's line `index` (oldest first): game text and the client its message came
-// from ("sjk", "ejk", or "" for SJK chat's own lines). qfalse past the end.
-qboolean CL_SJK_ChatLine( int index, char *text, int textSize, char *client, int clientSize ) {
+// The history's line `index` (oldest first), in game text: who said it (with colours;
+// "" for SJK chat's own notice), its text, the client it came from ("sjk", "ejk" or "")
+// and whether it was said in All chat too. qfalse past the end.
+qboolean CL_SJK_ChatLine( int index, char *who, int whoSize, char *text, int textSize, char *client, int clientSize, qboolean *inAll ) {
 	if ( index < 0 || index >= (int)s_history.size() )
 		return qfalse;
-	Q_strncpyz( text, s_history[index].text.c_str(), textSize );
-	Q_strncpyz( client, s_history[index].client.c_str(), clientSize );
+	const sjkLine_t &line = s_history[index];
+	Q_strncpyz( who, line.who.c_str(), whoSize );
+	Q_strncpyz( text, line.text.c_str(), textSize );
+	Q_strncpyz( client, line.client.c_str(), clientSize );
+	*inAll = (qboolean)line.inAll;
 	return qtrue;
+}
+
+// The cgame saw message `id` said in the game server's All chat too: it reads ALL/SJK in
+// the SJK chat menu's history as well.
+void CL_SJK_SaidInAll( const char *id ) {
+	if ( !id || !id[0] )
+		return;
+	for ( sjkLine_t &line : s_history ) {
+		if ( line.id == id && !line.inAll ) {
+			line.inAll = true;
+			s_historyRevision++;
+		}
+	}
 }
 
 void CL_SJK_Shutdown( void ) {
@@ -1306,8 +1491,11 @@ int CL_SJK_ChatLineCount( int *revision ) {
 	return 0;
 }
 
-qboolean CL_SJK_ChatLine( int index, char *text, int textSize, char *client, int clientSize ) {
+qboolean CL_SJK_ChatLine( int index, char *who, int whoSize, char *text, int textSize, char *client, int clientSize, qboolean *inAll ) {
 	return qfalse;
+}
+
+void CL_SJK_SaidInAll( const char *id ) {
 }
 
 #endif // _WIN32

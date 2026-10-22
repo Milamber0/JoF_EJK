@@ -11044,8 +11044,9 @@ void UI_DrawCosmeticsOnCharacter( itemDef_t *item, vec3_t origin, vec3_t angles 
 =================
 SJK chat menu (ui/jamp/sjkchat.menu): the engine's SJK chat history (client/cl_sjk.cpp)
 in a list, wrapped to the list's width, each message after the icon of the client it
-came from, in place of its SJK word; its field says a line on SJK chat. Only with an engine that has it
-(cl_sjkChatUI): an older one ends the import table before these.
+came from, its sender's name and the label, in SJK's golds (UI_FeederItemPaint); its
+field says a line on SJK chat. Only with an engine that has it (cl_sjkChatUI): an older
+one ends the import table before these.
 =================
 */
 #define SJK_CHAT_ROWS_MAX	400
@@ -11056,8 +11057,11 @@ came from, in place of its SJK word; its field says a line on SJK chat. Only wit
 #define SJK_CHAT_FONT		4				// and its font
 
 typedef struct sjkChatRow_s {
+	char		who[64];	// a message's first row: who said it, with colours, before the label
 	char		text[256];
 	qhandle_t	icon;
+	qboolean	message;	// a message's row, its text in SJK's gold; else a notice's, game text
+	qboolean	inAll;		// the label reads ALL/SJK: said in All chat too
 } sjkChatRow_t;
 
 static sjkChatRow_t	sjkChatRows[SJK_CHAT_ROWS_MAX];
@@ -11069,23 +11073,28 @@ static qboolean UI_SJKChatAvailable( void ) {
 	return (qboolean)( trap->Cvar_VariableValue( "cl_sjkChatUI" ) != 0 );
 }
 
-static void UI_SJKChatAddRow( const char *text, qhandle_t icon ) {
+static void UI_SJKChatAddRow( const sjkChatRow_t *row ) {
 	if ( sjkChatRowCount == SJK_CHAT_ROWS_MAX ) {
 		memmove( sjkChatRows, sjkChatRows + 1, sizeof( sjkChatRows ) - sizeof( sjkChatRows[0] ) );
 		sjkChatRowCount--;
 	}
-	Q_strncpyz( sjkChatRows[sjkChatRowCount].text, text, sizeof( sjkChatRows[0].text ) );
-	sjkChatRows[sjkChatRowCount].icon = icon;
-	sjkChatRowCount++;
+	sjkChatRows[sjkChatRowCount++] = *row;
 }
 
-// One line of the history as rows of the list's width, cut at a space where one is
-// near and never between "^" and its digit, each after the colour the last one ended
-// in; the icon goes on the first.
-static void UI_SJKChatWrap( const char *line, qhandle_t icon ) {
-	char row[256];
+static float UI_SJKChatWidth( const char *text ) {
+	return trap->ext.R_Font_StrLenPixels( text, MenuFontToHandle( SJK_CHAT_FONT ), SJK_CHAT_SCALE );
+}
+
+// One line of the history's text as rows of the list's width, the first firstRoom wide
+// (what its sender's name and label leave), cut at a space where one is near and never
+// between "^" and its digit, each after the colour the last one ended in. The first
+// row is first with the text's start; the rest are of the same kind, with no icon.
+static void UI_SJKChatWrap( const sjkChatRow_t *first, const char *line, float firstRoom ) {
+	sjkChatRow_t rest = *first;
+	char *row = rest.text;
 	char colour = 0;
 	const char *at = line;
+	float room = firstRoom;
 
 	while ( *at ) {
 		const int prefix = colour ? 2 : 0;
@@ -11094,10 +11103,10 @@ static void UI_SJKChatWrap( const char *line, qhandle_t icon ) {
 		row[0] = Q_COLOR_ESCAPE;
 		row[1] = colour;
 		// The longest start of what is left that fits the width.
-		while ( at[take] && prefix + take + 1 < (int)sizeof( row ) ) {
+		while ( at[take] && prefix + take + 1 < (int)sizeof( rest.text ) ) {
 			memcpy( row + prefix, at, take + 1 );
 			row[prefix + take + 1] = '\0';
-			if ( Text_Width( row, SJK_CHAT_SCALE, SJK_CHAT_FONT ) > SJK_CHAT_WIDTH )
+			if ( UI_SJKChatWidth( row ) > room )
 				break;
 			take++;
 		}
@@ -11116,8 +11125,11 @@ static void UI_SJKChatWrap( const char *line, qhandle_t icon ) {
 			take = 1;
 		memcpy( row + prefix, at, take );
 		row[prefix + take] = '\0';
-		UI_SJKChatAddRow( row, icon );
-		icon = -1;
+		UI_SJKChatAddRow( &rest );
+		rest.who[0] = '\0';
+		rest.icon = -1;
+		rest.inAll = qfalse;
+		room = SJK_CHAT_WIDTH;
 		for ( i = 0; i + 1 < take; i++ ) {
 			if ( at[i] == Q_COLOR_ESCAPE && at[i + 1] >= '0' && at[i + 1] <= '9' )
 				colour = at[i + 1];
@@ -11132,7 +11144,7 @@ static void UI_SJKChatWrap( const char *line, qhandle_t icon ) {
 // newest row stays there.
 static void UI_SJKChatRefresh( void ) {
 	static qhandle_t sjkIcon, ejkIcon;
-	char text[1024], client[16];
+	char who[64], text[1024], client[16];
 	int revision = 0, count, i;
 	itemDef_t *list;
 	int oldMax = 0;
@@ -11154,17 +11166,23 @@ static void UI_SJKChatRefresh( void ) {
 
 	sjkChatRowCount = 0;
 	for ( i = 0; i < count; i++ ) {
-		const char *shown = text;
+		sjkChatRow_t row;
+		qboolean inAll;
 		qhandle_t icon;
 
-		if ( !trap->ext.SJK_ChatLine( i, text, sizeof( text ), client, sizeof( client ) ) )
+		if ( !trap->ext.SJK_ChatLine( i, who, sizeof( who ), text, sizeof( text ), client, sizeof( client ), &inAll ) )
 			break;
-		// The icon takes the place of the SJK word a message starts with; one that did
-		// not load leaves the word.
 		icon = !strcmp( client, "sjk" ) ? sjkIcon : !strcmp( client, "ejk" ) ? ejkIcon : 0;
-		if ( icon && !Q_strncmp( shown, SJK_CHAT_MARK, (int)strlen( SJK_CHAT_MARK ) ) )
-			shown += strlen( SJK_CHAT_MARK );
-		UI_SJKChatWrap( shown, icon ? icon : -1 );
+		memset( &row, 0, sizeof( row ) );
+		row.icon = icon ? icon : -1;
+		if ( who[0] ) {
+			Q_strncpyz( row.who, who, sizeof( row.who ) );
+			row.message = qtrue;
+			row.inAll = inAll;
+			UI_SJKChatWrap( &row, text, SJK_CHAT_WIDTH - UI_SJKChatWidth( va( "%s %s: ", who, inAll ? "ALL/SJK" : "SJK" ) ) );
+		} else {
+			UI_SJKChatWrap( &row, text, SJK_CHAT_WIDTH );
+		}
 	}
 
 	if ( list && list->typeData.listbox && list->typeData.listbox->elementHeight > 0 ) {
@@ -11193,6 +11211,33 @@ static void UI_SJKChatSay( void ) {
 	if ( text[0] && UI_SJKChatAvailable() )
 		trap->ext.SJK_SayText( text );
 	trap->Cvar_Set( "ui_sjkChatText", "" );
+}
+
+// The SJK chat menu's list draws a message's row itself (feederItemPaint): its sender's
+// name in its colours, the label and ": ", then the text, the label and the text in SJK's
+// golds (as the chat box, cgame's sjkLabelColor and sjkTextColor). The font draws at
+// whole units, so a part after a space goes at the one after where the space ends. A
+// notice's row it leaves to the list.
+static qboolean UI_FeederItemPaint( float feederID, int index, int column, float x, float y, float scale, vec4_t color, int style, int iMenuFont ) {
+	static vec4_t labelColor = { 0.9098f, 0.7216f, 0.2902f, 1.0f };	// #E8B84A
+	static vec4_t textColor = { 0.9608f, 0.7804f, 0.3373f, 1.0f };	// #F5C756
+	const sjkChatRow_t *row;
+
+	if ( feederID != FEEDER_SJK_CHAT || column != 0 || index < 0 || index >= sjkChatRowCount || !sjkChatRows[index].message )
+		return qfalse;
+	row = &sjkChatRows[index];
+	if ( row->who[0] ) {
+		const char *label = row->inAll ? "ALL/SJK" : "SJK";
+
+		Text_Paint( x, y, scale, color, row->who, 0, 0, style, iMenuFont );
+		x = ceilf( x + UI_SJKChatWidth( va( "%s ", row->who ) ) );
+		Text_Paint( x, y, scale, labelColor, label, 0, 0, style, iMenuFont );
+		x += UI_SJKChatWidth( label );
+		Text_Paint( x, y, scale, color, ": ", 0, 0, style, iMenuFont );
+		x = ceilf( x + UI_SJKChatWidth( ": " ) );
+	}
+	Text_Paint( x, y, scale, textColor, row->text, 0, 0, style, iMenuFont );
+	return qtrue;
 }
 
 static int UI_FeederCount(float feederID)
@@ -13633,6 +13678,7 @@ void UI_Init( qboolean inGameLoad ) {
 	uiInfo.uiDC.feederItemImage					= &UI_FeederItemImage;
 	uiInfo.uiDC.feederItemText					= &UI_FeederItemText;
 	uiInfo.uiDC.feederSelection					= &UI_FeederSelection;
+	uiInfo.uiDC.feederItemPaint					= &UI_FeederItemPaint;
 	uiInfo.uiDC.setBinding						= trap->Key_SetBinding;
 	uiInfo.uiDC.getBindingBuf					= trap->Key_GetBindingBuf;
 	uiInfo.uiDC.keynumToStringBuf				= trap->Key_KeynumToStringBuf;

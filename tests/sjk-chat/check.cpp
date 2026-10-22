@@ -1,7 +1,8 @@
 // Checks SJK chat (codemp/client/cl_sjk.cpp) without the engine or a hub: the
 // signature against the hub protocol's test vector, SJK's key file, base64url, the
-// text the hub takes, the game's charset both ways, hub addresses, the User-Agent and
-// how a message of the feed reads.
+// text the hub takes, the game's charset both ways, hub addresses, the User-Agent, how
+// a message of the feed reads, GIPHY links, the SJK chat menu's history and the
+// server's copy of a line.
 //
 //   sjk_chat_check
 
@@ -37,7 +38,7 @@ void Com_Printf( const char *fmt, ... ) {
 	vprintf( fmt, args );
 	va_end( args );
 }
-qboolean CL_SJK_ToChatBox( const char *, const char *, const char * ) { return qfalse; }
+qboolean CL_SJK_ToChatBox( const sjkChatLine_t * ) { return qfalse; }
 qboolean CL_SJK_ServerSession( char *, int, char *, int ) { return qfalse; }
 void CL_SayToServer( const char * ) {}
 int Sys_Milliseconds( bool ) { return 0; }
@@ -137,14 +138,26 @@ static void CheckUserAgent( void ) {
 
 static void CheckMessageLine( void ) {
 	cJSON *message = cJSON_Parse( "{\"id\":12,\"at\":1,\"key_id\":\"ab\",\"name\":\"^2Sol\",\"verified\":true,\"text\":\"hello ^1there \xC3\xA9\"}" );
-	require( SJK_MessageLine( message ) == "^3SJK ^7^2Sol^2+^7: ^3hello there \xE9", "a feed message, its colours left out: " + SJK_MessageLine( message ) );
+	sjkLine_t line = SJK_MessageParts( message );
+	require( line.who == "^2Sol^2+" && line.text == "hello there \xE9", "a feed message, its text's colours left out: " + line.who + " / " + line.text );
+	require( line.nameWords == "sol" && line.words == "hellothere", "what tells its copy on the server: " + line.nameWords + " / " + line.words );
+	require( SJK_ConsoleLine( line ) == "^2Sol^2+^7 ^8SJK^7: ^3hello there \xE9", "as the console shows it: " + SJK_ConsoleLine( line ) );
+	line.inAll = true;
+	require( SJK_ConsoleLine( line ) == "^2Sol^2+^7 ^8ALL/SJK^7: ^3hello there \xE9", "said in All chat too: " + SJK_ConsoleLine( line ) );
 	cJSON_Delete( message );
 	message = cJSON_Parse( "{\"id\":13,\"name\":\"Fox\",\"verified\":false,\"text\":\"hi\"}" );
-	require( SJK_MessageLine( message ) == "^3SJK ^7Fox^7: ^3hi", "unverified: no mark" );
+	require( SJK_MessageParts( message ).who == "Fox", "unverified: no mark" );
 	cJSON_Delete( message );
 	message = cJSON_Parse( "{\"id\":14,\"name\":\"Fox\"}" );
-	require( SJK_MessageLine( message ).empty(), "no text, no line" );
+	require( SJK_MessageParts( message ).text.empty(), "no text, no line" );
 	cJSON_Delete( message );
+	message = cJSON_Parse( "{\"id\":15,\"name\":\"Fox\",\"text\":\"look https://giphy.com/gifs/3oEhmHmWP3Y9wQxoli!\"}" );
+	line = SJK_MessageParts( message );
+	require( line.text == "look <GIF>!", "a GIF shows as <GIF>: " + line.text );
+	require( line.words == "lookhttpsgiphycomgifs3oehmhmwp3y9wqxoli", "its words are what was said, the link too: " + line.words );
+	cJSON_Delete( message );
+	const sjkLine_t notice = { S_COLOR_YELLOW "SJK chat: not sent" };
+	require( SJK_ConsoleLine( notice ) == notice.text, "a notice as it is" );
 
 	// The client the hub says a message came from, for its icon: only the two it names.
 	for ( const auto &item : { std::make_pair( "\"client\":\"sjk\",", "sjk" ), std::make_pair( "\"client\":\"ejk\",", "ejk" ),
@@ -154,6 +167,61 @@ static void CheckMessageLine( void ) {
 		require( SJK_MessageClient( message ) == item.second, std::string( "the client of " ) + item.first );
 		cJSON_Delete( message );
 	}
+}
+
+// GIPHY's links as SJK reads them (chat_gifs/link.rs): each becomes <GIF>, nothing else.
+static void CheckGifs( void ) {
+	for ( const char *link : { "https://giphy.com/gifs/happy-birthday-cake-3oEhmHmWP3Y9wQxoli",
+			"https://www.giphy.com/gifs/3oEhmHmWP3Y9wQxoli", "http://giphy.com/stickers/cat-dance-W3QKEujo8vztC",
+			"https://giphy.com/embed/3oEhmHmWP3Y9wQxoli", "https://giphy.com/gifs/3oEhmHmWP3Y9wQxoli/",
+			"https://media.giphy.com/media/3oEhmHmWP3Y9wQxoli/giphy.gif",
+			"https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjEx/3oEhmHmWP3Y9wQxoli/200w.webp",
+			"https://i.giphy.com/3oEhmHmWP3Y9wQxoli.gif", "https://i.giphy.com/3oEhmHmWP3Y9wQxoli.webp",
+			"https://i.giphy.com/media/3oEhmHmWP3Y9wQxoli/giphy-downsized.gif",
+			"HTTPS://Media.Giphy.COM/media/3oEhmHmWP3Y9wQxoli/giphy.gif",
+			"https://media.giphy.com/media/3oEhmHmWP3Y9wQxoli/giphy.gif?cid=ab12&ct=g#top" } )
+		require( SJK_GifText( link ) == "<GIF>", std::string( "a GIPHY link: " ) + link );
+	for ( const char *text : { "https://giphy.com/gifs/happy-birthday", "https://giphy.com/search/cats",
+			"https://giphy.com.example.org/gifs/3oEhmHmWP3Y9wQxoli", "https://fox@giphy.com/gifs/3oEhmHmWP3Y9wQxoli",
+			"https://giphy.com:443/gifs/3oEhmHmWP3Y9wQxoli", "https://media5.giphy.com/media/3oEhmHmWP3Y9wQxoli/giphy.gif",
+			"https://media.giphy.com/media/3oEhmHmWP3Y9wQxoli/giphy", "https://giphy.com//gifs/3oEhmHmWP3Y9wQxoli",
+			"https://giphy.com/gifs/3oEhmHmWP3Y9wQxoli//", "ftp://giphy.com/gifs/3oEhmHmWP3Y9wQxoli",
+			"giphy.com/gifs/3oEhmHmWP3Y9wQxoli", "https://i.giphy.com/abc12.gif", "https://tenor.com/view/cat-dance-12345678",
+			"(https://giphy.com/gifs/3oEhmHmWP3Y9wQxoli)", "https://giphy.com", "" } )
+		require( SJK_GifText( text ) == text, std::string( "not a GIPHY GIF: " ) + text );
+	require( SJK_GifText( "look https://giphy.com/gifs/3oEhmHmWP3Y9wQxoli!! and https://giphy.com/embed/W3QKEujo8vztC." )
+		== "look <GIF>!! and <GIF>.", "links in a line, the punctuation after each kept" );
+	require( SJK_GifText( " a  b " ) == " a  b ", "spaces as they were" );
+}
+
+// What of a line survives a game server's old code pages, to know its copy there.
+static void CheckWords( void ) {
+	require( SJK_Words( "Hello, ^1World 42! \xC3\xA9t\xC3\xA9" ) == "helloworld42t", "letters and digits, lower case, no colour codes or other scripts" );
+	require( SJK_Words( "\xF0\x9F\xA6\x8A ?! ^1" ).empty(), "none in an emoji and symbols" );
+	require( SJK_Words( "^^1a^" ) == "a", "a ^ that is no colour code is no letter either" );
+}
+
+// A new session's backlog adds to the SJK chat menu's history only what it lacks.
+static void CheckHistory( void ) {
+	sjkLine_t line;
+	line.who = "Fox";
+	line.text = "hi";
+	line.id = "41";
+	require( !SJK_Remembered( line ), "a message not in the history yet" );
+	SJK_Remember( line );
+	require( SJK_Remembered( line ), "the same message again" );
+	sjkLine_t other = line;
+	other.text = "hi there";
+	require( !SJK_Remembered( other ), "the same id with other words, as another hub's" );
+	other = line;
+	other.who = "Sol";
+	require( !SJK_Remembered( other ), "the same id from someone else" );
+	other = line;
+	other.id = "42";
+	require( !SJK_Remembered( other ), "the same words with another id, said again" );
+	other = line;
+	other.id.clear();
+	require( !SJK_Remembered( other ), "nothing to tell a message without an id by" );
 }
 
 static void CheckServerCopy( void ) {
@@ -199,8 +267,8 @@ static void CheckServerCopy( void ) {
 	// The says of the server's copy: tagged SJK and marked when SJK chat took it, else plain.
 	std::vector<std::string> says = SJK_ServerCopyLines( "hello there", "12" );
 	require( says.size() == 1 && says[0] == "^3SJK^2 hello there^9^2^1^2", "tagged and marked: " + ( says.empty() ? std::string() : says[0] ) );
-	says = SJK_ServerCopyLines( "hello there", "" );
-	require( says.size() == 1 && says[0] == "hello there", "a line SJK chat did not take goes plainly" );
+	require( SJK_ServerCopyLines( "hello there", "" ).empty() && SJK_ServerCopyLines( "hello there", "1234567890" ).empty(),
+		"no copy without the hub's id: a line SJK chat did not take goes nowhere" );
 	says = SJK_ServerCopyLines( words, "12345" );
 	require( says.size() == 3, "300 characters still in three says" );
 	for ( const std::string &say : says ) {
@@ -218,6 +286,9 @@ int main( void ) {
 	CheckHubAddress();
 	CheckUserAgent();
 	CheckMessageLine();
+	CheckGifs();
+	CheckWords();
+	CheckHistory();
 	CheckServerCopy();
 	printf( "sjk chat: %d checks passed\n", checks );
 	return 0;

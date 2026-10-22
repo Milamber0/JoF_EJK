@@ -10306,16 +10306,34 @@ char *Q_strtokm(char *str, const char *delim)
     return tok;
 }
 
-// The icon the next chat box item is drawn after (CG_SJKChatLine), 0 for none, and
-// whether its text leaves room for one all the same (the rest of a long message).
-static qhandle_t chatBoxNextIcon;
-static qboolean chatBoxNextIndent;
+// EternalJK's chat escapes (from duo) back to what they stand for: \xB0/. a percent sign,
+// '' a quote. NOTE: this creates real percent symbols in the string, be careful using
+// va(), etc on it!
+static void CG_ChatBox_Unescape(const char *in, char *out, size_t size)
+{
+	size_t w = 0;
+
+	while (*in && w + 1 < size) {
+		if ((unsigned char)in[0] == 0xB0 && in[1] == '/' && in[2] == '.') {
+			out[w++] = '%';
+			in += 3;
+		}
+		else if (in[0] == '\'' && in[1] == '\'') {
+			out[w++] = '"';
+			in += 2;
+		}
+		else {
+			out[w++] = *in++;
+		}
+	}
+	out[w] = '\0';
+}
 
 //add chatbox string
 void CG_ChatBox_AddString(char *chatStr, qboolean isPrivate)
 {
 	chatBoxItem_t *chat = &cg.chatItems[cg.chatItemActive];
-	char tempChatStr[MAX_SAY_TEXT+MAX_NETNAME] = { 0 }, *r = chatStr, *w = tempChatStr;
+	char tempChatStr[MAX_SAY_TEXT+MAX_NETNAME] = { 0 };
 	float chatLen;
 	char cutoffColorChar = COLOR_WHITE; //default/fallback if the cvar isn't a single digit 0-9
 	char cutoffColorStr[3];
@@ -10339,26 +10357,8 @@ void CG_ChatBox_AddString(char *chatStr, qboolean isPrivate)
 		return;
 	}
 
-	// from duo
 	// NOTE: this creates real percent symbols in the string, be careful using va(), etc below here!
-	//Q_strncpyz(tempChatStr, chatStr, sizeof(tempChatStr));
-	*r = *chatStr;
-	while (*r) {
-		if (*r == -80 && *(r + 1) == '/' && *(r + 2) == '.') {
-			*w = '%';
-			r += 3;
-		}
-		else if (*r == '\'' && *(r + 1) == '\'') {
-			*w = '"';
-			r += 2;
-		}
-		else {
-			*w = *r;
-			r++;
-		}
-		w++;
-	}
-
+	CG_ChatBox_Unescape(chatStr, tempChatStr, sizeof(tempChatStr));
 	chatStr = tempChatStr;
 
 
@@ -10371,15 +10371,8 @@ void CG_ChatBox_AddString(char *chatStr, qboolean isPrivate)
 		return;
 	}
 
-	// The icon takes the place of the SJK word an SJK chat message starts with
-	// (CG_SJKChatLine); the log and the console's copy above keep it.
-	if (chatBoxNextIcon && !Q_strncmp(chatStr, SJK_CHAT_MARK, (int)strlen(SJK_CHAT_MARK)))
-		chatStr += strlen(SJK_CHAT_MARK);
-
 	Com_Memset(chat, 0, sizeof(chatBoxItem_t));
 	chat->isPrivate = isPrivate;
-	chat->icon = chatBoxNextIcon;
-	chat->indented = (qboolean)(chatBoxNextIcon || chatBoxNextIndent);
 
 	if (strlen(chatStr) > sizeof(chat->string))
 	{ //too long, terminate at proper len.
@@ -10663,26 +10656,36 @@ void CG_ChatBox_AddString(char *chatStr, qboolean isPrivate)
 }
 
 // SJK chat said on the game server too (client/cl_sjk.cpp; the hub's protocol, "Chat"):
-// the server's copy ends with the message's id in colour codes, ^9, then ^ and the
-// number of digits, then ^ and each digit. While SJK chat is read, such a line waits up
-// to SJK_HELD_MS for the message itself, which then shows in its place, whole and with
-// its client's icon, and the server's lines of it are neither shown nor logged. A
-// message that came first drops the lines that come after it. Lines without the end
-// are never held.
+// the server's copy starts with the SJK tag and ends with the message's id in colour
+// codes, ^9, then ^ and the number of digits, then ^ and each digit. While SJK chat is
+// read, such a line waits up to SJK_HELD_MS for the message itself, which then shows in
+// its place marked ALL/SJK, and the server's lines of it are neither shown nor logged. A
+// message that came first drops the lines that come after it. As SJK does
+// (server_copy.rs), a line goes for the copy only when its words are among the
+// message's and, where the server says who said it, it comes from someone of the
+// sender's name; any other shows as it came, so a copy may show twice but never hides
+// another line. Lines without the end, and tells, are never held.
 #define SJK_HELD_MAX	8
 #define SJK_SEEN_MAX	16
 #define SJK_HELD_MS		2500
 #define SJK_SEEN_MS		15000
+#define SJK_WORDS_MAX	512		// a message's words; the hub takes 300 characters
+#define SJK_NAME_MAX	64		// a name's
+#define SJK_COPY_TAG	S_COLOR_YELLOW "SJK" S_COLOR_GREEN " "	// cl_sjk.cpp's SJK_SERVER_TAG
 
 typedef struct sjkHeldLine_s {
 	char		id[10];
-	char		text[MAX_NETNAME + MAX_SAY_TEXT];
-	qboolean	isPrivate;
+	char		text[MAX_NETNAME + MAX_SAY_TEXT];	// the line as it came, without the id's end
+	char		words[MAX_NETNAME + MAX_SAY_TEXT];	// what it says (CG_SJKCopyWords)
+	char		nameWords[SJK_NAME_MAX];			// its sender's name's words,
+	qboolean	sender;								// when the server says who said it
 	int			until;		// trap->Milliseconds
 } sjkHeldLine_t;
 
 typedef struct sjkSeenMessage_s {
 	char		id[10];
+	char		words[SJK_WORDS_MAX];
+	char		nameWords[SJK_NAME_MAX];
 	int			until;
 } sjkSeenMessage_t;
 
@@ -10718,6 +10721,55 @@ static qboolean CG_SJKLineId(const char *text, char *id, int *at)
 	return qfalse;
 }
 
+// The letters and digits of text's first length characters (all of it when length < 0),
+// lower case, without colour codes: what of a line survives the game server's old code
+// pages (cl_sjk.cpp's SJK_Words, which the engine reads a message's with).
+static void CG_SJKWords(const char *text, int length, char *words, int size)
+{
+	int i, w = 0;
+
+	for (i = 0; text[i] && (length < 0 || i < length); i++) {
+		const unsigned char c = (unsigned char)text[i];
+
+		if (c == Q_COLOR_ESCAPE && text[i + 1] >= '0' && text[i + 1] <= '9' && (length < 0 || i + 1 < length)) {
+			i++;
+			continue;
+		}
+		if (c < 128 && isalnum(c) && w + 1 < size)
+			words[w++] = (char)tolower(c);
+	}
+	words[w] = '\0';
+}
+
+// What a server's copy says, its id's end at `at` left out: after the SJK tag, else after
+// its sender's name, as SJK reads it (server_copy.rs, copy_body).
+static void CG_SJKCopyWords(const char *text, int at, char *words, int size)
+{
+	const char *end = text + at;
+	const char *body = strstr(text, SJK_COPY_TAG);
+
+	if (body && body + strlen(SJK_COPY_TAG) <= end)
+		body += strlen(SJK_COPY_TAG);
+	else if ((body = strstr(text, ": ")) != NULL && body + 2 <= end)
+		body += 2;
+	else
+		body = text;
+	CG_SJKWords(body, (int)(end - body), words, size);
+}
+
+// Whether a server line is the copy of a message with these words and sender: from
+// someone of the sender's name where the server says who said it, and its words among
+// the message's (a piece of a long one). A line with no words is only the copy of a
+// message with none, since its id alone would hide anything.
+static qboolean CG_SJKIsCopyOf(const sjkHeldLine_t *line, const char *nameWords, const char *words)
+{
+	if (line->sender && strcmp(line->nameWords, nameWords))
+		return qfalse;
+	if (!line->words[0])
+		return (qboolean)!words[0];
+	return (qboolean)(strstr(words, line->words) != NULL);
+}
+
 static qboolean CG_SJKReading(void)
 {
 	char value[8];
@@ -10736,23 +10788,53 @@ static void CG_SJKShowHeld(sjkHeldLine_t *held)
 	held->id[0] = '\0';
 	if (cg_chatSounds.integer)
 		trap->S_StartLocalSound(cgs.media.talkSound, CHAN_LOCAL_SOUND);
-	CG_ChatBox_AddString(text, held->isPrivate);
+	CG_ChatBox_AddString(text, qfalse);
 }
 
-// A server chat line (CG_Chat_f): qtrue when it is the server's copy of an SJK chat
-// message, held for the message or dropped as the message showed; the caller then
-// leaves it alone.
-qboolean CG_SJKServerLine(const char *text, qboolean isPrivate)
+// Message id was said in All chat too, as a copy that came after it shows: its line in
+// the chat box and in the SJK chat menu's history reads ALL/SJK.
+static void CG_SJKSaidInAll(const char *id)
+{
+	int i;
+
+	for (i = 0; i < MAX_CHATBOX_ITEMS; i++) {
+		if (cg.chatItems[i].sjk && !strcmp(cg.chatItems[i].sjkId, id))
+			cg.chatItems[i].sjkInAll = qtrue;
+	}
+	trap->SJK_SaidInAll(id);
+}
+
+// A server chat line (CG_Chat_f) from client sender, -1 when the server does not say:
+// qtrue when it is the server's copy of an SJK chat message, held for the message or
+// dropped as the message showed; the caller then leaves it alone.
+qboolean CG_SJKServerLine(const char *text, qboolean isPrivate, int sender)
 {
 	const int now = trap->Milliseconds();
-	char id[10];
+	sjkHeldLine_t line;
 	int at, i, slot = -1;
 
-	if (!CG_SJKReading() || !CG_SJKLineId(text, id, &at))
+	if (isPrivate || !CG_SJKReading())
 		return qfalse;
+	Com_Memset(&line, 0, sizeof(line));
+	if (!CG_SJKLineId(text, line.id, &at))
+		return qfalse;
+	Q_strncpyz(line.text, text, sizeof(line.text));
+	if (at < (int)sizeof(line.text))
+		line.text[at] = '\0';
+	CG_SJKCopyWords(text, at, line.words, sizeof(line.words));
+	if (sender >= 0 && sender < MAX_CLIENTS && cgs.clientinfo[sender].infoValid) {
+		line.sender = qtrue;
+		CG_SJKWords(cgs.clientinfo[sender].name, -1, line.nameWords, sizeof(line.nameWords));
+	}
+	line.until = now + SJK_HELD_MS;
+
 	for (i = 0; i < SJK_SEEN_MAX; i++) {
-		if (sjkSeen[i].id[0] && sjkSeen[i].until - now > 0 && !strcmp(sjkSeen[i].id, id))
+		if (sjkSeen[i].id[0] && sjkSeen[i].until - now > 0 && !strcmp(sjkSeen[i].id, line.id)) {
+			if (!CG_SJKIsCopyOf(&line, sjkSeen[i].nameWords, sjkSeen[i].words))
+				return qfalse;
+			CG_SJKSaidInAll(line.id);
 			return qtrue;
+		}
 	}
 	for (i = 0; i < SJK_HELD_MAX; i++) {
 		if (!sjkHeld[i].id[0]) {
@@ -10764,32 +10846,38 @@ qboolean CG_SJKServerLine(const char *text, qboolean isPrivate)
 	}
 	if (sjkHeld[slot].id[0])
 		CG_SJKShowHeld(&sjkHeld[slot]);	// no room: the oldest goes now
-	Q_strncpyz(sjkHeld[slot].id, id, sizeof(sjkHeld[slot].id));
-	Q_strncpyz(sjkHeld[slot].text, text, sizeof(sjkHeld[slot].text));
-	if (at < (int)sizeof(sjkHeld[slot].text))
-		sjkHeld[slot].text[at] = '\0';
-	sjkHeld[slot].isPrivate = isPrivate;
-	sjkHeld[slot].until = now + SJK_HELD_MS;
+	sjkHeld[slot] = line;
 	return qtrue;
 }
 
-// An SJK chat message with this id shows: the server's lines of it go unshown, now and
-// for a while after.
-static void CG_SJKSawMessage(const char *id)
+// An SJK chat message shows: the server's copies of it held go unshown, and those that
+// come for a while after; a held line with its id that is not one shows as it came,
+// after it. qtrue when a copy was there: the message was said in All chat too.
+static qboolean CG_SJKSawMessage(const sjkChatLine_t *message)
 {
 	const int now = trap->Milliseconds();
+	qboolean inAll = qfalse;
 	int i, slot = 0;
 
 	for (i = 0; i < SJK_HELD_MAX; i++) {
-		if (sjkHeld[i].id[0] && !strcmp(sjkHeld[i].id, id))
+		if (!sjkHeld[i].id[0] || strcmp(sjkHeld[i].id, message->id))
+			continue;
+		if (CG_SJKIsCopyOf(&sjkHeld[i], message->nameWords, message->words)) {
 			sjkHeld[i].id[0] = '\0';
+			inAll = qtrue;
+		} else {
+			sjkHeld[i].until = now;	// CG_SJKServerLinesFrame shows it
+		}
 	}
 	for (i = 0; i < SJK_SEEN_MAX; i++) {
 		if (sjkSeen[i].until - sjkSeen[slot].until < 0)
 			slot = i;
 	}
-	Q_strncpyz(sjkSeen[slot].id, id, sizeof(sjkSeen[slot].id));
+	Q_strncpyz(sjkSeen[slot].id, message->id, sizeof(sjkSeen[slot].id));
+	Q_strncpyz(sjkSeen[slot].words, message->words, sizeof(sjkSeen[slot].words));
+	Q_strncpyz(sjkSeen[slot].nameWords, message->nameWords, sizeof(sjkSeen[slot].nameWords));
 	sjkSeen[slot].until = now + SJK_SEEN_MS;
+	return inAll;
 }
 
 // Every frame: a held line whose message did not come shows as it was.
@@ -10804,51 +10892,189 @@ void CG_SJKServerLinesFrame(void)
 	}
 }
 
-// A line of SJK chat from the engine (client/cl_sjk.cpp, SJK_SetChatSink) into the
-// chat box. CG_ChatBox_AddString copies into MAX_SAY_TEXT + MAX_NETNAME, which a
-// server's chat never fills but an SJK message of 300 characters does, so a long one
-// goes in as several items, the rest in SJK's gold, cut at a space where one is near
-// and never inside a colour code. A message goes after the icon of the client it came
-// from, "sjk" or "ejk" as the hub says, which takes the place of its SJK word; SJK chat's
-// own lines, and messages from other clients, have none. A message with an id takes the
-// place of the server's copy of it (CG_SJKServerLine).
-void CG_SJKChatLine(const char *line, const char *client, const char *id)
+// SJK's golds, which its chat draws an SJK chat message in: the label after the sender's
+// name, and the text. The console and the log have the nearest codes, ^8 and ^3.
+static vec4_t sjkLabelColor = { 0.9098f, 0.7216f, 0.2902f, 1.0f };	// #E8B84A
+static vec4_t sjkTextColor = { 0.9608f, 0.7804f, 0.3373f, 1.0f };	// #F5C756
+
+static int CG_ChatBoxFont(void)
 {
-	char piece[MAX_SAY_TEXT + MAX_NETNAME];
-	const size_t room = sizeof(piece) - 3;	// a colour code before the rest, and the end
-	const char *at = line;
-	const qhandle_t icon = !strcmp(client, "sjk") ? cgs.media.sjkClientIcon
-		: !strcmp(client, "ejk") ? cgs.media.ejkClientIcon : 0;
-	qboolean first = qtrue;
+	return cg_newFont.integer == 1 ? FONT_MEDIUM : cg_newFont.integer == 2 ? FONT_SMALL2 : FONT_SMALL;
+}
 
-	if (id[0])
-		CG_SJKSawMessage(id);
+// How much of text (no colour codes) goes in a row room wide: the longest start that
+// fits, cut at a space in its second half where there is one; one character at least.
+static int CG_SJKRowLength(const char *text, float room, float scale, int font)
+{
+	char row[MAX_STRING_CHARS];
+	int take = 0, i;
 
-	while (*at) {
-		size_t take = strlen(at);
-		if (take > room) {
-			size_t space;
-			take = room;
-			if (at[take - 1] == Q_COLOR_ESCAPE)
-				take--;
-			for (space = take; space > take / 2; space--) {
-				if (at[space] == ' ') {
-					take = space;
-					break;
-				}
-			}
+	while (text[take] && take + 1 < (int)sizeof(row)) {
+		memcpy(row, text, take + 1);
+		row[take + 1] = '\0';
+		if (CG_Text_Width(row, scale, font) > room)
+			break;
+		take++;
+	}
+	if (text[take]) {
+		for (i = take; i > take / 2; i--) {
+			if (text[i] == ' ')
+				return i;
 		}
-		Com_sprintf(piece, sizeof(piece), "%s%.*s", first ? "" : S_COLOR_YELLOW, (int)take, at);
-		chatBoxNextIcon = first ? icon : 0;
-		chatBoxNextIndent = (qboolean)(icon != 0);
-		CG_ChatBox_AddString(piece, qfalse);
+	}
+	return take > 0 ? take : 1;
+}
+
+// An SJK chat message to the log and the console, as one line in the game's colours, and
+// into the chat box as one item: its client's icon, then its sender's name, the label and
+// its text in rows of the box's width, \n between them (CG_SJKChatBoxPaint). The first
+// row leaves room for ALL/SJK, which a copy that comes later makes the label.
+static void CG_SJKAddMessage(const sjkChatLine_t *line, qhandle_t icon, qboolean inAll)
+{
+	chatBoxItem_t *chat = &cg.chatItems[cg.chatItemActive];
+	const float scale = 0.65f * cg_chatBoxFontSize.value;
+	const int font = CG_ChatBoxFont();
+	char text[MAX_STRING_CHARS], shown[MAX_STRING_CHARS];
+	const char *at = text;
+	float room, firstRoom;
+	int w = 0;
+
+	if (cg.pmOnlyChat)
+		return;
+	CG_ChatBox_Unescape(line->text, text, sizeof(text));
+	// As the engine shows one without the chat box (cl_sjk.cpp, SJK_ConsoleLine).
+	Com_sprintf(shown, sizeof(shown), "%s" S_COLOR_WHITE " " S_COLOR_ORANGE "%s" S_COLOR_WHITE ": " S_COLOR_YELLOW "%s",
+		line->who, inAll ? "ALL/SJK" : "SJK", text);
+	if (cg_logChat.integer & JAPRO_CHATLOG_ENABLE)
+		CG_LogPrintf(cg.log.file, "%s\n", shown);
+	if (cg_chatBox.integer < 0)
+		return;
+	if (!cg_chatBox.integer) {
+		trap->Print("%s\n", shown);
+		return;
+	}
+	trap->Print("*%s\n", shown);
+
+	Com_Memset(chat, 0, sizeof(*chat));
+	chat->sjk = qtrue;
+	chat->sjkInAll = inAll;
+	Q_strncpyz(chat->sjkWho, line->who, sizeof(chat->sjkWho));
+	Q_strncpyz(chat->sjkId, line->id, sizeof(chat->sjkId));
+	chat->icon = icon;
+	chat->indented = (qboolean)(icon != 0);
+	chat->time = cg.time + cg_chatBox.integer;
+	room = cg_chatBoxCutOffLength.value - (icon ? 20 * scale : 0);
+	firstRoom = room - CG_Text_Width(va("%s ALL/SJK: ", chat->sjkWho), scale, font);
+	while (*at) {
+		const int left = (int)sizeof(chat->string) - 1 - w - (chat->lines ? 1 : 0);
+		int take = CG_SJKRowLength(at, chat->lines ? room : firstRoom, scale, font);
+
+		if (left <= 0)
+			break;
+		if (take > left)
+			take = left;
+		if (chat->lines)
+			chat->string[w++] = '\n';
+		memcpy(chat->string + w, at, take);
+		w += take;
+		chat->lines++;
 		at += take;
 		while (*at == ' ')
 			at++;
-		first = qfalse;
 	}
-	chatBoxNextIcon = 0;
-	chatBoxNextIndent = qfalse;
+	chat->string[w] = '\0';
+	if (!chat->lines)
+		chat->lines = 1;
+
+	cg.chatItemActive++;
+	if (cg.chatItemActive >= cg_chatBoxLines.integer)
+		cg.chatItemActive = 0;
+}
+
+// An SJK chat message's item (CG_SJKAddMessage) at x, y: its sender's name in its own
+// colours, the label, then its rows of text, in SJK's golds. The font draws at whole
+// units, so a part after a space goes at the one after where the space ends, which
+// would be lost otherwise.
+static void CG_SJKChatBoxPaint(const chatBoxItem_t *item, float x, float y, float scale)
+{
+	const int font = CG_ChatBoxFont();
+	const char *label = item->sjkInAll ? "ALL/SJK" : "SJK";
+	const char *at = item->string;
+	char row[MAX_STRING_CHARS];
+	float rowX = x;
+
+	CG_Text_Paint(rowX, y, scale, colorWhite, item->sjkWho, 0, 0, ITEM_TEXTSTYLE_OUTLINED, font);
+	rowX = ceilf(rowX + CG_Text_Width(va("%s ", item->sjkWho), scale, font));
+	CG_Text_Paint(rowX, y, scale, sjkLabelColor, label, 0, 0, ITEM_TEXTSTYLE_OUTLINED, font);
+	rowX += CG_Text_Width(label, scale, font);
+	CG_Text_Paint(rowX, y, scale, colorWhite, ": ", 0, 0, ITEM_TEXTSTYLE_OUTLINED, font);
+	rowX = ceilf(rowX + CG_Text_Width(": ", scale, font));
+	while (*at) {
+		const char *end = strchr(at, '\n');
+		const int length = end ? (int)(end - at) : (int)strlen(at);
+
+		Q_strncpyz(row, at, length + 1 < (int)sizeof(row) ? length + 1 : (int)sizeof(row));
+		CG_Text_Paint(rowX, y, scale, sjkTextColor, row, 0, 0, ITEM_TEXTSTYLE_OUTLINED, font);
+		if (!end)
+			break;
+		at = end + 1;
+		rowX = x;
+		y += CHATBOX_FONT_HEIGHT * scale;
+	}
+}
+
+// A line of SJK chat from the engine (client/cl_sjk.cpp, SJK_SetChatSink) into the chat
+// box. A message goes after the icon of the client it came from, "sjk" or "ejk" as the
+// hub says (other clients have none), and takes the place of the server's copy of it
+// (CG_SJKServerLine). SJK chat's own notice goes as a server's line does, in pieces:
+// CG_ChatBox_AddString copies into MAX_SAY_TEXT + MAX_NETNAME, which a server's chat
+// never fills but a notice with a line of 150 characters does. A piece is cut at a space
+// where one is near and never inside a colour code, and goes on in the colour the last
+// one ended in.
+void CG_SJKChatLine(const sjkChatLine_t *line)
+{
+	if (line->who[0]) {
+		const qhandle_t icon = !strcmp(line->client, "sjk") ? cgs.media.sjkClientIcon
+			: !strcmp(line->client, "ejk") ? cgs.media.ejkClientIcon : 0;
+		const qboolean inAll = (qboolean)(line->id[0] && CG_SJKSawMessage(line));
+
+		if (inAll)
+			trap->SJK_SaidInAll(line->id);
+		CG_SJKAddMessage(line, icon, inAll);
+	} else {
+		char piece[MAX_SAY_TEXT + MAX_NETNAME];
+		const size_t room = sizeof(piece) - 3;	// a colour code before the rest, and the end
+		const char *at = line->text;
+		char colour = 0;
+
+		while (*at) {
+			size_t take = strlen(at), i;
+			if (take > room) {
+				size_t space;
+				take = room;
+				if (at[take - 1] == Q_COLOR_ESCAPE)
+					take--;
+				for (space = take; space > take / 2; space--) {
+					if (at[space] == ' ') {
+						take = space;
+						break;
+					}
+				}
+			}
+			if (colour)
+				Com_sprintf(piece, sizeof(piece), "%c%c%.*s", Q_COLOR_ESCAPE, colour, (int)take, at);
+			else
+				Com_sprintf(piece, sizeof(piece), "%.*s", (int)take, at);
+			CG_ChatBox_AddString(piece, qfalse);
+			for (i = 0; i + 1 < take; i++) {
+				if (at[i] == Q_COLOR_ESCAPE && at[i + 1] >= '0' && at[i + 1] <= '9')
+					colour = at[i + 1];
+			}
+			at += take;
+			while (*at == ' ')
+				at++;
+		}
+	}
 
 	if (cg_chatSounds.integer)
 		trap->S_StartLocalSound(cgs.media.talkSound, CHAN_LOCAL_SOUND);
@@ -10962,7 +11188,9 @@ static QINLINE void CG_ChatBox_DrawStrings(void)
 			}
 		}
 
-		switch (cg_newFont.integer) {
+		if (drawThese[i]->sjk)
+			CG_SJKChatBoxPaint(drawThese[i], textX, y, fontScale);
+		else switch (cg_newFont.integer) {
 			case 0:
 				CG_Text_Paint(textX, y, fontScale, colorWhite, drawThese[i]->string, 0, 0, ITEM_TEXTSTYLE_OUTLINED, FONT_SMALL);
 				break;

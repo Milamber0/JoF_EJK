@@ -612,8 +612,9 @@ void CL_SJK_Frame(void);
 void CL_SJK_Shutdown(void);
 qboolean CL_SJK_SayText(const char *text);
 int CL_SJK_ChatLineCount(int *revision);	// the SJK chat menu's history (ui)
-qboolean CL_SJK_ChatLine(int index, char *text, int textSize, char *client, int clientSize);
-qboolean CL_SJK_ToChatBox(const char *line, const char *client, const char *id);	// cl_cgameapi.cpp
+qboolean CL_SJK_ChatLine(int index, char *who, int whoSize, char *text, int textSize, char *client, int clientSize, qboolean *inAll);
+void CL_SJK_SaidInAll(const char *id);	// the cgame saw a message's copy in All chat
+qboolean CL_SJK_ToChatBox(const sjkChatLine_t *line);	// cl_cgameapi.cpp
 qboolean CL_SJK_ServerSession(char *serverId, int serverIdSize, char *mapname, int mapnameSize);	// cl_parse.cpp
 void CL_SayToServer(const char *text);	// cl_keys.cpp
 

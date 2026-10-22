@@ -241,11 +241,6 @@ typedef enum uiExportLegacy_e {
 	UI_CMD_HELP
 } uiExportLegacy_t;
 
-// How an SJK chat message's line starts (ext.SJK_ChatLine, and the cgame's sink in
-// cg_public.h). Where the icon of the client it came from is drawn, the icon takes its
-// place.
-#define SJK_CHAT_MARK	S_COLOR_YELLOW "SJK "
-
 typedef struct uiImport_s {
 	void			(*Print)								( const char *msg, ... );
 	NORETURN_PTR void (*Error)( int level, const char *fmt, ... );
@@ -401,7 +396,9 @@ typedef struct uiImport_s {
 		// Only valid when the "cl_sjkChatUI" cvar is non-zero: older engines end the
 		// table before these. The SJK chat menu's history and its field (client/cl_sjk.cpp).
 		int				(*SJK_ChatLineCount)					( int *revision );
-		qboolean		(*SJK_ChatLine)							( int index, char *text, int textSize, char *client, int clientSize );
+		// A line: who said it (with colours; "" for SJK chat's own notice), its text, the
+		// client it came from ("sjk", "ejk" or "") and whether it was said in All chat too.
+		qboolean		(*SJK_ChatLine)							( int index, char *who, int whoSize, char *text, int textSize, char *client, int clientSize, qboolean *inAll );
 		qboolean		(*SJK_SayText)							( const char *text );
 	} ext;
 } uiImport_t;

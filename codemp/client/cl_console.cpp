@@ -684,9 +684,8 @@ Con_Linefeed
 ===============
 */
 // An SJK chat message's console line starts with the icon of the client it came from
-// (CL_SJK_Frame), in place of its SJK word: two cells of room, the first marked with the
-// icon in bits of the cell the colour leaves free. Only Con_SetPrintIcon marks one, so
-// no printed text can.
+// (CL_SJK_Frame): two cells of room, the first marked with the icon in bits of the cell
+// the colour leaves free. Only Con_SetPrintIcon marks one, so no printed text can.
 #define CON_ICON_SHIFT	12
 #define CON_ICON_MASK	0xF
 static conIcon_t con_printIcon;
@@ -784,15 +783,12 @@ void CL_ConsolePrint( const char *txt ) {
 	color = ColorIndex(COLOR_WHITE);
 	l = -1;
 
-	// The icon in place of the SJK word an SJK chat message starts with, its first cell
-	// marked (Con_SetPrintIcon); the log keeps the word. The next print takes it, and
-	// only that one. An icon that did not load leaves the word.
+	// The icon in front of an SJK chat message, its first cell marked (Con_SetPrintIcon).
+	// The next print takes it, and only that one; one that did not load is left out.
 	if ( con_printIcon != CON_ICON_NONE ) {
 		const int icon = con_printIcon & CON_ICON_MASK;
 		con_printIcon = CON_ICON_NONE;
-		if ( icon < (int)ARRAY_LEN( cls.conIconShaders ) && cls.conIconShaders[icon]
-			&& !Q_strncmp( txt, SJK_CHAT_MARK, (int)strlen( SJK_CHAT_MARK ) ) ) {
-			txt += strlen( SJK_CHAT_MARK );
+		if ( icon < (int)ARRAY_LEN( cls.conIconShaders ) && cls.conIconShaders[icon] ) {
 			if ( con.x + 2 >= con.linewidth )
 				Con_Linefeed( skipnotify );
 			y = con.current % con.totallines;

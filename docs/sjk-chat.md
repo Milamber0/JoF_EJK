@@ -22,18 +22,22 @@ players on SJK's own client. Players on other clients never see it.
   line. A server keeps 149 characters of a line, so a longer one goes as several, cut
   at a space, each starting with SJK, one a second (the server's flood protection
   takes one command a second).
-  SJK chat players on that same server see it once, as the SJK line, with its icon
-  and whole: the server's copy of it is neither shown nor logged for them (Said on a
-  server too, below). In the menus an SJK line goes to SJK chat only. A line SJK chat
-  refused, or said while the hub cannot be reached, never reached SJK chat: it still
-  goes to the server, as a normal line without the SJK tag, and the console says so. Normal chat (All, Team, whispers) is never
-  touched.
-- A line reads `SJK Name+: text`: the name with its colours, a green `+` for a player
-  the SJK team verified, and the text in SJK's gold, without the sender's colour
-  codes. Where the icon of the client it came from is drawn (below), the icon takes
-  the place of the word `SJK`. In a match it goes into the chat box, and into the
-  console as chat does.
-  In the menus it goes to the console. A long message takes several chat-box lines.
+  This happens on every server, whatever its mod. SJK chat players on that same
+  server see it once, as the SJK line, whole and marked `ALL/SJK`: the server's copy
+  of it is neither shown nor logged for them (Said on a server too, below). SJK's
+  client says its players' lines on JoF servers as well. In the menus an SJK line goes
+  to SJK chat only. A line SJK chat refused, or said while the hub cannot be reached,
+  goes nowhere: the console says it was not sent. Normal chat (All, Team, whispers)
+  is never touched.
+- A line reads `Name+ SJK: text`, as in SJK's client: the name with its colours, a
+  green `+` for a player the SJK team verified, the label, then the text without the
+  sender's colour codes. The label is `ALL/SJK` for a line said in the server's chat
+  too, which SJK chat players there read once. The chat box and the SJK chat menu draw
+  the label and the text in SJK's golds (`#E8B84A` and `#F5C756`); the console, the
+  notify lines and the log, which only have the game's colours, in the nearest, `^8`
+  and `^3`. A GIPHY link, which SJK's client plays as a GIF, shows as `<GIF>`. In a
+  match the line goes into the chat box, and into the console as chat does. In the
+  menus it goes to the console. A long message takes several chat-box rows.
   What was said before the player came is not replayed, except in the SJK chat menu.
 - **CHAT** in the main menu, on the bar under the ring to the left, opens the SJK chat
   menu. Its list holds the last 100
@@ -47,11 +51,10 @@ players on SJK's own client. Players on other clients never see it.
   The button shows only with an engine that has the menu.
 - A message starts with the icon of the client it was sent from, in the chat box, the
   console, the notify lines and the SJK chat menu: SJK's emblem for SJK, JoF's for
-  this client, the player's own messages included. The icon replaces the word `SJK`.
-  The word stays where there is no icon: a message from any other client, from a hub
-  that does not say which client sent it, or on a pure server where the icons do not
-  load. In the chat box the rest of a long message lines up after the icon. The log
-  file and `condump` keep the word on every line, since a log cannot hold an icon.
+  this client, the player's own messages included. A message from any other client,
+  or from a hub that does not say which client sent it, has none, nor has any on a
+  pure server where the icons do not load. In the chat box the rest of a long message
+  lines up after the icon.
 - A message the hub refuses comes back as an `SJK chat: not sent: ...` line: a
   message of more than one line or more than 300 characters, sending too often (the
   hub is stricter with new players), a link from a player it has not verified, or a
@@ -138,67 +141,87 @@ hub's protocol, as SJK's client implements it (Sol-Vulpes/SJK,
   text and the worn name), once the key is registered. While the hub cannot be
   reached, a new line is refused at once instead of going out minutes later. Lines
   still waiting when the hub turns out to be unreachable are dropped the same way,
-  each with a notice that it was not sent (in a match: said in the server's chat
-  only, as a new line would be).
+  each with a notice that it was not sent.
 - **Said on a server too.** A convention between JoF EternalJK and SJK, which SJK's
   `docs/hub-chat.md` describes too ("Said on the game server too"); the hub takes no
   part in it. In a match, `CL_SJK_SayText`
   sends the line to the hub with the match it was said in (the server's `sv_serverid`
   and map, `CL_SJK_ServerSession` in [cl_parse.cpp](../codemp/client/cl_parse.cpp)).
-  When the hub answers, the server's copy goes, while still in that match: in pieces
+  When the hub took it, the server's copy goes, while still in that match: in pieces
   (`SJK_ServerPieces`), one a second (`CL_SJK_Frame`, through `CL_SayToServer` in
   [cl_keys.cpp](../codemp/client/cl_keys.cpp)) (`SJK_ServerCopyLines`). Each starts
   with `^3SJK^2 ` (`SJK_SERVER_TAG`: SJK in yellow, then All chat's green again) and
   ends with the id the hub gave the message in colour codes, which no client draws
   (`SJK_ServerMarker`: `^9`, then `^` and the number of digits, then `^` and each
-  digit; id 12 is `^9^2^1^2`). A refused message's copy goes without either. On the reading side, the cgame
-  (`CG_SJKServerLine` in [cg_draw.c](../codemp/cgame/cg_draw.c), from `CG_Chat_f`)
-  holds a server chat line with the ending for up to 2.5 seconds while SJK chat is
-  on. If the message of that id comes through the feed, it shows instead and the
-  server's lines of it are dropped (`CG_SJKSawMessage`, which also drops lines that
-  come after it); otherwise the line shows as it was. A line without the ending is
-  never held.
+  digit; id 12 is `^9^2^1^2`). A message the hub refused, or that never reached it,
+  has no id and no copy. On the reading side, the cgame (`CG_SJKServerLine` in
+  [cg_draw.c](../codemp/cgame/cg_draw.c), from `CG_Chat_f`) holds a server chat line
+  with the ending, other than a whisper, for up to 2.5 seconds while SJK chat is on.
+  When the message of that id comes through the feed, it shows instead, marked
+  `ALL/SJK`, and the server's lines of it are dropped (`CG_SJKSawMessage`); one that
+  comes up to 15 seconds after it is dropped as well, and turns the message's line
+  into `ALL/SJK` in the chat box and the SJK chat menu (`CG_SJKSaidInAll`, telling the
+  engine through `SJK_SaidInAll`). As SJK's client does (`server_copy.rs`), a line is
+  taken for a message's copy only when its words are among the message's: the
+  letters and digits of what follows the tag, lower case, which the server's old code
+  pages keep, and a piece of a long message has some of them. A line with none is
+  the copy only of a message with none, since an id alone would let anyone hide a
+  line. Where the server says who sent the line (the client number after it), the
+  sender's name must have the same letters and digits as the message's too. Any other line shows as it came, so a copy may show twice but
+  never hides another player's line. A line without the ending is never held.
 - **Text.** The game's 8-bit text becomes UTF-8 for the hub, and back for the game,
   with the engine's own conversion: Latin-1, or Cyrillic or central European letters
   as the language picks. What the game cannot draw shows as `?`.
-- **Showing.** The main thread hands lines to the cgame
-  (`SJK_SetChatSink` in [cg_public.h](../codemp/cgame/cg_public.h),
-  `CG_SJKChatLine` in [cg_draw.c](../codemp/cgame/cg_draw.c)). A message can hold 300
-  characters, more than one chat-box item can, so a long one goes in as several,
-  cut at a space and never inside a colour code. A cgame without the sink (an older
-  one, or a server's own) leaves the lines to the console.
+- **GIFs.** `SJK_GifText` turns a GIPHY link into `<GIF>` by SJK's rules
+  (`chat_gifs/link.rs`): `https://` or `http://`, the host with no user or port, and
+  `giphy.com/gifs/<slug>-<id>` or `/stickers/...`, `giphy.com/embed/<id>` (also
+  `www.`), `media[0-4].giphy.com/media/[v1.<token>/]<id>/<file>`,
+  `i.giphy.com/<id>.gif` or `.webp`, or `i.giphy.com/media/...`, with any query and
+  the punctuation that ends a sentence after it. Other sites' links stay as they are:
+  SJK's client shows those only to players who ask for them.
+- **Showing.** The main thread hands a message to the cgame in parts
+  (`sjkChatLine_t` and `SJK_SetChatSink` in [cg_public.h](../codemp/cgame/cg_public.h),
+  `CG_SJKChatLine` in [cg_draw.c](../codemp/cgame/cg_draw.c)): who said it, its text,
+  the words of the name and of the text, its client and its id. The cgame logs it and
+  prints it to the console as one line in the game's colours (as `SJK_ConsoleLine` in
+  the engine), and puts it in the chat box as one item: the text in rows of the box's
+  width, the first after the name and room for `ALL/SJK`. `CG_SJKChatBoxPaint` draws
+  the name in its colours, then the label and the text in SJK's golds. SJK chat's own
+  notices go as a server's line does, in pieces, since `CG_ChatBox_AddString` holds
+  only `MAX_SAY_TEXT + MAX_NETNAME`. A cgame without the sink (an older one, or a server's own) leaves
+  the lines to the console.
 - **Icons.** The engine passes on a message's `client` only when it is `sjk` or
-  `ejk`, with its line. The line always starts with `SJK_CHAT_MARK` (`^3SJK `,
-  defined in [cg_public.h](../codemp/cgame/cg_public.h) and
-  [ui_public.h](../codemp/ui/ui_public.h)), and whatever draws the icon leaves that
-  mark out. The text that is logged keeps it.
+  `ejk`.
   - The cgame draws `gfx/sjk/sjk.png` or `gfx/sjk/ejk.png` (in
     [assets/jofclient](../assets/jofclient/gfx/sjk), so `jofclient-assets.pk3`)
-    before the first chat-box item of the message, at an emoji's size, and leaves the
-    same room before the rest of a long one (`chatBoxItem_t` `icon` and `indented`).
-    `CG_ChatBox_AddString` drops the mark only after it has logged the item and
-    copied it to the console.
+    before the message's item in the chat box, at an emoji's size, and its rows after
+    it (`chatBoxItem_t` `icon` and `indented`).
   - For the console, the engine sets the icon for the next print only
     (`Con_SetPrintIcon` in [cl_console.cpp](../codemp/client/cl_console.cpp)). That
-    print, the chat box's copy or the engine's own line, then starts with two cells in
-    place of the mark, the first marked with the icon in bits of the cell the colour
-    leaves free. The console and the notify lines draw it there. Only the engine marks
-    a cell, so no text a server prints can bring an icon.
-  - An icon that did not load leaves the mark: on a pure server that does not list
+    print, the chat box's copy or the engine's own line, then starts with two cells
+    of room, the first marked with the icon in bits of the cell the colour leaves
+    free. The console and the notify lines draw it there. Only the engine marks a
+    cell, so no text a server prints can bring an icon.
+  - An icon that did not load is left out: on a pure server that does not list
     `jofclient-assets.pk3`, nothing of that pk3 loads.
-  - Several chat-box items added in one frame, such as a long message's pieces, share
+  - Several chat-box items added in one frame, such as a long notice's pieces, share
     a time. `CG_ChatBox_DrawStrings` sorts by time and takes the items oldest first,
     so they keep the order they came in.
 - **Channels.** The SJK channel lives in the engine's chat field
   ([cl_keys.cpp](../codemp/client/cl_keys.cpp), `Message_Key`;
   [cl_console.cpp](../codemp/client/cl_console.cpp), the prompt and `messagemode6`).
-- **Menu.** The engine keeps the last 100 lines with their client
-  (`CL_SJK_ChatLineCount` and `CL_SJK_ChatLine`). It keeps SJK chat's state in the
-  read-only cvar `cl_sjkChatStatus`. The ui reaches the lines and `CL_SJK_SayText`
-  through its import table's `ext` ([ui_public.h](../codemp/ui/ui_public.h)) and lists
-  them with `FEEDER_SJK_CHAT` (`UI_SJKChatRefresh` in
-  [ui_main.c](../codemp/ui/ui_main.c)), in
-  [sjkchat.menu](../assets/japro/ui/jamp/sjkchat.menu). An older engine's import table
+- **Menu.** The engine keeps the last 100 lines in their parts, and whether each was
+  said in All chat too (`CL_SJK_ChatLineCount`, `CL_SJK_ChatLine` and
+  `CL_SJK_SaidInAll`). A new session's backlog (SJK chat turned off and on, a new
+  `cl_hubUrl`) adds only the messages it does not hold yet, told by id, sender and
+  text together (`SJK_Remembered`). It keeps SJK chat's state in the read-only cvar
+  `cl_sjkChatStatus`. The ui reaches the lines and `CL_SJK_SayText` through its import
+  table's `ext` ([ui_public.h](../codemp/ui/ui_public.h)) and lists them with
+  `FEEDER_SJK_CHAT` (`UI_SJKChatRefresh` in [ui_main.c](../codemp/ui/ui_main.c)), in
+  [sjkchat.menu](../assets/japro/ui/jamp/sjkchat.menu). It draws a message's rows
+  itself, in SJK's golds, through the list's `feederItemPaint`
+  ([ui_shared.h](../codemp/ui/ui_shared.h)), a hook that leaves every other list as
+  it was. An older engine's import table
   ends before these, so only an engine that has them sets `cl_sjkChatUI 1`. The ui
   checks that cvar before each call, and the main menu shows the button only with it.
   The two bars under the ring are one picture, `gfx/menus/main_leftbottomwindow`, the
@@ -217,7 +240,8 @@ hub's protocol, as SJK's client implements it (Sol-Vulpes/SJK,
 
 [tests/sjk-chat](../tests/sjk-chat/README.md) checks the signing against the
 protocol's test vector, the key file, the text rules, the charset, hub addresses,
-the User-Agent and a message's client, without the engine or a hub.
+the User-Agent, how a message reads, GIPHY links and the server's copy, without the
+engine or a hub.
 
 To talk across clients, run a local SJK hub as SJK's hub repository describes, on
 `http://127.0.0.1:8787`, and start each client with
@@ -235,5 +259,9 @@ is restarted.
 To try a line said on a server too, host a match in one client (`+devmap mp/ffa3`),
 join it from a second (`+connect 127.0.0.1:29070`) and from a third with
 `+set cl_sjkChat 0`, and keep a fourth in the menus. An SJK line from either player
-in the match shows once, as an SJK line, in the first two and the fourth, and as the
-server's chat in the third.
+in the match shows once, as an `ALL/SJK` line, in the first two and the fourth, and as
+the server's chat in the third. A line said in All chat within 15 seconds that ends
+with that message's id (`/say text^9^1^5` for id 5) shows as it came when its words
+are not the message's, when it has none, or when another player says it. A line the
+hub refuses, or said with `cl_hubUrl` set to a port nothing listens on, says it was
+not sent and reaches no one on the server.

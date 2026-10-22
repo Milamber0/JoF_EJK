@@ -477,6 +477,9 @@ typedef struct displayContextDef_s {
 	const char *	(*feederItemText)					( float feederID, int index, int column, qhandle_t *handle1, qhandle_t *handle2, qhandle_t *handle3 );
 	qhandle_t		(*feederItemImage)					( float feederID, int index );
 	qboolean		(*feederSelection)					( float feederID, int index, itemDef_t *item );
+	// Draws a list's row index, column, itself where drawText would (NULL for none):
+	// qfalse leaves it to drawText.
+	qboolean		(*feederItemPaint)					( float feederID, int index, int column, float x, float y, float scale, vec4_t color, int style, int iMenuFont );
 	void			(*keynumToStringBuf)				( int keynum, char *buf, int buflen );
 	void			(*getBindingBuf)					( int keynum, char *buf, int buflen );
 	void			(*setBinding)						( int keynum, const char *binding );
