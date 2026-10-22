@@ -135,8 +135,10 @@ hub's protocol, as SJK's client implements it (Sol-Vulpes/SJK,
   conversation is, and what it holds goes to the SJK chat menu only. Later reads let
   the hub hold them up to 25 seconds. It waits 2
   seconds at least between reads and backs off from 2 to 60 seconds when the hub
-  fails. A hub that restarted answers with what it holds, and that is not replayed
-  either.
+  fails. An answer without the feed's `next` and `chat` counts as a failure too, even
+  with a 200 (`SJK_FeedAnswer`), so a garbled first answer cannot let the backlog
+  through as new lines. A hub that restarted answers with what it holds, and that is
+  not replayed either.
 - **Sending.** Another worker sends what the player says (`POST /v1/chat`, with the
   text and the worn name), once the key is registered. While the hub cannot be
   reached, a new line is refused at once instead of going out minutes later. Lines
@@ -203,7 +205,9 @@ hub's protocol, as SJK's client implements it (Sol-Vulpes/SJK,
     free. The console and the notify lines draw it there. Only the engine marks a
     cell, so no text a server prints can bring an icon.
   - An icon that did not load is left out: on a pure server that does not list
-    `jofclient-assets.pk3`, nothing of that pk3 loads.
+    `jofclient-assets.pk3`, nothing of that pk3 loads. The server's copy of a line is
+    still hidden there, as that goes by the cgame having taken SJK chat from the
+    engine (`cgs.sjkChat`), not by its icons.
   - Several chat-box items added in one frame, such as a long notice's pieces, share
     a time. `CG_ChatBox_DrawStrings` sorts by time and takes the items oldest first,
     so they keep the order they came in.

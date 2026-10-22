@@ -2331,6 +2331,8 @@ typedef struct cgs_s {
 
 	int				numClients;
 
+	qboolean		sjkChat;	// the engine hands this cgame SJK chat (cg_main.c, SJK_SetChatSink)
+
 } cgs_t;
 
 typedef struct siegeExtended_s

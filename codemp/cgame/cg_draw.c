@@ -10774,7 +10774,7 @@ static qboolean CG_SJKReading(void)
 {
 	char value[8];
 
-	if (!cgs.media.sjkClientIcon && !cgs.media.ejkClientIcon)
+	if (!cgs.sjkChat)
 		return qfalse;	// no SJK chat from this engine (cg_main.c)
 	trap->Cvar_VariableStringBuffer("cl_sjkChat", value, sizeof(value));
 	return (qboolean)(atoi(value) != 0);

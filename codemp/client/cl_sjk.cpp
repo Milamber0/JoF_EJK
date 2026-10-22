@@ -895,6 +895,13 @@ static std::string SJK_ConsoleLine( const sjkLine_t &line ) {
 	return line.who + S_COLOR_WHITE " " S_COLOR_ORANGE + ( line.inAll ? "ALL/SJK" : "SJK" ) + S_COLOR_WHITE ": " S_COLOR_YELLOW + line.text;
 }
 
+// Whether a feed read's answer is one (the hub's protocol, GET /v1/feed): an object with
+// the id to read on from and the chat it brings, which the hub always sends.
+static bool SJK_FeedAnswer( const cJSON *root ) {
+	return cJSON_IsObject( root ) && cJSON_IsNumber( cJSON_GetObjectItemCaseSensitive( root, "next" ) )
+		&& cJSON_IsArray( cJSON_GetObjectItemCaseSensitive( root, "chat" ) );
+}
+
 // The client a message of the feed came from, as the hub names it from the sender's
 // User-Agent (its protocol, "Chat"): "sjk" or "ejk", and empty for any other or none.
 static std::string SJK_MessageClient( const cJSON *message ) {
@@ -1010,8 +1017,15 @@ static void SJK_FeedWorker( sjkSession_t *s ) {
 			std::string(), SJK_FEED_TIMEOUT_MS );
 		if ( s->stop )
 			break;
+		// Only a feed answer moves the reading on. Anything else, even with a 200, goes as
+		// a failed read: taken for one, a garbled first answer would end the first read
+		// without learning where the conversation is, and the backlog would come next as new.
+		cJSON *root = a.status == 200 ? cJSON_ParseWithLength( a.body.data(), a.body.size() ) : NULL;
+		if ( a.status == 200 && !SJK_FeedAnswer( root ) ) {
+			a.status = 0;
+			a.error = "the hub's answer could not be read";
+		}
 		if ( a.status == 200 ) {
-			cJSON *root = cJSON_ParseWithLength( a.body.data(), a.body.size() );
 			const cJSON *next = cJSON_GetObjectItemCaseSensitive( root, "next" );
 			const cJSON *chat = cJSON_GetObjectItemCaseSensitive( root, "chat" );
 			const cJSON *online = cJSON_GetObjectItemCaseSensitive( root, "online" );
@@ -1041,12 +1055,12 @@ static void SJK_FeedWorker( sjkSession_t *s ) {
 					s->lines.push_back( { S_COLOR_YELLOW "SJK chat: connected again", std::string() } );
 				s->reachable = true;
 			}
-			if ( cJSON_IsNumber( next ) )
-				after = (int64_t)next->valuedouble;
+			after = (int64_t)next->valuedouble;
 			cJSON_Delete( root );
 			first = false;
 			backoff = 2000;
 		} else {
+			cJSON_Delete( root );
 			{
 				std::lock_guard<std::mutex> hold( s->lock );
 				if ( s->reachable )

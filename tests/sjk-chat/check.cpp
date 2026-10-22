@@ -201,6 +201,21 @@ static void CheckWords( void ) {
 	require( SJK_Words( "^^1a^" ) == "a", "a ^ that is no colour code is no letter either" );
 }
 
+// Only a feed answer moves the reading on: anything else counts as a failed read.
+static void CheckFeedAnswer( void ) {
+	for ( const char *good : { "{\"next\":14,\"chat\":[],\"online\":3}", "{\"next\":0,\"chat\":[{\"id\":1,\"text\":\"hi\"}]}" } ) {
+		cJSON *root = cJSON_Parse( good );
+		require( SJK_FeedAnswer( root ), std::string( "a feed answer: " ) + good );
+		cJSON_Delete( root );
+	}
+	for ( const char *bad : { "", "<html>ok</html>", "null", "[]", "{}", "{\"chat\":[]}", "{\"next\":14}",
+			"{\"next\":\"14\",\"chat\":[]}", "{\"next\":14,\"chat\":{}}" } ) {
+		cJSON *root = cJSON_Parse( bad );
+		require( !SJK_FeedAnswer( root ), std::string( "not a feed answer: " ) + bad );
+		cJSON_Delete( root );
+	}
+}
+
 // A new session's backlog adds to the SJK chat menu's history only what it lacks.
 static void CheckHistory( void ) {
 	sjkLine_t line;
@@ -288,6 +303,7 @@ int main( void ) {
 	CheckMessageLine();
 	CheckGifs();
 	CheckWords();
+	CheckFeedAnswer();
 	CheckHistory();
 	CheckServerCopy();
 	printf( "sjk chat: %d checks passed\n", checks );

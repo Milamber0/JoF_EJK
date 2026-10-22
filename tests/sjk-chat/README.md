@@ -21,6 +21,8 @@ The standalone harness compiles the production SJK chat code,
 - GIPHY links as SJK reads them, each shown as `<GIF>`, and links that are not;
 - the words that tell a message's copy on a server: letters and digits, lower case,
   without colour codes or other scripts;
+- a feed read's answer: only an object with a numeric `next` and a `chat` list moves
+  the reading on, anything else counts as a failed read;
 - the SJK chat menu's history: a new session's backlog adds a message only when the
   history lacks it, told by its id, sender and text together;
 - a line said on a game server too: the id the hub gave a message, from the feed and
