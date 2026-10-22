@@ -120,7 +120,13 @@ hub's protocol, as SJK's client implements it (Sol-Vulpes/SJK,
   time, the nonce and the SHA-256 of the body, one per line, all base64url without
   padding. When the hub answers that the clock is off, the client takes the hub's
   time and tries once more. Ed25519 is Monocypher's (`lib/monocypher`), SHA-256 and
-  randomness are Windows' (BCrypt), and HTTP is WinHTTP, with the system's proxy.
+  randomness are Windows' (BCrypt), and HTTP is WinHTTP, with the system's proxy. A
+  nonce Windows cannot give after three tries fails the request, so a line says it
+  was not sent.
+- **Sessions.** Each start of SJK chat (turning it on, a new `cl_hubUrl`) makes a new
+  session for its two workers and lets go of the last. The workers and the client
+  each hold a share; the last to let go frees it and wipes its copy of the key
+  (`SJK_Release`), so a worker still in a long poll never holds up the client.
 - **Reading.** A worker thread registers the key (`POST /v1/register`), then
   long-polls `GET /v1/feed`: its first read does not wait and learns where the
   conversation is, and what it holds goes to the SJK chat menu only. Later reads let
@@ -130,7 +136,10 @@ hub's protocol, as SJK's client implements it (Sol-Vulpes/SJK,
   either.
 - **Sending.** Another worker sends what the player says (`POST /v1/chat`, with the
   text and the worn name), once the key is registered. While the hub cannot be
-  reached, a new line is refused at once instead of going out minutes later.
+  reached, a new line is refused at once instead of going out minutes later. Lines
+  still waiting when the hub turns out to be unreachable are dropped the same way,
+  each with a notice that it was not sent (in a match: said in the server's chat
+  only, as a new line would be).
 - **Said on a server too.** A convention between JoF EternalJK and SJK, which SJK's
   `docs/hub-chat.md` describes too ("Said on the game server too"); the hub takes no
   part in it. In a match, `CL_SJK_SayText`

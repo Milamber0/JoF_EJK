@@ -79,6 +79,7 @@ static const DWORD		SJK_SEND_GAP_MS		= 1100;		// the hub takes one message a sec
 static const int		SJK_SERVER_SAY_GAP_MS	= 1100;	// a game server one command a second (sv_floodProtect)
 static const size_t		SJK_SERVER_SAY_MAX	= MAX_SAY_TEXT - 1;	// what a game server keeps of a say
 static const size_t		SJK_ANSWER_MAX		= 256 * 1024;
+static const int		SJK_RANDOM_TRIES	= 3;		// for a request's nonce, then it fails
 
 /*
 ===============================================================================
@@ -314,6 +315,8 @@ struct sjkIdentity_t {
 	uint8_t			pub[32];
 	std::string		key;			// the public key, unpadded base64url
 	std::string		keyId;			// the first 16 hex digits of its SHA-256
+
+	~sjkIdentity_t() { crypto_wipe( secret, sizeof( secret ) ); }
 };
 
 static bool SJK_IdentityFromSeed( const uint8_t seed[32], sjkIdentity_t *id ) {
@@ -497,13 +500,13 @@ struct sjkServerCopy_t {
 };
 
 // One worker's view of the hub: what it calls, as whom. Each start of SJK chat makes
-// a new one and abandons the last, so a worker still waiting on the network never
-// holds up the client; it is left to the process to free.
+// a new one and lets go of the last, so a worker still waiting on the network never
+// holds up the client; whoever lets go last frees it (SJK_Release).
 struct sjkSession_t {
 	std::mutex						lock;
 	std::condition_variable			wake;
 	std::atomic<bool>				stop{ false };
-	std::atomic<int>				running{ 0 };
+	std::atomic<int>				holders{ 0 };	// its two workers, and the client while it is current
 
 	std::string						hub;		// https://host[:port], no path
 	std::wstring					agent;		// SJK_UserAgent
@@ -532,6 +535,16 @@ static std::string SJK_NetError( DWORD code ) {
 	default:
 		return SJK_Format( "the connection to the hub failed (error %lu)", code );
 	}
+}
+
+// A request's nonce, from the system's random numbers: a few tries, else the request
+// fails rather than going out with an unset one.
+static bool SJK_Nonce( uint8_t nonce[12] ) {
+	for ( int tries = 0; tries < SJK_RANDOM_TRIES; tries++ ) {
+		if ( SJK_Random( nonce, 12 ) )
+			return true;
+	}
+	return false;
 }
 
 static sjkAnswer_t SJK_Http( sjkSession_t *s, const char *method, const std::string &pathAndQuery,
@@ -570,11 +583,12 @@ static sjkAnswer_t SJK_Http( sjkSession_t *s, const char *method, const std::str
 	HINTERNET connection = WinHttpConnect( session, host, parts.nPort, 0 );
 	HINTERNET request = connection ? WinHttpOpenRequest( connection, SJK_Widen( method ).c_str(), target.c_str(), NULL,
 		WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, parts.nScheme == INTERNET_SCHEME_HTTPS ? WINHTTP_FLAG_SECURE : 0 ) : NULL;
+	uint8_t nonce[12];
 	if ( !request ) {
 		answer.error = SJK_NetError( GetLastError() );
+	} else if ( !SJK_Nonce( nonce ) ) {
+		answer.error = "could not make a random number to sign the request";
 	} else {
-		uint8_t nonce[12];
-		SJK_Random( nonce, sizeof( nonce ) );
 		const int64_t ts = (int64_t)time( NULL ) + s->clockOffset;
 		std::string headers = "Authorization: " + SJK_Authorization( s->id, method, pathAndQuery, body, ts, nonce ) + "\r\n";
 		if ( !body.empty() )
@@ -679,6 +693,28 @@ WORKERS
 
 ===============================================================================
 */
+
+// One of the session's holders lets go; the last frees it, and its key with it.
+static void SJK_Release( sjkSession_t *s ) {
+	if ( --s->holders == 0 )
+		delete s;
+}
+
+// The hub cannot be reached: what waits to be sent goes no later, since it would go out
+// long after it was said. Each line is told, and in a match said in the server's chat
+// only, as CL_SJK_SayText does with one said while the hub cannot be reached. Called
+// with s->lock held.
+static void SJK_DropOutgoing( sjkSession_t *s ) {
+	for ( const sjkOutgoing_t &item : s->outgoing ) {
+		if ( item.match.empty() ) {
+			s->lines.push_back( { S_COLOR_YELLOW "SJK chat: not sent, the hub could not be reached: " S_COLOR_WHITE + item.gameText, std::string() } );
+		} else {
+			s->lines.push_back( { S_COLOR_YELLOW "SJK chat: the hub could not be reached; said in this server's chat only: " S_COLOR_WHITE + item.gameText, std::string() } );
+			s->serverCopies.push_back( { item.gameText, item.match, std::string() } );
+		}
+	}
+	s->outgoing.clear();
+}
 
 static void SJK_Say( sjkSession_t *s, const std::string &line ) {
 	std::lock_guard<std::mutex> hold( s->lock );
@@ -803,14 +839,13 @@ static void SJK_FeedWorker( sjkSession_t *s ) {
 				}
 				s->wake.notify_all();	// what waited to be sent can go now
 			} else {
-				bool tell;
 				{
 					std::lock_guard<std::mutex> hold( s->lock );
-					tell = s->reachable;
+					if ( s->reachable )
+						s->lines.push_back( { S_COLOR_YELLOW "SJK chat: " + SJK_Refusal( a ), std::string() } );
 					s->reachable = false;
+					SJK_DropOutgoing( s );
 				}
-				if ( tell )
-					SJK_Say( s, S_COLOR_YELLOW "SJK chat: " + SJK_Refusal( a ) );
 				SJK_Nap( s, backoff );
 				backoff = backoff * 2 > 60000 ? 60000 : backoff * 2;
 				continue;
@@ -857,16 +892,15 @@ static void SJK_FeedWorker( sjkSession_t *s ) {
 			first = false;
 			backoff = 2000;
 		} else {
-			bool tell;
 			{
 				std::lock_guard<std::mutex> hold( s->lock );
-				tell = s->reachable;
+				if ( s->reachable )
+					s->lines.push_back( { S_COLOR_YELLOW "SJK chat: " + SJK_Refusal( a ), std::string() } );
 				s->reachable = false;
 				if ( a.error == "not_registered" )
 					s->registered = false;
+				SJK_DropOutgoing( s );
 			}
-			if ( tell )
-				SJK_Say( s, S_COLOR_YELLOW "SJK chat: " + SJK_Refusal( a ) );
 			SJK_Nap( s, backoff );
 			backoff = backoff * 2 > 60000 ? 60000 : backoff * 2;
 			continue;
@@ -876,7 +910,7 @@ static void SJK_FeedWorker( sjkSession_t *s ) {
 		if ( took < 2000 )
 			SJK_Nap( s, (int)( 2000 - took ) );
 	}
-	s->running--;
+	SJK_Release( s );
 }
 
 static void SJK_SendWorker( sjkSession_t *s ) {
@@ -920,7 +954,7 @@ static void SJK_SendWorker( sjkSession_t *s ) {
 			s->serverCopies.push_back( { item.gameText, item.match, id } );
 		}
 	}
-	s->running--;
+	SJK_Release( s );
 }
 
 /*
@@ -1036,11 +1070,13 @@ static std::string SJK_UserAgent( const char *tag, const char *version, const ch
 }
 
 static void SJK_Stop( void ) {
-	if ( !s_session )
+	sjkSession_t *s = s_session;
+	if ( !s )
 		return;
-	s_session->stop = true;
-	s_session->wake.notify_all();
-	s_session = NULL;		// its workers end on their own; a long poll may hold one 40 s
+	s_session = NULL;
+	s->stop = true;
+	s->wake.notify_all();
+	SJK_Release( s );		// its workers let go as they end; a long poll may hold one 40 s
 }
 
 static void SJK_Start( void ) {
@@ -1065,7 +1101,7 @@ static void SJK_Start( void ) {
 	s_agent = SJK_UserAgent( JOF_RELEASE_TAG, JOF_VERSION_STRING, JOF_COMMIT_SHA_SHORT );
 	s->agent = SJK_Widen( s_agent );
 	s->name = SJK_WornName();
-	s->running = 2;
+	s->holders = 3;
 	std::thread( SJK_FeedWorker, s ).detach();
 	std::thread( SJK_SendWorker, s ).detach();
 	s_session = s;
