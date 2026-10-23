@@ -3096,7 +3096,7 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 				{
 					trap->S_StartSound (NULL, es->number, CHAN_AUTO, ci->saber[0].soundOn );
 				}
-				if (ci->saber[1].soundOn)
+				if (ci->saber[1].model[0] && ci->saber[1].soundOn)
 				{
 					trap->S_StartSound (NULL, es->number, CHAN_AUTO, ci->saber[1].soundOn );
 				}
@@ -4156,8 +4156,9 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 		DEBUGNAME("EV_ENTITY_SOUND");
 		//somewhat of a hack - weapon is the caller entity's index, trickedentindex is the proper sound channel
 		if ( cgs.gameSounds[ es->eventParm ] ) {
-			trap->S_StartSound (NULL, es->clientNum, es->trickedentindex,
-				CG_ForceOwnSaberSound(es, es->clientNum, cgs.gameSounds[ es->eventParm ]) );
+			sfxHandle_t sound = CG_ForceOwnSaberSound(es, es->clientNum, cgs.gameSounds[ es->eventParm ]);
+			if (!CG_StaffSwapHoldEntitySound(es->clientNum, sound))
+				trap->S_StartSound (NULL, es->clientNum, es->trickedentindex, sound );
 		} else {
 			sfxHandle_t sfx;
 
