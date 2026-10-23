@@ -277,14 +277,17 @@ static int GetFlipkick(playerState_t *ps) {
 #endif
 }
 
-static qboolean CanFlipkickNPC(playerState_t *ps) {
+static qboolean CanFlipkickNPC(playerState_t *ps, const bgEntity_t *npc) {
+	if ( !npc || npc->s.eType != ET_NPC || GetFlipkick( ps ) <= 0 ) {
+		return qfalse;
+	}
 #ifdef _GAME
-	return GetFlipkick(ps) > 0;
+	return qtrue;
 #else
 	// JA Pro supports flipkicking NPCs. JA+ (including JoF JA+) only
 	// advertises player flipkicks with JAPLUS_CINFO_FLIPKICK, so predicting
-	// the same move against an NPC makes the client diverge from the server.
-	return cgs.serverMod == SVMOD_JAPRO && GetFlipkick(ps) > 0;
+	// the same move against an NPC needs an explicit per-NPC opt-in there.
+	return cgs.serverMod == SVMOD_JAPRO || BG_IsFlipkickableNPC( &npc->s ) ? qtrue : qfalse;
 #endif
 }
 
@@ -363,6 +366,19 @@ bgEntity_t *PM_BGEntForNum( int num )
     ent = (bgEntity_t *)((byte *)pm->baseEnt + pm->entSize*(num));
 
 	return ent;
+}
+
+static qboolean PM_IsPlayerLikeGround( int entityNum )
+{
+	bgEntity_t *ent;
+	if ( entityNum < 0 || entityNum >= ENTITYNUM_WORLD ) {
+		return qfalse;
+	}
+	if ( entityNum < MAX_CLIENTS ) {
+		return qtrue;
+	}
+	ent = PM_BGEntForNum( entityNum );
+	return ent && BG_IsFlipkickableNPC( &ent->s ) ? qtrue : qfalse;
 }
 
 qboolean BG_SabersOff( playerState_t *ps )
@@ -1298,8 +1314,8 @@ static void PM_Friction( void ) {
 	if ( pm->waterlevel ) {
 		drop += speed*pm_waterfriction*pm->waterlevel*pml.frametime;
 	}
-	// If on a client then there is no friction
-	else if ( pm->ps->groundEntityNum < MAX_CLIENTS )
+	// Use the same head-slide setting for players and opted-in NPCs.
+	else if ( PM_IsPlayerLikeGround( pm->ps->groundEntityNum ) )
 	{
 #ifdef _GAME
 		if (g_slideOnPlayer.integer)
@@ -3177,7 +3193,7 @@ static qboolean PM_CheckJump( void )
 #endif
 */
 
-							if ((trace.entityNum < MAX_CLIENTS) || (CanFlipkickNPC(pm->ps) && kickedEnt && kickedEnt->s.eType == ET_NPC))
+							if ((trace.entityNum < MAX_CLIENTS) || CanFlipkickNPC(pm->ps, kickedEnt))
 
 							{
 								pm->ps->forceKickFlip = trace.entityNum+1; //let the server know that this person gets kicked by this client
@@ -3365,7 +3381,7 @@ static qboolean PM_CheckJump( void )
 				kickedEnt = PM_BGEntForNum(trace.entityNum);
 
 				if (GetFlipkick(pm->ps) >= 1) {
-					if ( trace.fraction < 1.0f && ((trace.entityNum < MAX_CLIENTS) || (CanFlipkickNPC(pm->ps) && kickedEnt && kickedEnt->s.eType == ET_NPC)) && (pm->ps->stats[STAT_DASHTIME] <= 0))
+					if ( trace.fraction < 1.0f && ((trace.entityNum < MAX_CLIENTS) || CanFlipkickNPC(pm->ps, kickedEnt)) && (pm->ps->stats[STAT_DASHTIME] <= 0))
 					//Dont allow frontkicking within 200ms of being frontkicked?
 
 //JAPRO - Serverside + Clientside - Re add flipkick and flipkickable npcs- End
@@ -13614,16 +13630,13 @@ void PmoveSingle (pmove_t *pmove) {
 
 		if (pEnt && pEnt->s.eType == ET_NPC &&
 			pEnt->s.NPC_class != CLASS_VEHICLE) //don't bounce on vehicles
-		{ //this is actually an NPC, let's try to bounce of its head to make sure we can't just stand around on top of it.
-			if (pm->ps->velocity[2] < 270)
-
-
-				if (!GetFlipkick(pm->ps))
-				{ //try forcing velocity up and also force him to jump
-					pm->ps->velocity[2] = 270; //seems reasonable
-					if (pm->ps->clientNum < MAX_CLIENTS) //Fixes a crash that happens when npcs bounce on other npcs heads with g_flipkick 0 ...?
-						pm->cmd.upmove = 127; //Probably this is why it was crashing, trying to send this on an npc...?
-				}
+		{ //Ordinary NPCs can bounce us off; Flipkickable NPCs act like players.
+			if (!BG_IsFlipkickableNPC( &pEnt->s ) && pm->ps->velocity[2] < 270 && !GetFlipkick(pm->ps))
+			{ //try forcing velocity up and also force him to jump
+				pm->ps->velocity[2] = 270; //seems reasonable
+				if (pm->ps->clientNum < MAX_CLIENTS) //don't force NPC commands when NPCs stand on each other
+					pm->cmd.upmove = 127;
+			}
 		}
 #ifdef _GAME
 		else if ( !pm->ps->zoomMode &&

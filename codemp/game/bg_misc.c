@@ -474,6 +474,12 @@ qboolean BG_WeaponIsVehicleGun(int weapon)
 	}
 }
 
+qboolean BG_IsFlipkickableNPC( const entityState_t *state )
+{
+	return state && state->eType == ET_NPC && state->NPC_class != CLASS_VEHICLE &&
+		(state->eFlags & EF_NPC_FLIPKICKABLE) ? qtrue : qfalse;
+}
+
 qboolean BG_IsDroidClass(class_t npcClass)
 {
 	switch (npcClass)

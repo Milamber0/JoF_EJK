@@ -991,6 +991,10 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 	int npcSaber1 = 0;
 	int npcSaber2 = 0;
 
+	// Flipkickable is opt-in for each NPC definition, including a reparse.
+	NPC->client->ps.eFlags &= ~EF_NPC_FLIPKICKABLE;
+	NPC->s.eFlags &= ~EF_NPC_FLIPKICKABLE;
+
 	VectorSet(playerMins, -15, -15, DEFAULT_MINS_2);
 	VectorSet(playerMaxs, 15, 15, DEFAULT_MAXS_2);
 
@@ -2116,6 +2120,32 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 				else if ( parsingPlayer )
 				{
 					NPC->client->ps.stats[STAT_MAX_HEALTH] = NPC->client->pers.maxHealth = n;
+				}
+				continue;
+			}
+
+			// Flipkickable: use player flipkick, fall damage and head-standing rules.
+			if ( !Q_stricmp( token, "Flipkickable" ) )
+			{
+				if ( COM_ParseInt( &p, &n ) )
+				{
+					SkipRestOfLine( &p );
+					continue;
+				}
+				if ( n != 0 && n != 1 )
+				{
+					Com_Printf( S_COLOR_YELLOW"WARNING: bad %s in NPC '%s' (expected 0 or 1)\n", token, NPCName );
+					continue;
+				}
+				if ( NPC->NPC && n )
+				{
+					NPC->client->ps.eFlags |= EF_NPC_FLIPKICKABLE;
+					NPC->s.eFlags |= EF_NPC_FLIPKICKABLE;
+				}
+				else
+				{
+					NPC->client->ps.eFlags &= ~EF_NPC_FLIPKICKABLE;
+					NPC->s.eFlags &= ~EF_NPC_FLIPKICKABLE;
 				}
 				continue;
 			}

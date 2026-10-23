@@ -1930,9 +1930,9 @@ void ClientEvents( gentity_t *ent, int oldEventSequence ) {
 				if (ent->client && ent->client->sess.raceMode)
 					break;
 
-				if ( ent->s.eType != ET_PLAYER )
+				if ( ent->s.eType != ET_PLAYER && !BG_IsFlipkickableNPC( &ent->s ) )
 				{
-					break;		// not in the player model
+					break;		// only players and opted-in NPCs take fall/splat damage
 				}
 
 				if ( dmflags.integer & DF_NO_FALLING )
