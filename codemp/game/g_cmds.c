@@ -1604,6 +1604,10 @@ void StopFollowing( gentity_t *ent ) {
 	ent->client->sess.sessionTeam = TEAM_SPECTATOR;
 	ent->client->sess.spectatorState = SPECTATOR_FREE;
 	ent->client->ps.pm_flags &= ~PMF_FOLLOW;
+	// Discard the followed player's rancor attachment when leaving their camera.
+	ent->client->ps.eFlags2 &= ~EF2_HELD_BY_MONSTER;
+	ent->client->ps.hasLookTarget = qfalse;
+	ent->client->ps.lookTarget = ENTITYNUM_NONE;
 	ent->r.svFlags &= ~SVF_BOT;
 	ent->client->ps.clientNum = ent - g_entities;
 	ent->client->ps.weapon = WP_NONE;

@@ -1666,8 +1666,9 @@ void SpectatorThink( gentity_t *ent, usercmd_t *ucmd ) {
 		{
 			G_TouchTriggers( ent );
 		}
-		trap->UnlinkEntity( (sharedEntity_t *)ent );
 	}
+	// Following copies another player's state, but never makes us a world entity.
+	trap->UnlinkEntity( (sharedEntity_t *)ent );
 
 	client->oldbuttons = client->buttons;
 	client->buttons = ucmd->buttons;
@@ -3033,6 +3034,16 @@ void G_CheckMovingLoopingSounds( gentity_t *ent, usercmd_t *ucmd )
 
 void G_HeldByMonster( gentity_t *ent, usercmd_t *ucmd )
 {
+	// A follower borrows the victim's grab state for the camera only. Check the
+	// session too: PMF_FOLLOW can be cleared before the borrowed state is reset.
+	if ( ent && ent->client
+		&& (ent->client->sess.sessionTeam == TEAM_SPECTATOR
+			|| ent->client->tempSpectate >= level.time
+			|| (ent->client->ps.pm_flags & PMF_FOLLOW)) )
+	{
+		return;
+	}
+
 	if ( ent
 		&& ent->client
 		&& ent->client->ps.hasLookTarget )//NOTE: lookTarget is an entity number, so this presumes that client 0 is NOT a Rancor...

@@ -34,6 +34,14 @@ extern void G_GetBoltPosition( gentity_t *self, int boltIndex, vec3_t pos, int m
 #define LSTATE_CLEAR		0
 #define LSTATE_WAITING		1
 
+static qboolean Rancor_IsSpectator( const gentity_t *ent )
+{
+	return ent && ent->client
+		&& (ent->client->sess.sessionTeam == TEAM_SPECTATOR
+			|| ent->client->tempSpectate >= level.time
+			|| (ent->client->ps.pm_flags & PMF_FOLLOW));
+}
+
 void Rancor_SetBolts( gentity_t *self )
 {
 	if ( self && self->client )
@@ -233,8 +241,8 @@ void Rancor_Swing( qboolean tryGrab )
 			continue;
 		}
 
-		if ( radiusEnt->client == NULL )
-		{//must be a client
+		if ( radiusEnt->client == NULL || Rancor_IsSpectator( radiusEnt ) )
+		{//spectators cannot be grabbed or hit, even if still linked
 			continue;
 		}
 
@@ -349,8 +357,8 @@ void Rancor_Smash( void )
 			continue;
 		}
 
-		if ( radiusEnt->client == NULL )
-		{//must be a client
+		if ( radiusEnt->client == NULL || Rancor_IsSpectator( radiusEnt ) )
+		{//spectators cannot be grabbed or hit, even if still linked
 			continue;
 		}
 
@@ -406,8 +414,8 @@ void Rancor_Bite( void )
 			continue;
 		}
 
-		if ( radiusEnt->client == NULL )
-		{//must be a client
+		if ( radiusEnt->client == NULL || Rancor_IsSpectator( radiusEnt ) )
+		{//spectators cannot be grabbed or hit, even if still linked
 			continue;
 		}
 
@@ -828,7 +836,7 @@ void Rancor_Crush(void)
 	}
 
 	crush = &g_entities[NPCS.NPC->client->ps.groundEntityNum];
-	if (crush->inuse && crush->client && !crush->localAnimIndex)
+	if (crush->inuse && crush->client && !crush->localAnimIndex && !Rancor_IsSpectator(crush))
 	{ //a humanoid, smash them good.
 		G_Damage(crush, NPCS.NPC, NPCS.NPC, NULL, NPCS.NPC->r.currentOrigin, 200, 0, MOD_CRUSH);
 	}
@@ -841,6 +849,15 @@ NPC_BSRancor_Default
 */
 void NPC_BSRancor_Default( void )
 {
+	if ( Rancor_IsSpectator( NPCS.NPC->activator ) )
+	{//A grabbed player may have joined spectators before the delayed bite.
+		Rancor_DropVictim( NPCS.NPC );
+		TIMER_Remove( NPCS.NPC, "clearGrabbed" );
+		TIMER_Remove( NPCS.NPC, "attack_dmg" );
+		TIMER_Remove( NPCS.NPC, "attack_dmg2" );
+		TIMER_Remove( NPCS.NPC, "attacking" );
+	}
+
 	AddSightEvent( NPCS.NPC, NPCS.NPC->r.currentOrigin, 1024, AEL_DANGER_GREAT, 50 );
 
 	Rancor_Crush();
