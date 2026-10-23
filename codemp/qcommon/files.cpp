@@ -261,6 +261,7 @@ cvar_t				*fs_loadpakdlls;
 #endif
 #if !defined(DEDICATED) && !defined(TOURNAMENT_CLIENT)
 static cvar_t		*fs_globalcfg;
+static char			fs_cmdlineGame[MAX_QPATH];	// +set fs_game from the command line, still mounted with fs_globalcfg 1
 #endif
 static searchpath_t	*fs_searchpaths;
 static int			fs_readCount;			// total bytes read
@@ -3717,6 +3718,23 @@ void FS_Startup( const char *gameName ) {
 		FS_AddGameDirectory ( fs_homepath->string, gameName );
 	}
 
+#if !defined(DEDICATED) && !defined(TOURNAMENT_CLIENT)
+	// fs_globalcfg ignores fs_game, but still mount a mod folder given on the command line.
+	// It goes below fs_basegame so configs stay there and the JoF client paks keep priority.
+	if ( fs_globalcfg->integer && fs_cmdlineGame[0]
+		&& Q_stricmp( fs_cmdlineGame, gameName ) && Q_stricmp( fs_cmdlineGame, fs_basegame->string ) ) {
+		if (fs_cdpath->string[0]) {
+			FS_AddGameDirectory(fs_cdpath->string, fs_cmdlineGame);
+		}
+		if (fs_basepath->string[0]) {
+			FS_AddGameDirectory(fs_basepath->string, fs_cmdlineGame);
+		}
+		if (fs_homepath->string[0] && !Sys_PathCmp(fs_homepath->string, fs_basepath->string)) {
+			FS_AddGameDirectory(fs_homepath->string, fs_cmdlineGame);
+		}
+	}
+#endif
+
 	// check for additional base game so mods can be based upon other mods
 	if ( fs_basegame->string[0] && Q_stricmp( fs_basegame->string, gameName ) ) {
 		if (fs_cdpath->string[0]) {
@@ -4162,6 +4180,12 @@ void FS_InitFilesystem( void ) {
 
 	if(!FS_FilenameCompare(Cvar_VariableString("fs_game"), BASEGAME))
 		Cvar_Set("fs_game", "");
+
+#if !defined(DEDICATED) && !defined(TOURNAMENT_CLIENT)
+	Q_strncpyz( fs_cmdlineGame, Cvar_VariableString( "fs_game" ), sizeof( fs_cmdlineGame ) );
+	if ( FS_CheckDirTraversal( fs_cmdlineGame ) )
+		fs_cmdlineGame[0] = '\0';
+#endif
 
 	Cmd_AddCommand("fs_restart", FS_Restart_f, "Restarts the filesystem loading any new paks to search paths");
 
