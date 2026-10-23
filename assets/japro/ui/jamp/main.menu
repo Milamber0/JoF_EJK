@@ -166,6 +166,34 @@
 			decoration
 		}
 
+		// The bars under the ring (gfx/menus/main_leftbottomwindow), sized so their lines are
+		// as wide as the side panels', 4 under them and their curve against the ring, as the
+		// panels are: CHAT on the left one. The right one, the same picture mirrored (a negative
+		// width), is kept for the next button.
+		itemDef 
+		{
+			name				leftbottomwindow
+			group				none
+			style				WINDOW_STYLE_SHADER
+			rect				38 203.5 320 360
+			background			"gfx/menus/main_leftbottomwindow"
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+
+		itemDef 
+		{
+			name				rightbottomwindow
+			group				none
+			style				WINDOW_STYLE_SHADER
+			rect				284 203.5 -320 360
+			background			"gfx/menus/main_leftbottomwindow"
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+
 		itemDef 
 		{
 			name				starwars
@@ -437,6 +465,48 @@
 				play			"sound/interface/button1.wav" ; 
 				close			all ; 
 				open			setup_menu
+			}
+		}
+
+//----------------------------------------------------------------------------------------------
+//	JOF MAIN MENU BUTTONS: CHAT, on the bar under the ring to the left; the bar to the right
+//	is kept for the next one
+//----------------------------------------------------------------------------------------------
+		// SJK chat (sjkchat.menu): with SJK players, on any server or none
+		itemDef 
+		{
+			name				chatbutton
+			group				main_button
+			text				"CHAT"
+			descText			"Talk with SJK and JoF players, in a match or not"
+			style				WINDOW_STYLE_EMPTY
+			type				ITEM_TYPE_BUTTON
+			rect				97.8 375 130 24
+			textaligny			0
+			font				3
+			textscale			1.1
+			textalign			ITEM_ALIGN_CENTER
+			textstyle			0
+			textalignx			65
+			forecolor			1 .682 0 1
+			cvarTest			"cl_sjkChatUI"
+			showCvar			{ "1" }
+			visible				1
+
+			mouseEnter 
+			{ 
+				show			button_glow 
+				setitemrect		button_glow	93 373 210 32
+			}
+			mouseExit 
+			{ 
+				hide			button_glow 
+			}	  	  
+			action 
+			{ 
+				play			"sound/interface/button1.wav" ; 
+				close			all ; 
+				open			sjkchat
 			}
 		}
 

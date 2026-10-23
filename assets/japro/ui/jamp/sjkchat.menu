@@ -1,0 +1,295 @@
+//----------------------------------------------------------------------------------------------
+//
+//	SJK CHAT
+//
+//	The one conversation of every SJK player, carried by the SJK hub rather than a game
+//	server (client/cl_sjk.cpp, docs/sjk-chat.md): its last lines, and a field to say one.
+//	Opened from the main menu's SJK CHAT.
+//
+//----------------------------------------------------------------------------------------------
+{
+	menuDef 
+	{
+		name					"sjkchat"
+		fullScreen				1
+		rect					0 0 640 480
+		visible					0
+		focusColor				1 1 1 1
+		descX					320
+		descY					424
+		descScale				1
+		descColor				1 .682 0 .8
+		descAlignment				ITEM_ALIGN_CENTER
+
+		onOpen 
+		{
+			setfocus			sjkchat_field
+			uiScript			sjkChatOpen
+		}
+
+		onESC 
+		{ 
+			play				"sound/interface/esc.wav" 
+			close				sjkchat 
+			open				main 
+		}
+
+//----------------------------------------------------------------------------------------------
+//	MENU BACKGROUND
+//----------------------------------------------------------------------------------------------
+		itemDef 
+		{
+			name				background
+			group				none
+			style				WINDOW_STYLE_SHADER
+			rect				0 0 640 480
+			background			"gfx/menus/main_background"
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+
+		itemDef 
+		{
+			name				background_text
+			group				none
+			style				WINDOW_STYLE_SHADER
+			rect				0 0 160 480
+			background			"gfx/menus/menu_side_text"
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+
+		itemDef 
+		{
+			name				background_text_b
+			group				none
+			style				WINDOW_STYLE_SHADER
+			rect				480 0 160 480
+			background			"gfx/menus/menu_side_text_right"
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+
+		itemDef 
+		{
+			name				starwars
+			group				none
+			style				WINDOW_STYLE_SHADER
+			rect				107 8 428 112
+			background			"gfx/menus/jediacademy"
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+
+		itemDef 
+		{
+			name				sjkchat_title
+			group				none
+			style				WINDOW_STYLE_EMPTY
+			rect				200 120 240 24
+			text				"SJK Chat"
+			font				2
+			textscale			1
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			120
+			textaligny			0
+			forecolor			.695 .760 .861 1
+			visible				1
+			decoration
+		}
+
+		// SJK chat on or off (cl_sjkChat), as Setup's SJK section has it
+		itemDef 
+		{
+			name				sjkchat_switch
+			group				none
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			text				"SJK Chat:"
+			cvar				"cl_sjkChat"
+			cvarFloatList			{ @MENUS_OFF 0 @MENUS_ON 1 }
+			rect				40 145 170 16
+			font				4
+			textscale			0.9
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			textaligny			0
+			forecolor			0.65 0.65 1 1
+			visible				1
+			descText			"Talk with SJK and JoF players on any server; off sends nothing to the SJK hub"
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+
+		// How SJK chat is doing (cl_sjkChatStatus), beside its switch
+		itemDef 
+		{
+			name				sjkchat_status
+			group				none
+			style				WINDOW_STYLE_EMPTY
+			type				ITEM_TYPE_TEXT
+			rect				220 146 380 16
+			cvar				"cl_sjkChatStatus"
+			font				4
+			textscale			0.9
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			380
+			textaligny			0
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+
+//----------------------------------------------------------------------------------------------
+//	THE CONVERSATION: each line after the icon of the client it came from (FEEDER_SJK_CHAT,
+//	ui_main.c). The icon is drawn where the next column starts, the text after its own
+//	column's start: so a text column at 20 and an empty one at 58. A column's last number
+//	is the width its text may take, in pixels: up to the scroll bar.
+//----------------------------------------------------------------------------------------------
+		itemDef 
+		{
+			name				sjkchat_list
+			group				none
+			type				ITEM_TYPE_LISTBOX
+			style				WINDOW_STYLE_FILLED
+			rect				40 164 560 218
+			elementwidth			560
+			elementheight			14
+			font				4
+			textscale			0.85
+			textaligny			0
+			elementtype			LISTBOX_TEXT
+			feeder				FEEDER_SJK_CHAT
+			notselectable
+			border				1
+			bordercolor			0.2 0.2 0.5 0.5
+			forecolor			1 1 1 1
+			backcolor			0 0 0.2 0.5
+			outlinecolor			0 0 0 0
+			columns				2  20 520 519  58 1 1
+			visible				1
+		}
+
+//----------------------------------------------------------------------------------------------
+//	SAYING SOMETHING: Enter in the field, or SEND (uiScript sjkSay)
+//----------------------------------------------------------------------------------------------
+		itemDef 
+		{
+			name				sjkchat_field
+			group				none
+			type				ITEM_TYPE_EDITFIELD
+			style				WINDOW_STYLE_FILLED
+			text				"Say: "
+			cvar				"ui_sjkChatText"
+			rect				40 388 474 22
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			6
+			textaligny			2
+			font				4
+			textscale			1
+			forecolor			1 1 1 1
+			backcolor			0 0 0.2 0.6
+			border				1
+			bordercolor			0.2 0.2 0.5 0.5
+			maxChars			250
+			maxPaintChars			100
+			descText			"Enter says it on SJK chat, to SJK and JoF players on any server"
+			visible				1
+
+			accept
+			{
+				uiScript		sjkSay
+			}
+		}
+
+		itemDef 
+		{
+			name				sjkchat_send
+			group				none
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_FILLED
+			text				"SEND"
+			rect				520 388 80 22
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			40
+			textaligny			2
+			forecolor			1 .682 0 1
+			backcolor			0 0 0.2 0.6
+			border				1
+			bordercolor			0.2 0.2 0.5 0.5
+			visible				1
+
+			mouseEnter 
+			{ 
+				setitemcolor	sjkchat_send bordercolor .79 .64 .22 1
+			}
+			mouseExit 
+			{ 
+				setitemcolor	sjkchat_send bordercolor 0.2 0.2 0.5 0.5
+			}
+			action 
+			{ 
+				play			"sound/interface/button1.wav" ; 
+				uiScript		sjkSay
+				setfocus		sjkchat_field
+			}
+		}
+
+//----------------------------------------------------------------------------------------------
+//	BACK
+//----------------------------------------------------------------------------------------------
+		itemDef 
+		{
+			name				button_glow
+			group				none
+			style				WINDOW_STYLE_SHADER
+			rect				0 0 0 0
+			background			"gfx/menus/menu_buttonback"
+			forecolor			1 1 1 1
+			visible				0
+			decoration
+		}
+
+		itemDef 
+		{
+			name				backbutton
+			group				none
+			text				@MENUS_BACK
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_EMPTY
+			rect				255 444 130 24
+			font				3
+			textscale			1.1
+			textalign			ITEM_ALIGN_CENTER
+			textstyle			4
+			textalignx			65
+			textaligny			-1
+			forecolor			1 .682 0 1
+			visible				1
+
+			mouseEnter 
+			{ 
+				show			button_glow 
+				setitemrect		button_glow	222 442 210 32
+			}
+			mouseExit 
+			{ 
+				hide			button_glow 
+			}
+			action 
+			{ 
+				play			"sound/interface/esc.wav" ; 
+				close			sjkchat ; 
+				open			main 
+			}
+		}
+	}
+}

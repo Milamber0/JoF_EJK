@@ -2930,6 +2930,8 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView, qboolean demo
 	cg.time = serverTime;
 	cg.demoPlayback = demoPlayback;
 
+	CG_SJKServerLinesFrame();
+
 	if (cg.snap) {
 		if (ui_myteam.integer != cg.snap->ps.persistant[PERS_TEAM])
 		{

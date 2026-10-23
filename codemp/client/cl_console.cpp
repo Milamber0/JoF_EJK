@@ -88,6 +88,7 @@ Con_MessageMode_f
 void Con_MessageMode_f (void) {	//yell
 	chat_playerNum = -1;
 	chat_team = qfalse;
+	chat_sjk = qfalse;
 	Field_Clear( &chatField );
 	chatField.widthInChars = SCREEN_WIDTH / (BIGCHAR_WIDTH * cls.widthRatioCoef) - (16 * cls.widthRatioCoef);
 	Key_SetCatcher( Key_GetCatcher( ) ^ KEYCATCH_MESSAGE );
@@ -101,6 +102,21 @@ Con_MessageMode2_f
 void Con_MessageMode2_f (void) {	//team chat
 	chat_playerNum = -1;
 	chat_team = qtrue;
+	chat_sjk = qfalse;
+	Field_Clear( &chatField );
+	chatField.widthInChars = SCREEN_WIDTH / (BIGCHAR_WIDTH * cls.widthRatioCoef) - (25 * cls.widthRatioCoef);
+	Key_SetCatcher( Key_GetCatcher( ) ^ KEYCATCH_MESSAGE );
+}
+
+/*
+================
+Con_MessageMode6_f
+================
+*/
+void Con_MessageMode6_f (void) {	//SJK chat
+	chat_playerNum = -1;
+	chat_team = qfalse;
+	chat_sjk = qtrue;
 	Field_Clear( &chatField );
 	chatField.widthInChars = SCREEN_WIDTH / (BIGCHAR_WIDTH * cls.widthRatioCoef) - (25 * cls.widthRatioCoef);
 	Key_SetCatcher( Key_GetCatcher( ) ^ KEYCATCH_MESSAGE );
@@ -130,6 +146,7 @@ void Con_MessageMode3_f (void) {	//target chat
 		return;
 	}
 	chat_team = qfalse;
+	chat_sjk = qfalse;
 	Field_Clear( &chatField );
 	chatField.widthInChars = SCREEN_WIDTH / (BIGCHAR_WIDTH * cls.widthRatioCoef) - (24 * cls.widthRatioCoef);
 	Key_SetCatcher( Key_GetCatcher( ) ^ KEYCATCH_MESSAGE );
@@ -154,6 +171,7 @@ void Con_MessageMode4_f (void)
 		return;
 	}
 	chat_team = qfalse;
+	chat_sjk = qfalse;
 	Field_Clear( &chatField );
 	chatField.widthInChars = SCREEN_WIDTH / (BIGCHAR_WIDTH * cls.widthRatioCoef) - (24 * cls.widthRatioCoef);
 	Key_SetCatcher( Key_GetCatcher( ) ^ KEYCATCH_MESSAGE );
@@ -181,6 +199,7 @@ void Con_MessageMode5_f(void)
 	replying = 1;
 
 	chat_team = qfalse;
+	chat_sjk = qfalse;
 	Field_Clear(&chatField);
 	chatField.widthInChars = SCREEN_WIDTH / (BIGCHAR_WIDTH * cls.widthRatioCoef) - (24 * cls.widthRatioCoef);
 	Key_SetCatcher(Key_GetCatcher() ^ KEYCATCH_MESSAGE);
@@ -591,6 +610,7 @@ void Con_Init (void) {
 	Cmd_AddCommand( "messagemode3", Con_MessageMode3_f, "Private Chat with Target Player" );
 	Cmd_AddCommand( "messagemode4", Con_MessageMode4_f, "Private Chat with Last Attacker" );
 	Cmd_AddCommand( "messagemode5", Con_MessageMode5_f, "Private Chat with Person who whispered you last" );
+	Cmd_AddCommand( "messagemode6", Con_MessageMode6_f, "SJK Chat, with SJK players on any server" );
 	Cmd_AddCommand( "clear", Con_Clear_f, "Clear console text" );
 	Cmd_AddCommand( "condump", Con_Dump_f, "Dump console text to file" );
 	Cmd_SetCommandCompletionFunc( "condump", Cmd_CompleteTxtName );
@@ -653,6 +673,7 @@ void Con_Shutdown(void)
 	Cmd_RemoveCommand("messagemode2");
 	Cmd_RemoveCommand("messagemode3");
 	Cmd_RemoveCommand("messagemode4");
+	Cmd_RemoveCommand("messagemode6");
 	Cmd_RemoveCommand("clear");
 	Cmd_RemoveCommand("condump");
 }
@@ -662,6 +683,28 @@ void Con_Shutdown(void)
 Con_Linefeed
 ===============
 */
+// An SJK chat message's console line starts with the icon of the client it came from
+// (CL_SJK_Frame): two cells of room, the first marked with the icon in bits of the cell
+// the colour leaves free. Only Con_SetPrintIcon marks one, so no printed text can.
+#define CON_ICON_SHIFT	12
+#define CON_ICON_MASK	0xF
+static conIcon_t con_printIcon;
+
+void Con_SetPrintIcon( conIcon_t icon ) {
+	con_printIcon = icon;
+}
+
+// The icon a console cell is marked with, drawn over it and the cell after it.
+static void Con_DrawIcon( int x, int y, short cell ) {
+	const int icon = ( cell >> CON_ICON_SHIFT ) & CON_ICON_MASK;
+	if ( icon <= CON_ICON_NONE || icon >= (int)ARRAY_LEN( cls.conIconShaders ) || !cls.conIconShaders[icon] )
+		return;
+	const float size = con.charHeight * 0.875f;
+	re->SetColor( NULL );
+	re->DrawStretchPic( ( x + ( 2 * con.charWidth - size ) / 2 ) * con.xadjust, ( y + ( con.charHeight - size ) / 2 ) * con.yadjust,
+		size * con.xadjust, size * con.yadjust, 0, 0, 1, 1, cls.conIconShaders[icon] );
+}
+
 int stampColor = COLOR_GREY;
 static void Con_Linefeed (qboolean skipnotify)
 {
@@ -739,6 +782,21 @@ void CL_ConsolePrint( const char *txt ) {
 
 	color = ColorIndex(COLOR_WHITE);
 	l = -1;
+
+	// The icon in front of an SJK chat message, its first cell marked (Con_SetPrintIcon).
+	// The next print takes it, and only that one; one that did not load is left out.
+	if ( con_printIcon != CON_ICON_NONE ) {
+		const int icon = con_printIcon & CON_ICON_MASK;
+		con_printIcon = CON_ICON_NONE;
+		if ( icon < (int)ARRAY_LEN( cls.conIconShaders ) && cls.conIconShaders[icon] ) {
+			if ( con.x + 2 >= con.linewidth )
+				Con_Linefeed( skipnotify );
+			y = con.current % con.totallines;
+			con.text[y*con.linewidth+con.x] = (short) ( ( icon << CON_ICON_SHIFT ) | ( color << 8 ) | ' ' );
+			con.text[y*con.linewidth+con.x+1] = (short) ( ( color << 8 ) | ' ' );
+			con.x += 2;
+		}
+	}
 
 	while ( (c = (unsigned char) *txt) != 0 ) {
 		if ( Q_IsColorString( (unsigned char*) txt ) ) {
@@ -922,6 +980,18 @@ static void CL_ClientCleanName(const char* in, char* out, int outSize)
 }
 
 float chatColour[4] = { 1.0f, 1.0f, 1.0f, 1.0f }; // For DrawStringExt2
+
+// The chat field's channels, the one in use lit; Tab goes round them (Message_Key).
+static const char *Con_ChatChannels( void ) {
+	static char label[64];
+	const qboolean sjk = (qboolean)( chat_sjk || Cvar_VariableIntegerValue( "cl_sjkChat" ) );
+	Com_sprintf( label, sizeof( label ), "%sAll %sTeam%s" S_COLOR_WHITE ":",
+		!chat_team && !chat_sjk ? S_COLOR_WHITE : S_COLOR_GREY,
+		chat_team ? S_COLOR_CYAN : S_COLOR_GREY,
+		!sjk ? "" : chat_sjk ? " " S_COLOR_YELLOW "SJK" : " " S_COLOR_GREY "SJK" );
+	return label;
+}
+
 /*
 ================
 Con_DrawNotify
@@ -996,6 +1066,10 @@ void Con_DrawNotify (void)
 		else
 		{
 			for (x = TIMESTAMP_LENGTH; x < con.linewidth ; x++) {
+				if ( ( text[x] >> CON_ICON_SHIFT ) & CON_ICON_MASK ) {
+					Con_DrawIcon( (int)(cl_conXOffset->integer + con.xadjust + (x + 1 - TIMESTAMP_LENGTH)*con.charWidth), v, text[x] );
+					re->SetColor( g_color_table[currentColor] );
+				}
 				if ( ( text[x] & 0xff ) == ' ' ) {
 					continue;
 				}
@@ -1050,11 +1124,8 @@ void Con_DrawNotify (void)
 
 			whispering = 1;			
 		}
-		else if (chat_team)	{
-			chattext = SE_GetString("MP_SVGAME", "SAY_TEAM");
-		}
 		else {
-			chattext = SE_GetString("MP_SVGAME", "SAY");
+			chattext = Con_ChatChannels();
 		}
 
 		if (whispering)
@@ -1069,7 +1140,7 @@ void Con_DrawNotify (void)
 		else
 		{
 			SCR_DrawStringExt2(8 * cls.widthRatioCoef, v, BIGCHAR_WIDTH * cls.widthRatioCoef, BIGCHAR_HEIGHT, chattext, chatColour, qfalse, qfalse);
-			skip = strlen(chattext) + 1;
+			skip = Q_PrintStrlen(chattext) + 1;
 			Field_BigDraw(&chatField, skip * BIGCHAR_WIDTH, v,
 				SCREEN_WIDTH - (skip + 1) * BIGCHAR_WIDTH, qtrue, qtrue);
 
@@ -1240,6 +1311,10 @@ void Con_DrawSolidConsole( float frac ) {
 		else
 		{
 			for (x=0 ; x<con.linewidth ; x++) {
+				if ( ( text[x] >> CON_ICON_SHIFT ) & CON_ICON_MASK ) {
+					Con_DrawIcon( (int) (con.xadjust + (x+1)*con.charWidth), y, text[x] );
+					re->SetColor( g_color_table[currentColor] );
+				}
 				if ( ( text[x] & 0xff ) == ' ' ) {
 					continue;
 				}

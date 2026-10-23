@@ -44,6 +44,7 @@
 			hide			mods
 			hide			modeloptions
 			hide			defaults
+			hide			sjk
 			hide			default_glow
 			hide			highlight12
 
@@ -160,6 +161,7 @@
 				hide			mods
 				hide			modeloptions
 				hide			defaults
+				hide			sjk
 
 				setitemcolor	setup_submenu		forecolor	1 .682 0 1
 				setitemcolor	videomenubutton	forecolor	1 1 1 1
@@ -230,6 +232,7 @@
 				hide			mods
 				hide			modeloptions
 				hide			defaults
+				hide			sjk
 
 				setitemcolor	setup_submenu		forecolor	1 .682 0 1
 				setitemcolor	lightingmenubutton	forecolor	1 1 1 1
@@ -300,6 +303,7 @@
 				hide			mods
 				hide			modeloptions
 				hide			defaults
+				hide			sjk
 
 				setitemcolor	setup_submenu		forecolor	1 .682 0 1
 				setitemcolor	visualsmenubutton	forecolor	1 1 1 1
@@ -370,6 +374,7 @@
 				hide			mods
 				hide			modeloptions
 				hide			defaults
+				hide			sjk
 
 				setitemcolor	setup_submenu		forecolor	1 .682 0 1
 				setitemcolor	hudmenubutton	forecolor	1 1 1 1
@@ -441,6 +446,7 @@
 				hide			mods
 				hide			modeloptions
 				hide			defaults
+				hide			sjk
 
 				setitemcolor	setup_submenu		forecolor	1 .682 0 1
 				setitemcolor	soundmenubutton		forecolor	1 1 1 1
@@ -511,6 +517,7 @@
 				hide			mods
 				hide			modeloptions
 				hide			defaults
+				hide			sjk
 
 				setitemcolor	setup_submenu			forecolor	1 .682 0 1
 				setitemcolor	gameoptionmenubutton	forecolor	1 1 1 1
@@ -581,6 +588,7 @@
 				hide			mods
 				show			modeloptions
 				hide			defaults
+				hide			sjk
 
 				setitemcolor	setup_submenu			forecolor	1 .682 0 1
 				setitemcolor	modeloptionsmenubutton	forecolor	1 1 1 1
@@ -652,6 +660,7 @@
 				hide			mods
 				hide			modeloptions
 				hide			defaults
+				hide			sjk
 
 				setitemcolor	setup_submenu			forecolor	1 .682 0 1
 				setitemcolor	networkmenubutton		forecolor	1 1 1 1
@@ -723,9 +732,83 @@
 				hide			mods
 				hide			modeloptions
 				show			defaults
+				hide			sjk
 
 				setitemcolor	setup_submenu			forecolor	1 .682 0 1
 				setitemcolor	gamedefaultsmenubutton	forecolor	1 1 1 1
+			}
+		}
+
+		// SJK button: the sjk group, at the end (only with an engine that has SJK chat)
+		itemDef
+		{
+			name				sjkbutton_glow
+			style				WINDOW_STYLE_SHADER
+			rect				20 313 185 30
+			background			"gfx/menus/menu_blendbox2"			// Frame around button
+			forecolor			1 1 1 1
+			visible			0
+			decoration
+		}
+
+		itemDef
+		{
+			name				sjkmenubutton
+			group				setup_submenu
+			text				"SJK"
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_EMPTY
+			rect				20 313 170 30
+			font				3
+			textscale			0.9
+			textalignx			170
+			textaligny			5
+			textalign			ITEM_ALIGN_RIGHT
+			textstyle			3
+			forecolor			1 .682 0 1
+			cvarTest			"cl_sjkChatUI"
+			showCvar			{ "1" }
+			visible			1
+			descText			"Configure SJK settings"
+
+			mouseEnter
+			{
+				show			sjkbutton_glow
+			}
+			mouseExit
+			{
+				hide			sjkbutton_glow
+			}
+			action
+			{
+				play			"sound/interface/button1"
+
+				defer			VideoSetup	videowarningMenu
+
+				show			setup_background
+				hide 			video
+				hide			advancedvideo
+				hide			rend2video
+				hide			lighting
+				hide			advancedlighting
+				hide			vidrestart
+				hide			visuals
+				hide			morevisuals
+				hide			visuals3
+				hide			hud
+				hide			sound
+				hide			moresound
+				hide			soundpage_glow
+				hide			options
+				hide			langapply
+				hide			network
+				hide			mods
+				hide			modeloptions
+				hide			defaults
+				show			sjk
+
+				setitemcolor	setup_submenu			forecolor	1 .682 0 1
+				setitemcolor	sjkmenubutton			forecolor	1 1 1 1
 			}
 		}
 
@@ -5474,6 +5557,7 @@
 				play			"sound/interface/button1"
 				uiscript 		clearmouseover	default_no
 				hide				defaults
+				hide				sjk
 				hide			default_glow
 				close			all
 				open			ingame_setup
@@ -5487,5 +5571,52 @@
 				hide			default_no_button
 			}
 		}
+//----------------------------------------------------------------------------------------------
+//
+//	SJK: what JoF EJK shares with SJK (client/cl_sjk.cpp), SJK chat first. A new SJK setting
+//	goes here, in the sjk group, a row further down.
+//
+//----------------------------------------------------------------------------------------------
+		itemDef
+		{
+			name				sjk_chat
+			group				sjk
+	  		type				ITEM_TYPE_MULTI
+			text				"SJK Chat:"
+			cvar				"cl_sjkChat"
+			cvarFloatList			{ @MENUS_OFF 0 @MENUS_ON 1 }
+			rect				220 43 300 20
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			165
+			textaligny			0
+			font 				4
+			textscale 			1
+			forecolor			.615 .615 .956 1
+			visible				0
+			descText			"Talk with SJK and JoF players on any server; off sends nothing to the SJK hub"
+			action				{ play "sound/interface/button1" }
+			mouseenter			{ show highlight1 }
+			mouseexit			{ hide highlight1 }
+		}
+
+		// How SJK chat is doing (cl_sjkChatStatus), under its switch
+		itemDef
+		{
+			name				sjk_chat_status
+			group				sjk
+			type				ITEM_TYPE_TEXT
+			style				WINDOW_STYLE_EMPTY
+			cvar				"cl_sjkChatStatus"
+			rect				220 63 300 20
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			150
+			textaligny			0
+			font				4
+			textscale			0.9
+			forecolor			1 1 1 1
+			visible				0
+			decoration
+		}
+
 	}
 }

@@ -3419,6 +3419,20 @@ Ghoul2 Insert End
 
 	CG_ParseEntitiesFromString();
 
+	// SJK chat into the chat box, with an engine that has it (cl_sjkChatSink; an older
+	// one ends the import table before SJK_SetChatSink, a legacy table leaves it NULL),
+	// each message after the icon of the client it came from.
+	{
+		char sink[8];
+		trap->Cvar_VariableStringBuffer("cl_sjkChatSink", sink, sizeof(sink));
+		if (atoi(sink) && trap->SJK_SetChatSink) {
+			cgs.media.sjkClientIcon = trap->R_RegisterShaderNoMip("gfx/sjk/sjk");
+			cgs.media.ejkClientIcon = trap->R_RegisterShaderNoMip("gfx/sjk/ejk");
+			trap->SJK_SetChatSink(CG_SJKChatLine);
+			cgs.sjkChat = qtrue;
+		}
+	}
+
 #if 0
 	if (Q_strchrs(cgs.mapname, "ffa3")) {
 		Com_Printf("^3patching bugged ffa3 shaders\n");

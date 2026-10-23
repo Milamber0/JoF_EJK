@@ -4294,6 +4294,19 @@ int		FS_FOpenFileByMode( const char *qpath, fileHandle_t *f, fsMode_t mode ) {
 
 	sync = qfalse;
 
+	// An SJK identity key is a player's private key (client/cl_sjk.cpp). No module,
+	// least of all one a server sent, may open one, wherever a copy of it sits.
+	const char *name = qpath;
+	for ( const char *p = qpath; p && *p; p++ ) {
+		if ( *p == '/' || *p == '\\' )
+			name = p + 1;
+	}
+	if ( name && !Q_stricmp( name, "identity.key" ) ) {
+		Com_Printf( S_COLOR_YELLOW "FS_FOpenFileByMode: refused to open %s, a private key\n", qpath );
+		*f = 0;
+		return -1;
+	}
+
 	switch( mode ) {
 	case FS_READ:
 		r = FS_FOpenFileRead( qpath, f, qtrue );

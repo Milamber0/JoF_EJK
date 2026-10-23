@@ -393,6 +393,13 @@ typedef struct uiImport_s {
 		float			(*R_Font_StrLenPixels)					( const char *text, const int iFontIndex, const float scale );
 		void			(*AddCommand)							( const char *cmd_name );
 		void			(*RemoveCommand)						( const char *cmd_name );
+		// Only valid when the "cl_sjkChatUI" cvar is non-zero: older engines end the
+		// table before these. The SJK chat menu's history and its field (client/cl_sjk.cpp).
+		int				(*SJK_ChatLineCount)					( int *revision );
+		// A line: who said it (with colours; "" for SJK chat's own notice), its text, the
+		// client it came from ("sjk", "ejk" or "") and whether it was said in All chat too.
+		qboolean		(*SJK_ChatLine)							( int index, char *who, int whoSize, char *text, int textSize, char *client, int clientSize, qboolean *inAll );
+		qboolean		(*SJK_SayText)							( const char *text );
 	} ext;
 } uiImport_t;
 

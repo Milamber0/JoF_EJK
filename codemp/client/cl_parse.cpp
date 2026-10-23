@@ -517,6 +517,18 @@ void CL_SystemInfoChanged( void ) {
 	cl_connectedToPureServer = Cvar_VariableValue( "sv_pure" );
 }
 
+// The game server's sv_serverid (system info) and mapname (server info) while in a
+// match on it, not a demo, for SJK chat's server tag (cl_sjk.cpp). qfalse otherwise.
+qboolean CL_SJK_ServerSession( char *serverId, int serverIdSize, char *mapname, int mapnameSize ) {
+	if ( cls.state != CA_ACTIVE || clc.demoplaying )
+		return qfalse;
+	const char *systemInfo = cl.gameState.stringData + cl.gameState.stringOffsets[ CS_SYSTEMINFO ];
+	const char *serverInfo = cl.gameState.stringData + cl.gameState.stringOffsets[ CS_SERVERINFO ];
+	Q_strncpyz( serverId, Info_ValueForKey( systemInfo, "sv_serverid" ), serverIdSize );
+	Q_strncpyz( mapname, Info_ValueForKey( serverInfo, "mapname" ), mapnameSize );
+	return (qboolean)( serverId[0] && mapname[0] );
+}
+
 /*
 ==================
 CL_ParseGamestate
