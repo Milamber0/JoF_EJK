@@ -896,7 +896,7 @@ static void CG_DrawZoomMask( void )
 			if (( off > 3.0f && i == -10 ) || i > -10 )
 			{
 				// draw the value, but add 200 just to bump the range up...arbitrary, so change it if you like
-				CG_DrawNumField( 155 + i * 10 + off * 10, 374, 3, val + 200, 24, 14, NUM_FONT_CHUNKY, qtrue );
+				CG_DrawNumField( 155 + i * 10 + off * 10, 374, 3, val + 200, 24, 14, NUM_FONT_CHUNKY, qtrue, color1 );
 				CG_DrawPic( 245 + (i-1) * 10 + off * 10, 376, 6, 6, cgs.media.whiteShader );
 			}
 		}
@@ -1300,7 +1300,8 @@ void CG_DrawHealth( menuDef_t *menuHUD )
 			focusItem->window.rect.w * cgs.widthRatioCoef,
 			focusItem->window.rect.h,
 			NUM_FONT_SMALL,
-			qfalse);
+			qfalse,
+			focusItem->window.foreColor);
 	}
 
 }
@@ -1399,7 +1400,8 @@ void CG_DrawArmor( menuDef_t *menuHUD )
 			focusItem->window.rect.w * cgs.widthRatioCoef,
 			focusItem->window.rect.h,
 			NUM_FONT_SMALL,
-			qfalse);
+			qfalse,
+			focusItem->window.foreColor);
 	}
 
 	// If armor is low, flash a graphic to warn the player
@@ -1690,7 +1692,8 @@ static void CG_DrawAmmo( centity_t	*cent,menuDef_t *menuHUD)
 				focusItem->window.rect.w * cgs.widthRatioCoef,
 				focusItem->window.rect.h,
 				NUM_FONT_SMALL,
-				qfalse);
+				qfalse,
+				calcColor);
 		}
 	}
 
@@ -1822,7 +1825,7 @@ void CG_DrawHealthJK2(float x, float y)
 
 	trap->R_SetColor(colorTable[CT_HUD_RED]);
 	CG_DrawNumField(x - l + (l + 16.0f)*cgs.widthRatioCoef, y + 40, 3, ps->stats[STAT_HEALTH], 6*cgs.widthRatioCoef, 12,
-		NUM_FONT_SMALL, qfalse);
+		NUM_FONT_SMALL, qfalse, colorTable[CT_HUD_RED]);
 
 }
 
@@ -1916,7 +1919,7 @@ void CG_DrawArmorJK2(float x, float y)
 
 	trap->R_SetColor(colorTable[CT_HUD_GREEN]);
 	CG_DrawNumField(x - l + (l + 18.0f + 14.0f)*cgs.widthRatioCoef, y + 40 + 14, 3, ps->stats[STAT_ARMOR], 6*cgs.widthRatioCoef, 12,
-		NUM_FONT_SMALL, qfalse);
+		NUM_FONT_SMALL, qfalse, colorTable[CT_HUD_GREEN]);
 
 }
 
@@ -1984,7 +1987,7 @@ static void CG_DrawAmmoJK2(centity_t *cent, float x, float y)
 		value = 8;
 	}
 	else {
-		CG_DrawNumField(SCREEN_WIDTH - (SCREEN_WIDTH - x - 30)*cgs.widthRatioCoef, y + 26, 3, value, 6 * cgs.widthRatioCoef, 12, NUM_FONT_SMALL, qfalse);
+		CG_DrawNumField(SCREEN_WIDTH - (SCREEN_WIDTH - x - 30)*cgs.widthRatioCoef, y + 26, 3, value, 6 * cgs.widthRatioCoef, 12, NUM_FONT_SMALL, qfalse, colorTable[numColor_i]);
 
 		inc = (float)ammoData[weaponData[cent->currentState.weapon].ammoIndex].max / MAX_TICS;
 		value = ps->ammo[weaponData[cent->currentState.weapon].ammoIndex];
@@ -2218,7 +2221,8 @@ void CG_DrawForcePower( menuDef_t *menuHUD )
 			focusItem->window.rect.w * cgs.widthRatioCoef,
 			focusItem->window.rect.h,
 			NUM_FONT_SMALL,
-			qfalse);
+			qfalse,
+			flash ? colorTable[CT_RED] : focusItem->window.foreColor);
 	}
 }
 
@@ -5882,6 +5886,8 @@ static float CG_DrawSnapshot( float y ) {
 
 	if (drawFont < 4 && trap->R_Language_IsAsian())
 		drawFont = 5;
+	else if (drawFont < 4 && cg_sharpHud.integer)
+		drawFont = 4;	// sharp scalable font instead of the legacy bitmap string
 
 	switch (drawFont)
 	{
@@ -5954,6 +5960,8 @@ static float CG_DrawFPS( float y ) {
 
 	if (drawFont < 4 && trap->R_Language_IsAsian())
 		drawFont = 5;
+	else if (drawFont < 4 && cg_sharpHud.integer)
+		drawFont = 4;	// sharp scalable font instead of the legacy bitmap string
 
 	switch (drawFont)
 	{
@@ -6019,6 +6027,8 @@ static float CG_DrawTimer( float y ) {
 
 	if (drawTimerStyle < 4 && trap->R_Language_IsAsian())
 		drawTimerStyle = 5;
+	else if (drawTimerStyle < 4 && cg_sharpHud.integer)
+		drawTimerStyle = 4;	// sharp scalable font instead of the legacy bitmap string
 
 	switch (drawTimerStyle)
 	{
