@@ -38,6 +38,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 #define	POWERUP_BLINK_TIME	1000
 #define	FADE_TIME			200
+#define	SCOREBOARD_FADE_TIME	50
 #define	PULSE_TIME			200
 #define	DAMAGE_DEFLECT_TIME	100
 #define	DAMAGE_RETURN_TIME	400
